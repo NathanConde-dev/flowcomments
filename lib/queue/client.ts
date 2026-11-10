@@ -14,6 +14,7 @@ function getConnection(): IORedis | null {
     connection = new IORedis(REDIS_URL, {
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
+      family: 0,
     });
   }
   return connection;

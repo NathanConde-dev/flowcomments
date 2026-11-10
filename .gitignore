@@ -42,8 +42,9 @@ yarn-error.log*
 next-env.d.ts
 
 # prisma
-/prisma/migrations/*
-!/prisma/migrations/.gitkeep
+# Keep migrations in git for deployment
+# /prisma/migrations/*
+# !/prisma/migrations/.gitkeep
 
 # IDE
 .vscode/*
