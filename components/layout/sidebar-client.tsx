@@ -27,7 +27,7 @@ const navigation = [
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
 
-export function Sidebar() {
+function SidebarInner({ username, igAccount }: SidebarClientProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
