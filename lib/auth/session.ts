@@ -67,6 +67,9 @@ async function getSessionSecret(): Promise<string> {
   }
 }
 
+const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+const ABSOLUTE_TIMEOUT = 12 * 60 * 60 * 1000; // 12 hours
+
 export async function getSession(): Promise<IronSession<SessionData>> {
   const cookieStore = await cookies();
   const secret = await getSessionSecret();
@@ -88,6 +91,29 @@ export async function getSession(): Promise<IronSession<SessionData>> {
     session.username = defaultSession.username;
     session.isAdmin = defaultSession.isAdmin;
     session.isLoggedIn = defaultSession.isLoggedIn;
+  } else {
+    // Check idle timeout and absolute expiry
+    const now = Date.now();
+    
+    if (session.lastSeen && now - session.lastSeen > IDLE_TIMEOUT) {
+      // Idle timeout exceeded
+      session.destroy();
+      session.userId = defaultSession.userId;
+      session.username = defaultSession.username;
+      session.isAdmin = defaultSession.isAdmin;
+      session.isLoggedIn = defaultSession.isLoggedIn;
+    } else if (session.loginAt && now - session.loginAt > ABSOLUTE_TIMEOUT) {
+      // Absolute expiry exceeded
+      session.destroy();
+      session.userId = defaultSession.userId;
+      session.username = defaultSession.username;
+      session.isAdmin = defaultSession.isAdmin;
+      session.isLoggedIn = defaultSession.isLoggedIn;
+    } else {
+      // Update last seen for sliding window
+      session.lastSeen = now;
+      await session.save();
+    }
   }
 
   return session;
