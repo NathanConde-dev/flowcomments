@@ -67,7 +67,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-sm font-medium text-gray-600">
               Automações Ativas
             </CardTitle>
-            <Zap className="h-4 w-4 text-primary-600" />
+            <Zap className="h-4 w-4 text-zinc-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.automations}</div>
@@ -79,7 +79,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-sm font-medium text-gray-600">
               Contatos
             </CardTitle>
-            <Users className="h-4 w-4 text-primary-600" />
+            <Users className="h-4 w-4 text-zinc-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.contacts}</div>
@@ -91,7 +91,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-sm font-medium text-gray-600">
               Mensagens Enviadas
             </CardTitle>
-            <MessageSquare className="h-4 w-4 text-primary-600" />
+            <MessageSquare className="h-4 w-4 text-zinc-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.messages}</div>
@@ -103,7 +103,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-sm font-medium text-gray-600">
               Contas Conectadas
             </CardTitle>
-            <Activity className="h-4 w-4 text-primary-600" />
+            <Activity className="h-4 w-4 text-zinc-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.igAccounts.length}</div>

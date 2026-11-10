@@ -45,8 +45,8 @@ export default async function AutomationsPage() {
       {automations.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="mb-4 rounded-full bg-primary-50 p-4">
-              <Play className="h-8 w-8 text-primary-600" />
+            <div className="mb-4 rounded-full bg-zinc-50 p-4">
+              <Play className="h-8 w-8 text-zinc-600" />
             </div>
             <h3 className="mb-2 text-lg font-semibold">Nenhuma automação criada</h3>
             <p className="mb-4 text-center text-gray-600">
@@ -115,7 +115,7 @@ export default async function AutomationsPage() {
                           {keywords.slice(0, 5).map((keyword: string, idx: number) => (
                             <span
                               key={idx}
-                              className="rounded-full bg-primary-50 px-2 py-1 text-xs text-primary-700"
+                              className="rounded-full bg-zinc-50 px-2 py-1 text-xs text-zinc-700"
                             >
                               {keyword}
                             </span>

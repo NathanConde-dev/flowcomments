@@ -42,8 +42,8 @@ export default async function InboxPage() {
       {conversations.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="mb-4 rounded-full bg-primary-50 p-4">
-              <MessageSquare className="h-8 w-8 text-primary-600" />
+            <div className="mb-4 rounded-full bg-zinc-50 p-4">
+              <MessageSquare className="h-8 w-8 text-zinc-600" />
             </div>
             <h3 className="mb-2 text-lg font-semibold">Nenhuma conversa ainda</h3>
             <p className="text-center text-gray-600">
@@ -60,14 +60,14 @@ export default async function InboxPage() {
                   key={conversation.id}
                   className="flex items-center gap-4 p-4 hover:bg-gray-50 cursor-pointer"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
-                    <MessageSquare className="h-6 w-6 text-primary-600" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100">
+                    <MessageSquare className="h-6 w-6 text-zinc-600" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-medium">@{conversation.contact.igUsername}</p>
                       {conversation.unreadCount > 0 && (
-                        <span className="rounded-full bg-primary-600 px-2 py-0.5 text-xs text-white">
+                        <span className="rounded-full bg-zinc-600 px-2 py-0.5 text-xs text-white">
                           {conversation.unreadCount}
                         </span>
                       )}

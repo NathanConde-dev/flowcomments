@@ -142,7 +142,7 @@ export function MetaFieldHelp({ field, appId, onGenerate }: MetaFieldHelpProps) 
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 text-gray-500 hover:text-primary-600"
+            className="h-8 w-8 p-0 text-gray-500 hover:text-zinc-600"
           >
             <HelpCircle className="h-4 w-4" />
             <span className="sr-only">Ajuda</span>

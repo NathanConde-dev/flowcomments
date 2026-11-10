@@ -312,7 +312,7 @@ function SettingsContent() {
         <CardContent>
           {loading ? (
             <div className="text-center py-6">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary-600" />
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-zinc-600" />
             </div>
           ) : igAccounts.length === 0 ? (
             <div className="text-center py-6">
@@ -370,8 +370,8 @@ function SettingsContent() {
                   className="flex items-center justify-between rounded-lg border border-gray-200 p-4"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
-                      <Instagram className="h-5 w-5 text-primary-600" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100">
+                      <Instagram className="h-5 w-5 text-zinc-600" />
                     </div>
                     <div>
                       <p className="font-medium">@{account.igUsername}</p>
@@ -472,7 +472,7 @@ function SettingsContent() {
               </Button>
             </div>
           </div>
-          <div className="rounded-lg bg-blue-50 p-4 text-sm text-blue-800">
+          <div className="rounded-lg bg-zinc-50 p-4 text-sm text-blue-800">
             <p className="font-medium mb-2">Como configurar:</p>
             <ol className="list-decimal list-inside space-y-1">
               <li>Acesse o Meta for Developers</li>
@@ -498,14 +498,14 @@ function SettingsContent() {
               <span className="font-medium">Licença:</span> Flowcomments Sustainable Use License
             </div>
             <div className="flex items-start gap-2">
-              <div className="h-8 w-8 rounded bg-primary-600 flex-shrink-0"></div>
+              <div className="h-8 w-8 rounded bg-zinc-600 flex-shrink-0"></div>
               <div>
                 <p className="font-medium">Powered by Flowcomments</p>
                 <p className="text-gray-600">© 2026 Nathan Condé</p>
                 <div className="mt-2 flex gap-3">
                   <a
                     href="/licenca"
-                    className="text-primary-600 hover:underline"
+                    className="text-zinc-600 hover:underline"
                   >
                     Ver Licença
                   </a>
@@ -513,13 +513,13 @@ function SettingsContent() {
                     href="https://github.com/NathanConde-dev/flowcomments"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary-600 hover:underline"
+                    className="text-zinc-600 hover:underline"
                   >
                     GitHub
                   </a>
                   <a
                     href="mailto:contato@nathanconde.com"
-                    className="text-primary-600 hover:underline"
+                    className="text-zinc-600 hover:underline"
                   >
                     Contato
                   </a>
@@ -538,7 +538,7 @@ export default function SettingsPage() {
     <Suspense fallback={
       <div className="p-8 max-w-4xl">
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+          <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
         </div>
       </div>
     }>
