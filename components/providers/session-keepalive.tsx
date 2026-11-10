@@ -10,7 +10,6 @@ export function SessionKeepalive() {
   const pathname = usePathname();
 
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
     let lastPing = Date.now();
 
     const ping = async () => {
@@ -36,7 +35,7 @@ export function SessionKeepalive() {
     }
 
     // Set up interval for background pinging
-    intervalId = setInterval(() => {
+    const intervalId = setInterval(() => {
       if (document.visibilityState === 'visible') {
         ping();
       }
