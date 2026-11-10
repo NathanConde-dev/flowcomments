@@ -1,12 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { AlertCircle, CheckCircle2, Instagram, Loader2, X } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
-import { MCPTokenSection } from '@/components/settings/MCPTokenSection';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface IGAccount {
   id: string;
@@ -17,7 +11,24 @@ interface IGAccount {
   tokenExpiresAt: string | null;
 }
 
-function SettingsContent() {
+export default function SettingsGeneralPage() {
+  return (
+    <div className="max-w-3xl">
+      <Card>
+        <CardHeader>
+          <CardTitle>Configurações Gerais</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-zinc-600">
+            Configurações gerais do aplicativo serão adicionadas aqui.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function SettingsContentOLD() {
   const searchParams = useSearchParams();
   const [igAccounts, setIgAccounts] = useState<IGAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -533,21 +544,3 @@ function SettingsContent() {
   );
 }
 
-export default function SettingsPage() {
-  return (
-    <Suspense fallback={
-      <div className="p-8 max-w-4xl">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
-        </div>
-      </div>
-    }>
-      <div className="space-y-6">
-        <SettingsContent />
-        <div className="p-8 max-w-4xl">
-          <MCPTokenSection />
-        </div>
-      </div>
-    </Suspense>
-  );
-}
