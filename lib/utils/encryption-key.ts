@@ -1,3 +1,5 @@
+import { randomBytes } from 'crypto';
+
 /**
  * Encryption keys must come from the environment in production.
  * Persisting the key in the same DB as the ciphertext defeats encryption-at-rest.
@@ -18,7 +20,6 @@ export function requireEncryptionKey(): string {
   // Dev-only ephemeral key so local boot works without env.
   // Sessions/tokens encrypted with this key are lost on restart.
   if (!process.env.ENCRYPTION_KEY_RUNTIME) {
-    const { randomBytes } = require('crypto') as typeof import('crypto');
     process.env.ENCRYPTION_KEY_RUNTIME = randomBytes(32).toString('hex');
     console.warn(
       '[security] ENCRYPTION_KEY missing; using ephemeral runtime key (dev only). Set ENCRYPTION_KEY for stable encryption.'
