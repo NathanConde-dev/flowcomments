@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Public paths that don't require authentication
 const publicPaths = [
   '/',
   '/login',
@@ -12,20 +13,11 @@ const publicPaths = [
   '/api/setup/admin',
   '/api/setup/meta',
   '/api/health',
-  '/api/webhook',
+  '/api/webhook', // Meta webhooks are unauthenticated
+  '/api/instagram/oauth/callback',
+  '/api/mcp', // Uses Bearer token auth, not session
   '/_next',
   '/favicon.ico',
-];
-
-const protectedPaths = [
-  '/dashboard',
-  '/automations',
-  '/contacts',
-  '/inbox',
-  '/settings',
-  '/api/instagram',
-  '/api/automations',
-  '/api/settings',
 ];
 
 export function middleware(request: NextRequest) {
@@ -36,38 +28,31 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check if path needs protection
-  const needsAuth = protectedPaths.some(path => pathname.startsWith(path));
+  // Check if session cookie exists (basic check only)
+  // Real session validation happens server-side in layout/requireAuth
+  const sessionCookie = request.cookies.get('flowcomments_session');
   
-  if (needsAuth) {
-    const sessionCookie = request.cookies.get('flowcomments_session');
-    
-    if (!sessionCookie) {
-      // No session cookie - redirect to login
-      const url = new URL('/login', request.url);
-      url.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(url);
+  if (!sessionCookie) {
+    // No session cookie at all - redirect to login
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    // Add no-cache headers for authenticated pages
-    const response = NextResponse.next();
-    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    response.headers.set('Pragma', 'no-cache');
-    response.headers.set('Expires', '0');
-    return response;
+    
+    const url = new URL('/login', request.url);
+    url.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  // Add no-cache headers for authenticated pages
+  const response = NextResponse.next();
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  response.headers.set('Pragma', 'no-cache');
+  response.headers.set('Expires', '0');
+  return response;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
