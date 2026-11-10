@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { MetaFieldHelp } from '@/components/setup/MetaFieldHelp';
+import { Copy } from 'lucide-react';
 
 export default function SetupPage() {
   const router = useRouter();
@@ -25,6 +27,13 @@ export default function SetupPage() {
     configId: '',
     webhookVerifyToken: '',
   });
+
+  const generateToken = () => {
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+    setMetaConfig({ ...metaConfig, webhookVerifyToken: token });
+  };
 
   const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,15 +179,39 @@ export default function SetupPage() {
         {step === 2 && (
           <Card>
             <CardHeader>
-              <CardTitle>Configurar Meta App</CardTitle>
-              <CardDescription>
-                Configure suas credenciais do Meta/Facebook para integração com Instagram
-              </CardDescription>
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle>Configurar Meta App</CardTitle>
+                  <CardDescription>
+                    Configure suas credenciais do Meta/Facebook para integração com Instagram
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+                    const prompt = await fetch('/setup-com-ia.md').then(r => r.text());
+                    const filled = prompt
+                      .replace(/\{\{NEXT_PUBLIC_URL\}\}/g, baseUrl);
+                    await navigator.clipboard.writeText(filled);
+                    alert('✓ Prompt copiado! Cole no Claude, ChatGPT ou Cursor para receber ajuda passo-a-passo.');
+                  }}
+                  className="ml-4"
+                >
+                  <Copy className="h-3 w-3 mr-1" />
+                  Configurar com IA
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleMetaSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">App ID</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium">App ID</label>
+                    <MetaFieldHelp field="appId" appId={metaConfig.appId} />
+                  </div>
                   <Input
                     type="text"
                     value={metaConfig.appId}
@@ -191,7 +224,10 @@ export default function SetupPage() {
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">App Secret</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium">App Secret</label>
+                    <MetaFieldHelp field="appSecret" appId={metaConfig.appId} />
+                  </div>
                   <Input
                     type="password"
                     value={metaConfig.appSecret}
@@ -201,7 +237,10 @@ export default function SetupPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Config ID (Facebook Login)</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium">Config ID (Facebook Login)</label>
+                    <MetaFieldHelp field="configId" appId={metaConfig.appId} />
+                  </div>
                   <Input
                     type="text"
                     value={metaConfig.configId}
@@ -213,7 +252,14 @@ export default function SetupPage() {
                   </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Webhook Verify Token</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium">Webhook Verify Token</label>
+                    <MetaFieldHelp 
+                      field="webhookToken" 
+                      appId={metaConfig.appId}
+                      onGenerate={generateToken}
+                    />
+                  </div>
                   <Input
                     type="text"
                     value={metaConfig.webhookVerifyToken}
