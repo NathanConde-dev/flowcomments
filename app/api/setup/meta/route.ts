@@ -4,23 +4,6 @@ import { encrypt } from '@/lib/crypto/encryption';
 import { requireAuth } from '@/lib/auth/session';
 
 export async function POST(request: Request) {
-  // Check if setup is complete first (before parsing body)
-  const adminCount = await prisma.user.count({
-    where: { isAdmin: true },
-  });
-  
-  if (adminCount > 0) {
-    // Setup complete - require authentication for updates
-    try {
-      await requireAuth();
-    } catch {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 403 }
-      );
-    }
-  }
-
   try {
     const body = await request.json();
     const { appId, appSecret, configId, webhookVerifyToken } = body;
@@ -30,6 +13,23 @@ export async function POST(request: Request) {
         { error: 'App ID, App Secret e Webhook Verify Token são obrigatórios' },
         { status: 400 }
       );
+    }
+
+    // Require auth if Meta config already exists (post-initial-setup updates)
+    const existingMetaConfig = await prisma.systemConfig.findFirst({
+      where: { key: 'META_APP_ID' },
+    });
+    
+    if (existingMetaConfig) {
+      // Meta already configured - require auth for updates
+      try {
+        await requireAuth();
+      } catch {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 403 }
+        );
+      }
     }
 
     await prisma.systemConfig.upsert({
