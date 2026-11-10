@@ -21,7 +21,11 @@ async function getContacts(userId: string) {
 }
 
 export default async function ContactsPage() {
-  const session = await requireAuth();
+  const session = await readSession();
+  
+  if (!session.isLoggedIn) {
+    redirect('/login');
+  };
   const contacts = await getContacts(session.userId);
 
   return (

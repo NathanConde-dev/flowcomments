@@ -27,7 +27,11 @@ async function getConversations(userId: string) {
 }
 
 export default async function InboxPage() {
-  const session = await requireAuth();
+  const session = await readSession();
+  
+  if (!session.isLoggedIn) {
+    redirect('/login');
+  };
   const conversations = await getConversations(session.userId);
 
   return (

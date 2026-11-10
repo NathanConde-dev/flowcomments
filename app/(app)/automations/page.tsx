@@ -1,9 +1,10 @@
-import { requireAuth } from '@/lib/auth/session';
+import { readSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus, Play, Pause } from 'lucide-react';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,12 @@ async function getAutomations(userId: string) {
 }
 
 export default async function AutomationsPage() {
-  const session = await requireAuth();
+  const session = await readSession();
+  
+  if (!session.isLoggedIn) {
+    redirect('/login');
+  }
+  
   const automations = await getAutomations(session.userId);
 
   return (
