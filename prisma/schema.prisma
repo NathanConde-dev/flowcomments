@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  email     String?  @unique
+  isAdmin   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  instagramAccounts InstagramAccount[]
+  automations       Automation[]
+  contacts          Contact[]
+  conversations     Conversation[]
+  dmLogs            DmLog[]
+  webhookEvents     WebhookEvent[]
+
+  @@index([username])
+}
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  encrypted Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+}
+
+model InstagramAccount {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  igUserId             String   @unique
+  igUsername           String
+  igBusinessAccountId  String?
+  accessToken          String
+  tokenExpiresAt       DateTime?
+  scope                String?
+  isActive             Boolean  @default(true)
+  lastSyncAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  automations   Automation[]
+  contacts      Contact[]
+  conversations Conversation[]
+  dmLogs        DmLog[]
+  webhookEvents WebhookEvent[]
+
+  @@index([userId])
+  @@index([igUserId])
+}
+
+model Automation {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  igAccountId     String
+  igAccount       InstagramAccount @relation(fields: [igAccountId], references: [id], onDelete: Cascade)
+  name            String
+  isActive        Boolean  @default(true)
+  triggerType     String
+  triggerConfig   String   @db.Text
+  conditionsConfig String? @db.Text
+  actionsConfig   String   @db.Text
+  priority        Int      @default(0)
+  stats           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  executions AutomationExecution[]
+
+  @@index([userId])
+  @@index([igAccountId])
+  @@index([isActive])
+}
+
+model AutomationExecution {
+  id           String   @id @default(cuid())
+  automationId String
+  automation   Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+  triggeredBy  String?
+  status       String
+  error        String?  @db.Text
+  metadata     String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  @@index([automationId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Contact {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  igAccountId String
+  igAccount   InstagramAccount @relation(fields: [igAccountId], references: [id], onDelete: Cascade)
+  igUserId    String
+  igUsername  String
+  fullName    String?
+  profilePic  String?
+  tags        String?
+  customData  String?  @db.Text
+  lastSeenAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  conversations Conversation[]
+  dmLogs        DmLog[]
+
+  @@unique([igAccountId, igUserId])
+  @@index([userId])
+  @@index([igAccountId])
+}
+
+model Conversation {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  igAccountId    String
+  igAccount      InstagramAccount @relation(fields: [igAccountId], references: [id], onDelete: Cascade)
+  contactId      String
+  contact        Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  igThreadId     String   @unique
+  lastMessageAt  DateTime?
+  unreadCount    Int      @default(0)
+  status         String   @default("open")
+  metadata       String?  @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  messages Message[]
+
+  @@index([userId])
+  @@index([igAccountId])
+  @@index([contactId])
+  @@index([status])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  igMessageId    String   @unique
+  fromIgUserId   String
+  toIgUserId     String
+  messageType    String
+  text           String?  @db.Text
+  attachments    String?  @db.Text
+  isFromPage     Boolean  @default(false)
+  sentAt         DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId])
+  @@index([sentAt])
+}
+
+model DmLog {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  igAccountId String
+  igAccount   InstagramAccount @relation(fields: [igAccountId], references: [id], onDelete: Cascade)
+  contactId   String?
+  contact     Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  status      String
+  messageType String
+  payload     String   @db.Text
+  response    String?  @db.Text
+  error       String?  @db.Text
+  sentAt      DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([igAccountId])
+  @@index([contactId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  igAccountId String?
+  igAccount   InstagramAccount? @relation(fields: [igAccountId], references: [id], onDelete: SetNull)
+  eventType   String
+  payload     String   @db.Text
+  processed   Boolean  @default(false)
+  processedAt DateTime?
+  error       String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  @@index([processed])
+  @@index([createdAt])
+  @@index([eventType])
+}

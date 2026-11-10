@@ -1,0 +1,116 @@
+Flowcomments Sustainable Use License
+
+Copyright (c) 2026 Nathan Condé
+
+With regard to the Flowcomments Software:
+
+This software and associated documentation files (the "Software") may be used, copied,
+modified, and distributed under the following terms:
+
+TERMS AND CONDITIONS
+
+1. PERMITTED USE
+
+You are free to:
+
+a) Use, copy, modify, merge, publish, and distribute the Software for your own internal
+   business purposes or personal, non-commercial purposes. This includes:
+   - An individual using Flowcomments for their personal Instagram accounts
+   - A company deploying Flowcomments to automate its own Instagram business accounts
+   - An agency or freelancer running Flowcomments on their own infrastructure to manage
+     their own Instagram accounts or their clients' Instagram accounts as part of their
+     general service offering, provided they do not charge separately for access to the
+     Software itself
+
+b) Study how the Software works and adapt it to your needs
+
+c) Self-host the Software on your own infrastructure or any infrastructure you control
+
+2. RESTRICTIONS
+
+You may NOT, without obtaining a separate commercial license from the Licensor:
+
+a) Sell, rent, lease, sublicense, or otherwise offer the Software (in original or modified
+   form) to third parties as a standalone paid product, hosted service, or SaaS offering
+
+b) Make the Software available as a service or hosted offering where the primary value
+   proposition to users is access to the Software itself, whether free or paid
+
+c) White-label or rebrand the Software for distribution or service provision to others
+
+d) Charge third parties specifically for access to, or use of, the Software (though you may
+   charge for other services that happen to use the Software as an internal tool)
+
+e) Use the Software as part of a product or service that competes with Flowcomments or
+   any official offerings from the Licensor
+
+3. ATTRIBUTION AND BRANDING REQUIREMENTS
+
+a) You must retain all copyright notices, license notices, and attribution present in the
+   Software
+
+b) You must keep the "Flowcomments" name, logo, and "Powered by Flowcomments" notice
+   visible and unmodified in the Software's user interface, including but not limited to:
+   - The footer of all pages
+   - The settings/about section
+   - The console output (where applicable)
+
+c) These attribution elements must remain clearly visible to end users and administrators
+
+d) Removing, modifying, obscuring, or making these elements non-visible requires a separate
+   commercial license from the Licensor
+
+4. GENERAL TERMS
+
+a) You must include a copy of this license and the copyright notice in all copies or
+   substantial portions of the Software
+
+b) Modified versions must be marked as such and must not be misrepresented as the original
+   Software
+
+c) This license does not grant you any rights to use the Licensor's trademarks, service
+   marks, or logos, except as required for reasonable and customary attribution and the
+   required notices described in Section 3
+
+5. DISCLAIMER OF WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+6. LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY SPECIAL, INCIDENTAL, INDIRECT, OR
+CONSEQUENTIAL DAMAGES WHATSOEVER (INCLUDING, WITHOUT LIMITATION, DAMAGES FOR LOSS OF
+BUSINESS PROFITS, BUSINESS INTERRUPTION, LOSS OF BUSINESS INFORMATION, OR ANY OTHER
+PECUNIARY LOSS) ARISING OUT OF THE USE OF OR INABILITY TO USE THE SOFTWARE, EVEN IF
+THE LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+7. TERMINATION
+
+This license is effective until terminated. Your rights under this license will terminate
+automatically without notice if you fail to comply with any of its terms. Upon termination,
+you must cease all use of the Software and destroy all copies. However, if you cure the
+breach within thirty (30) days of becoming aware of it, your license will be reinstated
+retroactively.
+
+8. COMMERCIAL LICENSING
+
+For commercial licensing inquiries, including but not limited to:
+- Removing or modifying attribution requirements
+- White-labeling or rebranding
+- Offering Flowcomments as a hosted service or SaaS
+- Using Flowcomments in products that compete with official offerings
+
+Please contact: contato@nathanconde.com
+
+For an official hosted/cloud version of Flowcomments, visit: https://flowcomments.com (coming soon)
+
+---
+
+This license is inspired by fair-code and sustainable open-source principles, ensuring
+the Software remains freely available for self-hosted use while supporting its continued
+development.

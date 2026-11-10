@@ -1,0 +1,37 @@
+import { createWorker, QUEUE_NAMES } from '@/lib/queue/client';
+import { executeAutomation } from '@/lib/automation/engine';
+import { processWebhookEvent } from '@/lib/instagram/webhook';
+
+const automationWorker = createWorker(QUEUE_NAMES.AUTOMATION, async (job) => {
+  const { automationId, context } = job.data;
+  await executeAutomation(automationId, context);
+});
+
+const webhookWorker = createWorker(QUEUE_NAMES.WEBHOOK, async (job) => {
+  await processWebhookEvent(job.data);
+});
+
+automationWorker.on('completed', (job) => {
+  console.log(`[AUTOMATION] Job ${job.id} completed`);
+});
+
+automationWorker.on('failed', (job, err) => {
+  console.error(`[AUTOMATION] Job ${job?.id} failed:`, err.message);
+});
+
+webhookWorker.on('completed', (job) => {
+  console.log(`[WEBHOOK] Job ${job.id} completed`);
+});
+
+webhookWorker.on('failed', (job, err) => {
+  console.error(`[WEBHOOK] Job ${job?.id} failed:`, err.message);
+});
+
+console.log('Workers started successfully');
+
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, closing workers...');
+  await automationWorker.close();
+  await webhookWorker.close();
+  process.exit(0);
+});
