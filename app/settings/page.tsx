@@ -542,7 +542,12 @@ export default function SettingsPage() {
         </div>
       </div>
     }>
-      <SettingsContent />
+      <div className="space-y-6">
+        <SettingsContent />
+        <div className="p-8 max-w-4xl">
+          <MCPTokenSection />
+        </div>
+      </div>
     </Suspense>
   );
 }

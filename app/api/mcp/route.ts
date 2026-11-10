@@ -357,7 +357,6 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     const response: MCPResponse = {
       jsonrpc: '2.0',
-      id: null,
       error: {
         code: error.code || -32603,
         message: error.message || 'Internal error',
