@@ -51,12 +51,12 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Usuário</label>
+              <label className="block text-sm font-medium mb-2">E-mail ou usuário</label>
               <Input
                 type="text"
                 value={credentials.username}
                 onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                placeholder="admin"
+                placeholder="seu@email.com ou usuario"
                 required
                 autoComplete="username"
               />

@@ -10,13 +10,19 @@ export async function POST(request: Request) {
 
     if (!username || !password) {
       return NextResponse.json(
-        { error: 'Usuário e senha são obrigatórios' },
+        { error: 'E-mail ou usuário e senha são obrigatórios' },
         { status: 400 }
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { username },
+    // Lookup by username OR email (case-insensitive)
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: { equals: username, mode: 'insensitive' } },
+          { email: { equals: username, mode: 'insensitive' } },
+        ],
+      },
     });
 
     if (!user) {
