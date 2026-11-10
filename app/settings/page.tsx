@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, CheckCircle2, Instagram, Loader2, X } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
+import { MCPTokenSection } from '@/components/settings/MCPTokenSection';
 
 interface IGAccount {
   id: string;
