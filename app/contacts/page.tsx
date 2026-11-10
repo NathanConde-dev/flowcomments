@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 async function getContacts(userId: string) {
   return prisma.contact.findMany({
     where: { userId },

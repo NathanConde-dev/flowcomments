@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Plus, Play, Pause } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 async function getAutomations(userId: string) {
   return prisma.automation.findMany({
     where: { userId },
