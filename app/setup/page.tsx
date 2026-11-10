@@ -104,10 +104,10 @@ export default function SetupPage() {
     : 'https://seu-dominio.com/api/webhook';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 h-12 w-12 rounded bg-primary-600"></div>
+          <div className="mx-auto mb-4 h-12 w-12 rounded bg-neutral-900"></div>
           <h1 className="text-3xl font-bold text-gray-900">Configuração Inicial</h1>
           <p className="mt-2 text-gray-600">Configure o Flowcomments em {step === 1 ? '2' : step === 2 ? '1' : '0'} passos</p>
         </div>
