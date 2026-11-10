@@ -20,23 +20,16 @@ export async function POST(request: Request) {
       where: { key: 'META_APP_ID' },
     });
     
-    console.log('[Meta Setup] Existing config:', existingMetaConfig ? 'EXISTS' : 'NOT FOUND');
-    
     if (existingMetaConfig) {
       // Meta already configured - require auth for updates
-      console.log('[Meta Setup] Meta config exists, requiring auth...');
       try {
         await requireAuth();
-        console.log('[Meta Setup] Auth passed');
-      } catch (err) {
-        console.log('[Meta Setup] Auth failed:', err);
+      } catch {
         return NextResponse.json(
           { error: 'Authentication required' },
           { status: 403 }
         );
       }
-    } else {
-      console.log('[Meta Setup] No existing config, allowing initial setup');
     }
 
     await prisma.systemConfig.upsert({
