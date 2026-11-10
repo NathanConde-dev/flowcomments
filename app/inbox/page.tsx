@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { MessageSquare } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 async function getConversations(userId: string) {
   return prisma.conversation.findMany({
     where: { userId },

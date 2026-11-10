@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db/client';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth/session';
 
+export const dynamic = 'force-dynamic';
+
 async function checkSetupStatus() {
   try {
     const adminCount = await prisma.user.count({
