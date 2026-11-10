@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     },
   },
   output: 'standalone',
+  serverExternalPackages: ['bullmq', 'ioredis'],
 };
 
 export default nextConfig;
