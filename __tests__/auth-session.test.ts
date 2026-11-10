@@ -2,7 +2,7 @@
  * Tests for session management, middleware protection, and login
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 
 describe('Session Management', () => {
   it('should create session cookie without maxAge (browser session)', () => {

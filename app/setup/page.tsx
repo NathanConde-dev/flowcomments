@@ -133,12 +133,13 @@ export default function SetupPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">E-mail (opcional)</label>
+                  <label className="block text-sm font-medium mb-2">E-mail</label>
                   <Input
                     type="email"
                     value={adminData.email}
                     onChange={(e) => setAdminData({ ...adminData, email: e.target.value })}
                     placeholder="admin@exemplo.com"
+                    required
                   />
                 </div>
                 <div>
