@@ -96,19 +96,13 @@ export async function getSession(): Promise<IronSession<SessionData>> {
     const now = Date.now();
     
     if (session.lastSeen && now - session.lastSeen > IDLE_TIMEOUT) {
-      // Idle timeout exceeded
-      session.destroy();
-      session.userId = defaultSession.userId;
-      session.username = defaultSession.username;
-      session.isAdmin = defaultSession.isAdmin;
-      session.isLoggedIn = defaultSession.isLoggedIn;
+      // Idle timeout exceeded - destroy and reset
+      await session.destroy();
+      return session;
     } else if (session.loginAt && now - session.loginAt > ABSOLUTE_TIMEOUT) {
-      // Absolute expiry exceeded
-      session.destroy();
-      session.userId = defaultSession.userId;
-      session.username = defaultSession.username;
-      session.isAdmin = defaultSession.isAdmin;
-      session.isLoggedIn = defaultSession.isLoggedIn;
+      // Absolute expiry exceeded - destroy and reset
+      await session.destroy();
+      return session;
     } else {
       // Update last seen for sliding window
       session.lastSeen = now;
