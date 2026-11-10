@@ -41,10 +41,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md border-neutral-200">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 rounded bg-primary-600"></div>
+          <div className="mx-auto mb-4 h-12 w-12 rounded bg-neutral-900"></div>
           <CardTitle>Flowcomments</CardTitle>
           <CardDescription>Entre com suas credenciais</CardDescription>
         </CardHeader>
@@ -77,7 +77,7 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-neutral-900 hover:bg-neutral-800" disabled={loading}>
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>
           </form>

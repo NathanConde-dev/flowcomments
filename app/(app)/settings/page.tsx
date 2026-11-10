@@ -180,7 +180,7 @@ export default function SettingsPage() {
                 <div>
                   <div className="mb-1 flex items-center justify-between">
                     <Label>Webhook Verify Token</Label>
-                    <MetaFieldHelp field="webhookVerifyToken" />
+                    <MetaFieldHelp field="webhookToken" />
                   </div>
                   <Input
                     value={metaConfig.webhookVerifyToken}
