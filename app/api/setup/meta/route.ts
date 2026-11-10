@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/client';
 import { encrypt } from '@/lib/crypto/encryption';
+import { requireAuth } from '@/lib/auth/session';
 
 export async function POST(request: Request) {
   try {
@@ -12,6 +13,23 @@ export async function POST(request: Request) {
         { error: 'App ID, App Secret e Webhook Verify Token são obrigatórios' },
         { status: 400 }
       );
+    }
+
+    // Require auth if Meta config already exists (post-initial-setup updates)
+    const existingMetaConfig = await prisma.systemConfig.findFirst({
+      where: { key: 'META_APP_ID' },
+    });
+    
+    if (existingMetaConfig) {
+      // Meta already configured - require auth for updates
+      try {
+        await requireAuth();
+      } catch {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 403 }
+        );
+      }
     }
 
     await prisma.systemConfig.upsert({

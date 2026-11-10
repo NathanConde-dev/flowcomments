@@ -11,16 +11,16 @@ export async function POST(request: Request) {
     if (adminCount > 0) {
       return NextResponse.json(
         { error: 'Setup já foi concluído' },
-        { status: 400 }
+        { status: 403 }
       );
     }
 
     const body = await request.json();
     const { username, password, email } = body;
 
-    if (!username || !password) {
+    if (!username || !password || !email) {
       return NextResponse.json(
-        { error: 'Username e senha são obrigatórios' },
+        { error: 'Username, senha e email são obrigatórios' },
         { status: 400 }
       );
     }
@@ -32,13 +32,37 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check if username is taken
+    const existingUsername = await prisma.user.findUnique({
+      where: { username },
+    });
+
+    if (existingUsername) {
+      return NextResponse.json(
+        { error: 'Username já está em uso' },
+        { status: 400 }
+      );
+    }
+
+    // Check if email is taken (case-insensitive)
+    const existingEmail = await prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
+    });
+
+    if (existingEmail) {
+      return NextResponse.json(
+        { error: 'Email já está em uso' },
+        { status: 400 }
+      );
+    }
+
     const hashedPassword = await hashPassword(password);
 
     const user = await prisma.user.create({
       data: {
         username,
         password: hashedPassword,
-        email: email || null,
+        email,
         isAdmin: true,
       },
     });

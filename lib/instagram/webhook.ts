@@ -30,13 +30,42 @@ export async function verifyWebhook(
   token: string,
   challenge: string
 ): Promise<string | null> {
-  const verifyToken = process.env.WEBHOOK_VERIFY_TOKEN;
-  
-  if (mode === 'subscribe' && token === verifyToken) {
-    return challenge;
+  if (mode !== 'subscribe') {
+    return null;
   }
-  
-  return null;
+
+  try {
+    // Get stored webhook verify token from SystemConfig (it's encrypted!)
+    const config = await prisma.systemConfig.findUnique({
+      where: { key: 'WEBHOOK_VERIFY_TOKEN' },
+    });
+
+    if (!config) {
+      // Fall back to env var if not in DB
+      const envToken = process.env.WEBHOOK_VERIFY_TOKEN;
+      if (envToken && token === envToken) {
+        console.log('Webhook verified via env var');
+        return challenge;
+      }
+      console.warn('Webhook verification failed: no token configured');
+      return null;
+    }
+
+    // Decrypt the stored token
+    const { decrypt } = await import('@/lib/crypto/encryption');
+    const storedToken = config.encrypted ? decrypt(config.value) : config.value;
+
+    if (token === storedToken) {
+      console.log('Webhook verified successfully');
+      return challenge;
+    }
+
+    console.warn('Webhook verification failed: token mismatch');
+    return null;
+  } catch (error) {
+    console.error('Webhook verification error:', error);
+    return null;
+  }
 }
 
 export async function handleWebhookEvent(payload: WebhookPayload): Promise<void> {
