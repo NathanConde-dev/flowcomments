@@ -9,6 +9,7 @@ export async function POST() {
       { success: true },
       {
         headers: {
+          // Clear cache
           'Cache-Control': 'no-store, no-cache, must-revalidate, private',
           'Pragma': 'no-cache',
           'Expires': '0',
