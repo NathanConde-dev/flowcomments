@@ -142,7 +142,7 @@ export function ProductPreview() {
   const { ref, active } = useInViewOnce<HTMLDivElement>(0.22);
 
   return (
-    <div ref={ref} className="relative mx-auto w-full max-w-3xl overflow-hidden">
+    <div ref={ref} className="relative mx-auto w-full max-w-3xl px-1 py-2 sm:px-2 sm:py-3">
       <div className="pointer-events-none absolute -inset-6 fc-soft-orb opacity-80 sm:-inset-10" aria-hidden />
 
       <div className="relative grid items-stretch gap-3 sm:gap-4 md:grid-cols-2">

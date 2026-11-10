@@ -58,7 +58,7 @@ export default async function HomePage() {
           </nav>
 
           <main>
-            <section className="relative overflow-hidden px-4 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-20">
+            <section className="relative overflow-x-clip px-4 pb-12 pt-10 sm:px-6 sm:pb-16 sm:pt-20">
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-0 fc-canvas-dot opacity-70"
