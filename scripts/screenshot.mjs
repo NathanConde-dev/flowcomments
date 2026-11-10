@@ -6,8 +6,8 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 const OUTPUT_DIR = 'docs/screenshots';
 const ARTIFACTS_DIR = '/opt/cursor/artifacts';
 
-// Wait for migrations/setup
-await new Promise(resolve => setTimeout(resolve, 8000));
+console.log('⏳ Waiting for app to be ready...');
+await new Promise(resolve => setTimeout(resolve, 5000));
 
 const browser = await chromium.launch({ headless: true });
 
@@ -60,29 +60,26 @@ await desktopPage.waitForLoadState('networkidle');
 await desktopPage.screenshot({ path: `${OUTPUT_DIR}/inbox.png`, fullPage: true });
 console.log('✓ inbox.png');
 
-// Settings - Geral
-await desktopPage.goto(`${BASE_URL}/settings`);
-await desktopPage.waitForLoadState('networkidle');
-await desktopPage.screenshot({ path: `${OUTPUT_DIR}/settings-geral.png`, fullPage: true });
-console.log('✓ settings-geral.png');
+// Settings tabs
+const settingsTabs = [
+  { name: 'Geral', path: '/settings' },
+  { name: 'Instagram', path: '/settings/instagram' },
+  { name: 'Meta', path: '/settings/meta' },
+  { name: 'MCP', path: '/settings/mcp' },
+  { name: 'Account', path: '/settings/account' },
+];
 
-// Settings - Instagram
-await desktopPage.goto(`${BASE_URL}/settings?tab=instagram`);
-await desktopPage.waitForLoadState('networkidle');
-await desktopPage.screenshot({ path: `${OUTPUT_DIR}/settings-instagram.png`, fullPage: true });
-console.log('✓ settings-instagram.png');
-
-// Settings - Meta
-await desktopPage.goto(`${BASE_URL}/settings?tab=meta`);
-await desktopPage.waitForLoadState('networkidle');
-await desktopPage.screenshot({ path: `${OUTPUT_DIR}/settings-meta.png`, fullPage: true });
-console.log('✓ settings-meta.png');
-
-// Settings - MCP
-await desktopPage.goto(`${BASE_URL}/settings?tab=mcp`);
-await desktopPage.waitForLoadState('networkidle');
-await desktopPage.screenshot({ path: `${OUTPUT_DIR}/settings-mcp.png`, fullPage: true });
-console.log('✓ settings-mcp.png');
+for (const tab of settingsTabs) {
+  try {
+    await desktopPage.goto(`${BASE_URL}${tab.path}`);
+    await desktopPage.waitForLoadState('networkidle');
+    const filename = `settings-${tab.name.toLowerCase()}.png`;
+    await desktopPage.screenshot({ path: `${OUTPUT_DIR}/${filename}`, fullPage: true });
+    console.log(`✓ ${filename}`);
+  } catch (e) {
+    console.log(`⚠ ${tab.name} tab not available yet`);
+  }
+}
 
 await desktop.close();
 
