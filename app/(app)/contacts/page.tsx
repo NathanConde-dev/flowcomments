@@ -1,4 +1,5 @@
-import { requireAuth } from '@/lib/auth/session';
+import { readSession } from '@/lib/auth/session';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users } from 'lucide-react';

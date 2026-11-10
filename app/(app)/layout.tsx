@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { readSession } from '@/lib/auth/session';
 import { SessionKeepalive } from '@/components/providers/session-keepalive';
-import { Sidebar } from '@/components/layout/sidebar';
+import { Sidebar } from '@/components/layout/sidebar-server';
 
 export default async function ProtectedLayout({
   children,

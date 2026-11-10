@@ -2,8 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquare, Users, Zap, Settings, Menu, X } from 'lucide-react';
+import { Home, MessageSquare, Users, Zap, Settings, Menu, X, Instagram } from 'lucide-react';
 import { useState } from 'react';
+
+interface SidebarClientProps {
+  username: string;
+  igAccount: {
+    username: string;
+    userId: string;
+  } | null;
+}
+
+export function SidebarClient({ username, igAccount }: SidebarClientProps) {
+  return <SidebarInner username={username} igAccount={igAccount} />;
+}
+
+function SidebarInner({ username, igAccount }: SidebarClientProps) {
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -65,7 +79,7 @@ export function Sidebar() {
                     ${
                       isActive
                         ? 'bg-zinc-100 text-zinc-900'
-                        : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'
+                        : 'text-white bg-zinc-900 hover:bg-zinc-800zinc-50 hover:text-zinc-900'
                     }
                   `}
                 >
@@ -77,7 +91,37 @@ export function Sidebar() {
           </nav>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-zinc-200 space-y-2">
+          <div className="px-4 py-4 border-t border-zinc-200 space-y-3">
+            {/* Connected IG Account */}
+            {igAccount ? (
+              <Link 
+                href="/settings/instagram"
+                className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-zinc-50 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center text-white text-sm font-medium">
+                  {igAccount.username[0].toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-zinc-900 truncate">@{igAccount.username}</p>
+                  <p className="text-xs text-zinc-500">Conectado</p>
+                </div>
+              </Link>
+            ) : (
+              <Link
+                href="/settings/instagram"
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"
+              >
+                <Instagram className="h-4 w-4" />
+                Conectar Instagram
+              </Link>
+            )}
+
+            {/* User info */}
+            <div className="px-3 py-2 text-xs text-zinc-500">
+              {username}
+            </div>
+
+            {/* Logout */}
             <form action="/api/auth/logout" method="POST">
               <button
                 type="submit"
@@ -86,7 +130,8 @@ export function Sidebar() {
                 Sair
               </button>
             </form>
-            <p className="text-xs text-zinc-400">
+            
+            <p className="px-3 text-xs text-zinc-400">
               Powered by Flowcomments © 2026
             </p>
           </div>
