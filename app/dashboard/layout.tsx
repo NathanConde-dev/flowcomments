@@ -1,4 +1,4 @@
-import { requireAuth } from '@/lib/auth/session';
+import { readSession } from '@/lib/auth/session';
 import { Sidebar } from '@/components/layout/sidebar';
 import { redirect } from 'next/navigation';
 
@@ -7,9 +7,9 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  try {
-    await requireAuth();
-  } catch {
+  const session = await readSession();
+  
+  if (!session.isLoggedIn) {
     redirect('/login');
   }
 
