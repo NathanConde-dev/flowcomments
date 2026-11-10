@@ -1,33 +1,34 @@
-import { randomBytes } from 'crypto';
-import { prisma } from '@/lib/db/client';
+/**
+ * Encryption keys must come from the environment in production.
+ * Persisting the key in the same DB as the ciphertext defeats encryption-at-rest.
+ */
+export function requireEncryptionKey(): string {
+  const key = process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY_RUNTIME;
 
-export async function ensureEncryptionKey(): Promise<string> {
-  if (process.env.ENCRYPTION_KEY) {
-    return process.env.ENCRYPTION_KEY;
-  }
-
-  try {
-    const existing = await prisma.systemConfig.findUnique({
-      where: { key: 'ENCRYPTION_KEY_GENERATED' },
-    });
-
-    if (existing) {
-      return existing.value;
-    }
-
-    const key = randomBytes(32).toString('hex');
-    
-    await prisma.systemConfig.create({
-      data: {
-        key: 'ENCRYPTION_KEY_GENERATED',
-        value: key,
-        encrypted: false,
-      },
-    });
-
+  if (key && key.length >= 32) {
     return key;
-  } catch (error) {
-    console.error('Error ensuring encryption key:', error);
-    return randomBytes(32).toString('hex');
   }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'ENCRYPTION_KEY must be set in production (min 32 chars). Do not store encryption keys in the database.'
+    );
+  }
+
+  // Dev-only ephemeral key so local boot works without env.
+  // Sessions/tokens encrypted with this key are lost on restart.
+  if (!process.env.ENCRYPTION_KEY_RUNTIME) {
+    const { randomBytes } = require('crypto') as typeof import('crypto');
+    process.env.ENCRYPTION_KEY_RUNTIME = randomBytes(32).toString('hex');
+    console.warn(
+      '[security] ENCRYPTION_KEY missing; using ephemeral runtime key (dev only). Set ENCRYPTION_KEY for stable encryption.'
+    );
+  }
+
+  return process.env.ENCRYPTION_KEY_RUNTIME!;
+}
+
+/** @deprecated Use requireEncryptionKey; keys must not be persisted in SystemConfig. */
+export async function ensureEncryptionKey(): Promise<string> {
+  return requireEncryptionKey();
 }

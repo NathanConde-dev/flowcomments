@@ -1,6 +1,6 @@
 # Flowcomments
 
-**Automatize Comentários e DMs do Instagram** — Alternativa self-hosted e source-available ao ManyChat.
+**Automatize Comentários e DMs do Instagram.** Alternativa self-hosted e source-available ao ManyChat.
 
 ![License](https://img.shields.io/badge/license-Sustainable%20Use-blue)
 ![Version](https://img.shields.io/badge/version-0.1.0-green)
@@ -284,7 +284,7 @@ Contribuições são bem-vindas! Por favor:
 
 ## 💝 Agradecimentos
 
-Inspirado pelo espírito de projetos como [n8n](https://n8n.io), [Supabase](https://supabase.com) e [Cal.com](https://cal.com) — software de qualidade, source-available e com modelos de negócio sustentáveis.
+Inspirado pelo espírito de projetos como [n8n](https://n8n.io), [Supabase](https://supabase.com) e [Cal.com](https://cal.com): software de qualidade, source-available e com modelos de negócio sustentáveis.
 
 ---
 

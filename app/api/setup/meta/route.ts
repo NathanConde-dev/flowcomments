@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/client';
 import { encrypt } from '@/lib/crypto/encryption';
-import { requireAuth } from '@/lib/auth/session';
+import { requireAdmin, requireAuth } from '@/lib/auth/session';
 
 export async function POST(request: Request) {
   try {
@@ -15,21 +15,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // Require auth if admin exists (post-initial-setup)
-    // Note: admin creation automatically logs in, so setup wizard still works
+    // Require admin once setup has an admin; first-run remains open for bootstrap
     const adminCount = await prisma.user.count({
       where: { isAdmin: true },
     });
-    
+
     if (adminCount > 0) {
-      // Setup complete - require authentication for Meta config
       try {
-        await requireAuth();
+        await requireAdmin();
       } catch {
-        return NextResponse.json(
-          { error: 'Authentication required' },
-          { status: 403 }
-        );
+        // Fall back: authenticated non-admin must not rewrite global Meta secrets
+        try {
+          await requireAuth();
+          return NextResponse.json(
+            { error: 'Admin access required' },
+            { status: 403 }
+          );
+        } catch {
+          return NextResponse.json(
+            { error: 'Authentication required' },
+            { status: 403 }
+          );
+        }
       }
     }
 

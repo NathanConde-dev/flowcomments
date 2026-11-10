@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/client';
-import crypto from 'crypto';
+import { decrypt } from '@/lib/crypto/encryption';
+import {
+  checkRateLimit,
+  clientIpFromRequest,
+  sha256Hex,
+  timingSafeEqualString,
+} from '@/lib/crypto/security';
 
 // MCP Server - Spec-compliant Streamable HTTP implementation
 // Spec: https://spec.modelcontextprotocol.io/specification/2025-06-18/server/http/
@@ -28,11 +34,11 @@ async function verifyMCPToken(token: string): Promise<boolean> {
     const config = await prisma.systemConfig.findUnique({
       where: { key: 'MCP_TOKEN_HASH' },
     });
-    
-    if (!config) return false;
-    
-    const hash = crypto.createHash('sha256').update(token).digest('hex');
-    return hash === config.value;
+
+    if (!config?.value) return false;
+
+    const hash = sha256Hex(token);
+    return timingSafeEqualString(hash, config.value);
   } catch {
     return false;
   }
@@ -53,9 +59,13 @@ async function testMetaCredentials(): Promise<{ valid: boolean; error?: string; 
       };
     }
 
+    const appSecret = secretConfig.encrypted
+      ? decrypt(secretConfig.value)
+      : secretConfig.value;
+
     // Test with client_credentials flow
     const response = await fetch(
-      `https://graph.facebook.com/oauth/access_token?client_id=${appIdConfig.value}&client_secret=${secretConfig.value}&grant_type=client_credentials`,
+      `https://graph.facebook.com/oauth/access_token?client_id=${appIdConfig.value}&client_secret=${appSecret}&grant_type=client_credentials`,
       { method: 'GET' }
     );
 
@@ -306,6 +316,18 @@ Em "Webhooks" > "Instagram":
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = clientIpFromRequest(request);
+    const rate = checkRateLimit(`mcp:${ip}`, 60, 60 * 1000);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rate.retryAfterSec) },
+        }
+      );
+    }
+
     // Check authorization
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -323,7 +345,7 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.substring(7);
     const isValid = await verifyMCPToken(token);
-    
+
     if (!isValid) {
       return new NextResponse(
         JSON.stringify({ error: 'Invalid token' }),

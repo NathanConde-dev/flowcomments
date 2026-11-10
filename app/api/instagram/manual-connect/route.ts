@@ -47,6 +47,17 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    const existing = await prisma.instagramAccount.findUnique({
+      where: { igUserId: igAccount.id },
+    });
+
+    if (existing && existing.userId !== session.userId) {
+      return NextResponse.json(
+        { error: 'Esta conta Instagram já está vinculada a outro usuário' },
+        { status: 409 }
+      );
+    }
+
     const encryptedToken = encrypt(accessToken);
     const expiresAt = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
 

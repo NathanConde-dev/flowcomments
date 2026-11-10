@@ -13,6 +13,7 @@ export interface InstagramPost {
   caption?: string;
   media_type: string;
   media_url?: string;
+  thumbnail_url?: string;
   permalink: string;
   timestamp: string;
 }
@@ -110,6 +111,25 @@ export class InstagramClient {
         access_token: this.accessToken,
       }),
     });
+  }
+
+  async getMedia(
+    igUserId: string,
+    limit = 24
+  ): Promise<{ data: InstagramPost[]; paging?: { cursors?: { after?: string } } }> {
+    const fields = [
+      'id',
+      'caption',
+      'media_type',
+      'media_url',
+      'thumbnail_url',
+      'permalink',
+      'timestamp',
+    ].join(',');
+
+    return this.request(
+      `/${igUserId}/media?fields=${fields}&limit=${limit}&access_token=${this.accessToken}`
+    );
   }
 
   async getConversations(pageId: string): Promise<any> {

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MetaFieldHelp } from '@/components/setup/MetaFieldHelp';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import { Copy } from 'lucide-react';
 
 export default function SetupPage() {
@@ -107,8 +108,8 @@ export default function SetupPage() {
     <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 h-12 w-12 rounded bg-zinc-600"></div>
-          <h1 className="text-3xl font-bold text-gray-900">Configuração Inicial</h1>
+          <BrandLogo as="p" className="mb-3 text-3xl text-foreground" />
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Configuração Inicial</h1>
           <p className="mt-2 text-gray-600">Configure o Flowcomments em {step === 1 ? '2' : step === 2 ? '1' : '0'} passos</p>
         </div>
 

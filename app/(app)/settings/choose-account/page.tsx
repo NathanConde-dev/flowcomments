@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Instagram } from 'lucide-react';
+import { ChooseAccountSkeleton } from '@/components/ui/skeletons';
 
 interface Account {
   id: string;
@@ -48,7 +49,7 @@ export default function ChooseAccountPage() {
       });
 
       if (res.ok) {
-        router.push('/settings?success=connected');
+        router.push('/settings/instagram?success=connected');
       } else {
         alert('Erro ao conectar conta');
       }
@@ -61,32 +62,28 @@ export default function ChooseAccountPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p>Carregando contas...</p>
-      </div>
-    );
+    return <ChooseAccountSkeleton />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-full bg-background p-4 sm:p-6 md:p-8">
       <div className="mx-auto max-w-4xl">
         <Card>
           <CardHeader>
             <CardTitle>Selecione a Conta do Instagram</CardTitle>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Encontramos {accounts.length} {accounts.length === 1 ? 'conta' : 'contas'}.
               Escolha qual deseja conectar.
             </p>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {accounts.map((account) => (
                 <div
                   key={account.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 p-4 hover:border-zinc-300"
+                  className="flex flex-col gap-3 rounded-2xl border border-border p-4 hover:border-zinc-300 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex min-w-0 items-center gap-3 sm:gap-4">
                     {account.profile_picture_url ? (
                       <img
                         src={account.profile_picture_url}
@@ -109,6 +106,7 @@ export default function ChooseAccountPage() {
                     </div>
                   </div>
                   <Button
+                    className="w-full shrink-0 sm:w-auto"
                     onClick={() => handleSelect(account.id)}
                     disabled={selecting !== null}
                   >

@@ -1,13 +1,11 @@
 import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto';
+import { requireEncryptionKey } from '@/lib/utils/encryption-key';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
 
 function getEncryptionKey(): Buffer {
-  const key = process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY_RUNTIME;
-  if (!key) {
-    throw new Error('ENCRYPTION_KEY environment variable is not set');
-  }
+  const key = requireEncryptionKey();
   return createHash('sha256').update(key).digest();
 }
 

@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
-import { encrypt } from '@/lib/crypto/encryption';
+import { encrypt, decrypt } from '@/lib/crypto/encryption';
 import { subscribePageToWebhooks } from '@/lib/instagram/oauth';
+
+function parsePending(value: string, encrypted: boolean) {
+  const raw = encrypted ? decrypt(value) : value;
+  return JSON.parse(raw);
+}
 
 export async function POST(request: Request) {
   try {
@@ -21,11 +26,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No pending accounts' }, { status: 400 });
     }
 
-    const data = JSON.parse(pendingConfig.value);
+    const data = parsePending(pendingConfig.value, pendingConfig.encrypted);
     const account = data.accounts.find((acc: any) => acc.id === accountId);
 
     if (!account) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+    }
+
+    const existing = await prisma.instagramAccount.findUnique({
+      where: { igUserId: account.id },
+    });
+
+    if (existing && existing.userId !== session.userId) {
+      return NextResponse.json(
+        { error: 'Esta conta Instagram já está vinculada a outro usuário' },
+        { status: 409 }
+      );
     }
 
     const encryptedToken = encrypt(data.token);
@@ -44,6 +60,7 @@ export async function POST(request: Request) {
         lastSyncAt: new Date(),
       },
       update: {
+        // Only reached when existing.userId === session.userId
         igUsername: account.username,
         accessToken: encryptedToken,
         tokenExpiresAt: expiresAt,

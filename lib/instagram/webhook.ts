@@ -1,6 +1,9 @@
 import { prisma } from '@/lib/db/client';
 import { findMatchingAutomations } from '@/lib/automation/engine';
 import { createQueue, QUEUE_NAMES } from '@/lib/queue/client';
+import { decrypt } from '@/lib/crypto/encryption';
+import { timingSafeEqualString } from '@/lib/crypto/security';
+import { getMetaConfig } from '@/lib/instagram/oauth';
 
 export interface WebhookEntry {
   id: string;
@@ -25,6 +28,22 @@ export interface WebhookPayload {
   entry: WebhookEntry[];
 }
 
+async function resolveWebhookVerifyToken(): Promise<string | null> {
+  try {
+    const config = await prisma.systemConfig.findUnique({
+      where: { key: 'WEBHOOK_VERIFY_TOKEN' },
+    });
+
+    if (config?.value) {
+      return config.encrypted ? decrypt(config.value) : config.value;
+    }
+  } catch (error) {
+    console.warn('Webhook verify token DB lookup failed, falling back to env');
+  }
+
+  return process.env.WEBHOOK_VERIFY_TOKEN || null;
+}
+
 export async function verifyWebhook(
   mode: string,
   token: string,
@@ -35,15 +54,9 @@ export async function verifyWebhook(
   }
 
   try {
-    // Get stored webhook verify token from SystemConfig
-    const config = await prisma.systemConfig.findUnique({
-      where: { key: 'META_WEBHOOK_VERIFY_TOKEN' },
-    });
+    const storedToken = await resolveWebhookVerifyToken();
 
-    // Fall back to env var if not in DB
-    const storedToken = config?.value || process.env.WEBHOOK_VERIFY_TOKEN;
-
-    if (storedToken && token === storedToken) {
+    if (storedToken && timingSafeEqualString(token, storedToken)) {
       console.log('Webhook verified successfully');
       return challenge;
     }
@@ -54,6 +67,12 @@ export async function verifyWebhook(
     console.error('Webhook verification error:', error);
     return null;
   }
+}
+
+/** Returns Meta App Secret for HMAC verification of webhook POSTs. */
+export async function getWebhookAppSecret(): Promise<string | null> {
+  const config = await getMetaConfig();
+  return config?.appSecret || process.env.META_APP_SECRET || null;
 }
 
 export async function handleWebhookEvent(payload: WebhookPayload): Promise<void> {
@@ -103,9 +122,9 @@ async function handleCommentEvent(value: any): Promise<void> {
   }
 
   const igAccount = await prisma.instagramAccount.findFirst({
-    where: { 
+    where: {
       igUserId: value.media?.owner?.id || value.owner?.id,
-      isActive: true 
+      isActive: true,
     },
   });
 
@@ -123,7 +142,11 @@ async function handleCommentEvent(value: any): Promise<void> {
     },
   });
 
-  const matchedAutomations = await findMatchingAutomations(igAccount.id, { text: commentText });
+  const mediaId = comment.media?.id || value.media?.id || value.media_id;
+  const matchedAutomations = await findMatchingAutomations(igAccount.id, {
+    text: commentText,
+    mediaId,
+  });
 
   for (const automationId of matchedAutomations) {
     const queue = createQueue(QUEUE_NAMES.AUTOMATION);
@@ -136,7 +159,7 @@ async function handleCommentEvent(value: any): Promise<void> {
         username: comment.from?.username,
       },
     };
-    
+
     if (queue) {
       await queue.add('execute-automation', jobData);
     } else {

@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   try {
     const session = await requireAuth();
     const { searchParams } = new URL(request.url);
-    const returnUrl = searchParams.get('returnUrl') || '/settings';
+    const returnUrl = searchParams.get('returnUrl') || '/settings/instagram';
 
     const config = await getMetaConfig();
     if (!config) {

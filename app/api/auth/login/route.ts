@@ -2,9 +2,22 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/client';
 import { verifyPassword } from '@/lib/crypto/password';
 import { getSession } from '@/lib/auth/session';
+import { checkRateLimit, clientIpFromRequest } from '@/lib/crypto/security';
 
 export async function POST(request: Request) {
   try {
+    const ip = clientIpFromRequest(request);
+    const rate = checkRateLimit(`login:${ip}`, 10, 15 * 60 * 1000);
+    if (!rate.allowed) {
+      return NextResponse.json(
+        { error: 'Muitas tentativas. Tente novamente mais tarde.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(rate.retryAfterSec) },
+        }
+      );
+    }
+
     const body = await request.json();
     const { username, password } = body;
 
@@ -25,16 +38,12 @@ export async function POST(request: Request) {
       },
     });
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Usuário ou senha incorretos' },
-        { status: 401 }
-      );
-    }
+    // Dummy bcrypt hash so missing-user path still pays hashing cost
+    const DUMMY_HASH =
+      '$2a$12$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+    const isValid = await verifyPassword(password, user?.password || DUMMY_HASH);
 
-    const isValid = await verifyPassword(password, user.password);
-
-    if (!isValid) {
+    if (!user || !isValid) {
       return NextResponse.json(
         { error: 'Usuário ou senha incorretos' },
         { status: 401 }

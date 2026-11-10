@@ -3,8 +3,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, HelpCircle, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { MetaFieldHelp, getMetaFieldUrl } from '@/components/setup/MetaFieldHelp';
+import { SettingsFormSkeleton } from '@/components/ui/skeletons';
 
 interface MetaConfig {
   metaAppId: string;
@@ -40,6 +42,8 @@ export default function MetaAppSettingsPage() {
     : process.env.NEXT_PUBLIC_URL
     ? `${process.env.NEXT_PUBLIC_URL}/api/instagram/callback`
     : 'https://seu-dominio.com/api/instagram/callback';
+
+  const appId = config.metaAppId;
 
   useEffect(() => {
     fetchConfig();
@@ -112,35 +116,19 @@ export default function MetaAppSettingsPage() {
     }
   };
 
-  const MetaFieldHelp = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <button
-      type="button"
-      className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700"
-      title={title}
-      onClick={(e) => {
-        e.preventDefault();
-        alert(`${title}\n\n${children}`);
-      }}
-    >
-      <HelpCircle className="w-3 h-3" />
-    </button>
-  );
+  const openMeta = (field: Parameters<typeof getMetaFieldUrl>[0]) => {
+    window.open(getMetaFieldUrl(field, appId), '_blank', 'noopener,noreferrer');
+  };
 
   if (loading) {
-    return (
-      <div className="max-w-3xl">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-zinc-600" />
-        </div>
-      </div>
-    );
+    return <SettingsFormSkeleton />;
   }
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="w-full space-y-6">
       {message && (
         <div
-          className={`p-4 rounded-lg ${
+          className={`rounded-2xl p-4 ${
             message.type === 'error' ? 'bg-red-50 text-red-900' : 'bg-green-50 text-green-900'
           }`}
         >
@@ -150,12 +138,12 @@ export default function MetaAppSettingsPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <CardTitle>Configuração do Meta App</CardTitle>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.open('https://developers.facebook.com/apps/', '_blank')}
+              onClick={() => openMeta('appId')}
             >
               <ExternalLink className="w-4 h-4 mr-2" />
               Abrir na Meta
@@ -167,12 +155,22 @@ export default function MetaAppSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              Meta App ID
-              <MetaFieldHelp title="Meta App ID">
-                ID do aplicativo no Meta for Developers (App Dashboard → Settings → Basic)
-              </MetaFieldHelp>
-            </label>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                Meta App ID
+                <MetaFieldHelp field="appId" appId={appId} compact />
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-zinc-600"
+                onClick={() => openMeta('appId')}
+              >
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Abrir
+              </Button>
+            </div>
             <Input
               value={config.metaAppId}
               onChange={(e) => setConfig({ ...config, metaAppId: e.target.value })}
@@ -181,12 +179,22 @@ export default function MetaAppSettingsPage() {
           </div>
 
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              Meta App Secret
-              <MetaFieldHelp title="Meta App Secret">
-                Secret do aplicativo no Meta for Developers (App Dashboard → Settings → Basic)
-              </MetaFieldHelp>
-            </label>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                Meta App Secret
+                <MetaFieldHelp field="appSecret" appId={appId} compact />
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-zinc-600"
+                onClick={() => openMeta('appSecret')}
+              >
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Abrir
+              </Button>
+            </div>
             <Input
               type="password"
               value={config.metaAppSecret}
@@ -196,12 +204,22 @@ export default function MetaAppSettingsPage() {
           </div>
 
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              Meta Config ID
-              <MetaFieldHelp title="Meta Config ID">
-                ID da configuração do Instagram no Meta App (Products → Instagram → Settings)
-              </MetaFieldHelp>
-            </label>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                Meta Config ID
+                <MetaFieldHelp field="configId" appId={appId} compact />
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-zinc-600"
+                onClick={() => openMeta('configId')}
+              >
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Abrir
+              </Button>
+            </div>
             <Input
               value={config.metaConfigId}
               onChange={(e) => setConfig({ ...config, metaConfigId: e.target.value })}
@@ -210,12 +228,22 @@ export default function MetaAppSettingsPage() {
           </div>
 
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              Instagram App ID
-              <MetaFieldHelp title="Instagram App ID">
-                ID do Instagram Business App vinculado (opcional, usado em alguns fluxos OAuth)
-              </MetaFieldHelp>
-            </label>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                Instagram App ID
+                <MetaFieldHelp field="igAppId" appId={appId} compact />
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-zinc-600"
+                onClick={() => openMeta('igAppId')}
+              >
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Abrir
+              </Button>
+            </div>
             <Input
               value={config.igAppId}
               onChange={(e) => setConfig({ ...config, igAppId: e.target.value })}
@@ -224,12 +252,22 @@ export default function MetaAppSettingsPage() {
           </div>
 
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              Instagram App Secret
-              <MetaFieldHelp title="Instagram App Secret">
-                Secret do Instagram Business App vinculado (opcional)
-              </MetaFieldHelp>
-            </label>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                Instagram App Secret
+                <MetaFieldHelp field="igAppSecret" appId={appId} compact />
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-zinc-600"
+                onClick={() => openMeta('igAppSecret')}
+              >
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Abrir
+              </Button>
+            </div>
             <Input
               type="password"
               value={config.igAppSecret}
@@ -239,12 +277,22 @@ export default function MetaAppSettingsPage() {
           </div>
 
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium mb-2">
-              Webhook Verify Token
-              <MetaFieldHelp title="Webhook Verify Token">
-                Token usado para verificar webhooks (configure o mesmo valor no Meta for Developers)
-              </MetaFieldHelp>
-            </label>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                Webhook Verify Token
+                <MetaFieldHelp field="webhookToken" appId={appId} compact />
+              </label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-zinc-600"
+                onClick={() => openMeta('webhookToken')}
+              >
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Abrir
+              </Button>
+            </div>
             <Input
               value={config.webhookVerifyToken}
               onChange={(e) => setConfig({ ...config, webhookVerifyToken: e.target.value })}
@@ -253,15 +301,8 @@ export default function MetaAppSettingsPage() {
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Salvar Configurações'
-              )}
+            <Button onClick={handleSave} disabled={saving} className={saving ? 'opacity-80' : undefined}>
+              {saving ? 'Salvando...' : 'Salvar Configurações'}
             </Button>
             <Button variant="outline" onClick={handleTest} disabled={testing}>
               {testing ? 'Testando...' : 'Testar Credenciais'}
@@ -272,10 +313,15 @@ export default function MetaAppSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>OAuth Callback URL</CardTitle>
-          <CardDescription>
-            Configure esta URL no Meta for Developers para o fluxo OAuth
-          </CardDescription>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle>OAuth Callback URL</CardTitle>
+              <CardDescription>
+                Configure esta URL no Meta for Developers para o fluxo OAuth
+              </CardDescription>
+            </div>
+            <MetaFieldHelp field="oauthCallback" appId={appId} />
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -295,12 +341,12 @@ export default function MetaAppSettingsPage() {
               </Button>
             </div>
           </div>
-          <div className="rounded-lg bg-zinc-50 p-4 text-sm">
+          <div className="rounded-xl bg-zinc-50 p-4 text-sm">
             <p className="font-medium mb-2">Como configurar no Meta:</p>
             <ol className="list-decimal list-inside space-y-1 text-zinc-700">
-              <li>Acesse o Meta for Developers</li>
-              <li>Vá em Use Cases → Authentication and Account Creation</li>
-              <li>Cole a URL acima em Valid OAuth Redirect URIs</li>
+              <li>Abra Facebook Login for Business → Settings</li>
+              <li>Cole a URL em Valid OAuth Redirect URIs</li>
+              <li>Salve e teste o fluxo Conectar Instagram</li>
             </ol>
           </div>
         </CardContent>
@@ -308,10 +354,15 @@ export default function MetaAppSettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Webhook do Meta</CardTitle>
-          <CardDescription>
-            Configure este webhook no Meta for Developers
-          </CardDescription>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle>Webhook do Meta</CardTitle>
+              <CardDescription>
+                Configure este webhook no Meta for Developers
+              </CardDescription>
+            </div>
+            <MetaFieldHelp field="webhookUrl" appId={appId} />
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
@@ -331,12 +382,11 @@ export default function MetaAppSettingsPage() {
               </Button>
             </div>
           </div>
-          <div className="rounded-lg bg-zinc-50 p-4 text-sm">
+          <div className="rounded-xl bg-zinc-50 p-4 text-sm">
             <p className="font-medium mb-2">Como configurar:</p>
             <ol className="list-decimal list-inside space-y-1 text-zinc-700">
-              <li>Acesse o Meta for Developers</li>
-              <li>Vá em Webhooks do seu App</li>
-              <li>Cole a URL acima</li>
+              <li>Abra Webhooks do seu App</li>
+              <li>Cole a URL acima no produto Instagram</li>
               <li>Use o Verify Token configurado acima</li>
               <li>Ative os campos: comments, mentions, messages</li>
             </ol>

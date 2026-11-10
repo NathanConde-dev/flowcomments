@@ -1,13 +1,144 @@
-'use client';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { LogOut, UserRound } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { readSession } from '@/lib/auth/session';
+import { prisma } from '@/lib/db/client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+function formatDate(value: Date) {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).format(value);
+}
 
-export default function AccountSettingsPage() {
+export default async function AccountSettingsPage() {
+  const session = await readSession();
+  if (!session.isLoggedIn) {
+    redirect('/login');
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: {
+      username: true,
+      email: true,
+      isAdmin: true,
+      createdAt: true,
+      _count: {
+        select: {
+          instagramAccounts: true,
+          automations: true,
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    redirect('/login');
+  }
+
+  const initial = user.username[0]?.toUpperCase() || 'U';
+
   return (
-    <div className="max-w-3xl">
+    <div className="w-full space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserRound className="h-5 w-5" />
+            Sua conta
+          </CardTitle>
+          <CardDescription>
+            Dados do usuário logado nesta instalação do Flowcomments.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex flex-col gap-4 rounded-2xl border border-border/70 bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-lg font-semibold text-white">
+                {initial}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate text-lg font-semibold tracking-tight text-foreground">
+                    {user.username}
+                  </p>
+                  <StatusBadge tone={user.isAdmin ? 'success' : 'expired'} icon={false}>
+                    {user.isAdmin ? 'Administrador' : 'Usuário'}
+                  </StatusBadge>
+                </div>
+                <p className="mt-1 truncate text-sm text-muted-foreground">
+                  {user.email || 'E-mail não informado'}
+                </p>
+              </div>
+            </div>
+
+            <form action="/api/auth/logout" method="POST">
+              <Button type="submit" variant="outline" className="rounded-full">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sair da conta
+              </Button>
+            </form>
+          </div>
+
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-border/70 bg-white p-4">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Usuário
+              </dt>
+              <dd className="mt-1.5 text-sm font-semibold text-foreground">{user.username}</dd>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-white p-4">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                E-mail
+              </dt>
+              <dd className="mt-1.5 break-all text-sm font-semibold text-foreground">
+                {user.email || '—'}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-white p-4">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Função
+              </dt>
+              <dd className="mt-1.5 text-sm font-semibold text-foreground">
+                {user.isAdmin ? 'Administrador' : 'Usuário'}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-white p-4">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Conta criada em
+              </dt>
+              <dd className="mt-1.5 text-sm font-semibold text-foreground">
+                {formatDate(user.createdAt)}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-white p-4">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Contas Instagram
+              </dt>
+              <dd className="mt-1.5 text-sm font-semibold text-foreground">
+                {user._count.instagramAccounts}
+              </dd>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-white p-4">
+              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Automações
+              </dt>
+              <dd className="mt-1.5 text-sm font-semibold text-foreground">
+                {user._count.automations}
+              </dd>
+            </div>
+          </dl>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Sobre o Flowcomments</CardTitle>
+          <CardDescription>Informações da instalação e da licença.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3 text-sm">
@@ -17,27 +148,27 @@ export default function AccountSettingsPage() {
             <div>
               <span className="font-medium">Licença:</span> Flowcomments Sustainable Use License
             </div>
-            <div className="flex items-start gap-2 mt-4">
-              <div className="h-8 w-8 rounded bg-zinc-900 flex-shrink-0"></div>
-              <div>
-                <p className="font-medium">Powered by Flowcomments</p>
-                <p className="text-zinc-600">© 2026 Nathan Condé</p>
-                <div className="mt-2 flex gap-3">
-                  <a href="/licenca" className="text-zinc-600 hover:underline">
-                    Ver Licença
-                  </a>
-                  <a
-                    href="https://github.com/NathanConde-dev/flowcomments"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-zinc-600 hover:underline"
-                  >
-                    GitHub
-                  </a>
-                  <a href="mailto:contato@nathanconde.com" className="text-zinc-600 hover:underline">
-                    Contato
-                  </a>
-                </div>
+            <div className="mt-4 space-y-1">
+              <p className="font-medium">Powered by Flowcomments</p>
+              <p className="text-muted-foreground">© 2026 Nathan Condé</p>
+              <div className="mt-2 flex flex-wrap gap-3">
+                <Link href="/licenca" className="text-muted-foreground hover:underline">
+                  Ver Licença
+                </Link>
+                <a
+                  href="https://github.com/NathanConde-dev/flowcomments"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:underline"
+                >
+                  GitHub
+                </a>
+                <a
+                  href="mailto:contato@nathanconde.com"
+                  className="text-muted-foreground hover:underline"
+                >
+                  Contato
+                </a>
               </div>
             </div>
           </div>

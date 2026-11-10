@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Instagram, KeyRound, Sparkles, UserRound } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
-const settingsTabs = [
-  { name: 'Geral', href: '/settings' },
-  { name: 'Instagram', href: '/settings/instagram' },
-  { name: 'Meta App', href: '/settings/meta' },
-  { name: 'MCP / IA', href: '/settings/mcp' },
-  { name: 'Conta', href: '/settings/account' },
+const settingsTabs: { name: string; href: string; icon: LucideIcon }[] = [
+  { name: 'Instagram', href: '/settings/instagram', icon: Instagram },
+  { name: 'Meta App', href: '/settings/meta', icon: KeyRound },
+  { name: 'MCP / IA', href: '/settings/mcp', icon: Sparkles },
+  { name: 'Conta', href: '/settings/account', icon: UserRound },
 ];
 
 export default function SettingsLayout({
@@ -19,23 +20,32 @@ export default function SettingsLayout({
   const pathname = usePathname();
 
   return (
-    <div className="h-full">
-      <div className="border-b border-zinc-200 bg-white">
-        <div className="px-8 pt-8 pb-0">
-          <h1 className="text-2xl font-bold text-zinc-900 mb-4">Configurações</h1>
-          <nav className="flex gap-6 -mb-px">
+    <div className="h-full fc-fade-in">
+      <div className="border-b border-border bg-card">
+        <div className="px-4 pt-5 sm:px-6 md:px-8 md:pt-8">
+          <h1 className="mb-4 text-2xl font-bold tracking-tight text-foreground">
+            Configurações
+          </h1>
+          <nav className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-px [-ms-overflow-style:none] [scrollbar-width:none] sm:-mx-6 sm:px-6 md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden">
             {settingsTabs.map((tab) => {
               const isActive = pathname === tab.href;
+              const Icon = tab.icon;
+
               return (
                 <Link
                   key={tab.href}
                   href={tab.href}
-                  className={`border-b-2 px-1 pb-4 text-sm font-medium transition-colors ${
+                  className={`inline-flex shrink-0 items-center gap-2 rounded-t-xl border-b-2 px-3 pb-3.5 pt-1 text-sm font-medium transition-all duration-200 cursor-pointer ${
                     isActive
-                      ? 'border-zinc-900 text-zinc-900'
-                      : 'border-transparent text-zinc-600 hover:text-zinc-900 hover:border-zinc-300'
+                      ? 'border-foreground text-foreground'
+                      : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
                   }`}
                 >
+                  <Icon
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      isActive ? 'scale-105 text-foreground' : 'text-muted-foreground'
+                    }`}
+                  />
                   {tab.name}
                 </Link>
               );
@@ -43,9 +53,7 @@ export default function SettingsLayout({
           </nav>
         </div>
       </div>
-      <div className="p-8">
-        {children}
-      </div>
+      <div className="p-4 fc-animate-in sm:p-6 md:p-8">{children}</div>
     </div>
   );
 }

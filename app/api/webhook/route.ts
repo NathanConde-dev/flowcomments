@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
-import { verifyWebhook, handleWebhookEvent, type WebhookPayload } from '@/lib/instagram/webhook';
+import {
+  verifyWebhook,
+  handleWebhookEvent,
+  getWebhookAppSecret,
+  type WebhookPayload,
+} from '@/lib/instagram/webhook';
+import { verifyMetaSignature } from '@/lib/crypto/security';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -25,13 +31,27 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const payload: WebhookPayload = await request.json();
+    const rawBody = await request.text();
+    const signature = request.headers.get('x-hub-signature-256');
+    const appSecret = await getWebhookAppSecret();
 
+    if (!appSecret) {
+      console.error('Webhook rejected: Meta App Secret not configured');
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
+    }
+
+    if (!verifyMetaSignature(rawBody, signature, appSecret)) {
+      console.warn('Webhook rejected: invalid X-Hub-Signature-256');
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+
+    const payload = JSON.parse(rawBody) as WebhookPayload;
     await handleWebhookEvent(payload);
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Webhook error:', error);
+    // Return 200 to avoid Meta retry storms on our internal errors after auth passed
     return NextResponse.json({ success: true });
   }
 }

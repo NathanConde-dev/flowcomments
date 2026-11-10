@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle2, Instagram, Loader2 } from 'lucide-react';
+import { Instagram } from 'lucide-react';
+import { AccountRowSkeleton } from '@/components/ui/skeletons';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 interface IGAccount {
   id: string;
@@ -59,7 +61,7 @@ export default function InstagramSettingsPage() {
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="w-full">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -72,9 +74,7 @@ export default function InstagramSettingsPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="text-center py-6">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-zinc-600" />
-            </div>
+            <AccountRowSkeleton rows={2} />
           ) : igAccounts.length === 0 ? (
             <div className="text-center py-6">
               <p className="text-zinc-600 mb-4">Nenhuma conta conectada</p>
@@ -87,7 +87,7 @@ export default function InstagramSettingsPage() {
               {igAccounts.map((account) => (
                 <div
                   key={account.id}
-                  className="flex items-center justify-between rounded-lg border border-zinc-200 p-4"
+                  className="flex items-center justify-between rounded-2xl border border-border p-4"
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 text-white font-medium">
@@ -95,24 +95,21 @@ export default function InstagramSettingsPage() {
                     </div>
                     <div>
                       <p className="font-medium">@{account.igUsername}</p>
-                      <div className="flex items-center gap-2 text-sm">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
                         {account.isActive ? (
-                          <span className="flex items-center gap-1 text-green-600">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Ativa
-                          </span>
+                          <StatusBadge tone="success">Ativa</StatusBadge>
                         ) : (
-                          <span className="text-zinc-500">Inativa</span>
+                          <StatusBadge tone="expired">Inativa</StatusBadge>
                         )}
                         {account.tokenExpiresAt && (
-                          <span className="text-zinc-500">
-                            • Expira em{' '}
+                          <StatusBadge tone="pending" icon={false}>
+                            Expira em{' '}
                             {Math.ceil(
                               (new Date(account.tokenExpiresAt).getTime() - Date.now()) /
                                 (1000 * 60 * 60 * 24)
                             )}{' '}
                             dias
-                          </span>
+                          </StatusBadge>
                         )}
                       </div>
                     </div>

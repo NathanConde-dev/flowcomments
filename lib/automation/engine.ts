@@ -1,10 +1,14 @@
 import { prisma } from '@/lib/db/client';
 import { createInstagramClient } from '@/lib/instagram/client';
+import { decrypt } from '@/lib/crypto/encryption';
 
 export interface CommentTriggerConfig {
   keywords: string[];
   matchType: 'exact' | 'contains' | 'starts_with' | 'ends_with';
   caseSensitive: boolean;
+  /** When set, only comments on these media IDs match. Empty/undefined = any post. */
+  mediaIds?: string[];
+  mediaScope?: 'specific' | 'any';
 }
 
 export interface ActionConfig {
@@ -70,7 +74,8 @@ export async function executeAutomation(
 
   try {
     const config: AutomationConfig = JSON.parse(automation.actionsConfig);
-    const client = createInstagramClient(automation.igAccount.accessToken);
+    const accessToken = decrypt(automation.igAccount.accessToken);
+    const client = createInstagramClient(accessToken);
 
     for (const action of config.actions) {
       if (action.delay && action.delay > 0) {
@@ -141,7 +146,7 @@ export async function executeAutomation(
 
 export async function findMatchingAutomations(
   igAccountId: string,
-  comment: { text: string }
+  comment: { text: string; mediaId?: string }
 ): Promise<string[]> {
   const automations = await prisma.automation.findMany({
     where: {
@@ -157,7 +162,17 @@ export async function findMatchingAutomations(
   for (const automation of automations) {
     try {
       const config: AutomationConfig = JSON.parse(automation.triggerConfig);
-      const isMatch = await evaluateCommentTrigger(comment, config.trigger);
+      const trigger = config.trigger;
+
+      const scope = trigger.mediaScope || (trigger.mediaIds?.length ? 'specific' : 'any');
+      if (scope === 'specific') {
+        const allowed = trigger.mediaIds || [];
+        if (!comment.mediaId || !allowed.includes(comment.mediaId)) {
+          continue;
+        }
+      }
+
+      const isMatch = await evaluateCommentTrigger(comment, trigger);
       if (isMatch) {
         matched.push(automation.id);
       }

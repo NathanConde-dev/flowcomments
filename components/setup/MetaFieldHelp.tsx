@@ -11,182 +11,243 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
+export type MetaHelpField =
+  | 'appId'
+  | 'appSecret'
+  | 'configId'
+  | 'igAppId'
+  | 'igAppSecret'
+  | 'webhookToken'
+  | 'webhookUrl'
+  | 'oauthCallback';
+
 interface MetaFieldHelpProps {
-  field: 'appId' | 'appSecret' | 'configId' | 'webhookToken' | 'webhookUrl';
+  field: MetaHelpField;
   appId?: string;
   onGenerate?: () => void;
+  /** Só o ícone de ajuda (sem botão "Abrir na Meta" ao lado) */
+  compact?: boolean;
 }
 
-const helpContent = {
+const APPS_HOME = 'https://developers.facebook.com/apps/';
+
+const helpContent: Record<
+  MetaHelpField,
+  {
+    title: string;
+    description: string;
+    steps: string[];
+    tips: string[];
+  }
+> = {
   appId: {
-    title: 'App ID - Identificador do Aplicativo',
+    title: 'Meta App ID',
+    description: 'Identificador do aplicativo no Meta for Developers.',
     steps: [
-      '1. Acesse https://developers.facebook.com/apps/',
-      '2. Selecione seu aplicativo (ou crie um novo do tipo "Business")',
-      '3. Na barra lateral, clique em "Configurações" → "Básico"',
-      '4. Copie o "ID do aplicativo" no topo da página',
+      'Abra o painel de apps do Meta for Developers.',
+      'Selecione seu app (tipo Business) ou crie um novo.',
+      'Vá em Configurações → Básico.',
+      'Copie o "ID do aplicativo" no topo da página.',
     ],
     tips: [
-      '⚠️ O app DEVE ser do tipo "Business" (não Consumer)',
-      '✓ Adicione os produtos: Instagram + Facebook Login for Business + Webhooks',
-      '✓ O App ID tem 15 dígitos',
+      'O app deve ser do tipo Business (não Consumer).',
+      'Adicione os produtos Instagram, Facebook Login for Business e Webhooks.',
+      'O App ID costuma ter cerca de 15 dígitos.',
     ],
-    metaUrl: 'https://developers.facebook.com/apps/',
   },
   appSecret: {
-    title: 'App Secret - Chave Secreta',
+    title: 'Meta App Secret',
+    description: 'Chave secreta do aplicativo. Nunca compartilhe publicamente.',
     steps: [
-      '1. Na mesma página "Configurações" → "Básico"',
-      '2. Localize o campo "Chave secreta do aplicativo"',
-      '3. Clique em "Mostrar" e digite sua senha do Facebook',
-      '4. Copie a chave (NUNCA compartilhe publicamente)',
+      'No mesmo app, vá em Configurações → Básico.',
+      'Localize "Chave secreta do aplicativo".',
+      'Clique em Mostrar e confirme sua senha do Facebook.',
+      'Copie a chave e cole aqui.',
     ],
     tips: [
-      '🔒 Mantenha em segredo! Se vazou, regenere imediatamente',
-      '⚠️ Se regenerar, atualize em todos os lugares que usa',
+      'Se vazou, regenere imediatamente e atualize em todos os lugares.',
+      'Não commite esse valor em repositórios públicos.',
     ],
-    metaUrl: '',
   },
   configId: {
-    title: 'Config ID - ID da Configuração do Facebook Login',
+    title: 'Meta Config ID',
+    description: 'ID da configuração do Facebook Login for Business.',
     steps: [
-      '1. No seu app, vá em "Facebook Login for Business"',
-      '2. Clique em "Configurações" ou "Configurations"',
-      '3. Crie uma nova configuração se não existir',
-      '4. Escolha "User access token" (token de acesso do usuário)',
-      '5. Adicione as permissões necessárias:',
-      '   • instagram_basic',
-      '   • instagram_manage_comments',
-      '   • instagram_manage_messages',
-      '   • pages_show_list',
-      '   • pages_read_engagement',
-      '   • pages_manage_metadata',
-      '   • business_management',
-      '6. Copie o ID da configuração',
+      'No app, abra Facebook Login for Business.',
+      'Vá em Configurations / Configurações.',
+      'Crie uma configuração (User access token) se ainda não existir.',
+      'Inclua as permissões: instagram_basic, instagram_manage_comments, instagram_manage_messages, pages_show_list, pages_read_engagement, pages_manage_metadata, business_management.',
+      'Copie o ID da configuração.',
     ],
     tips: [
-      '⚠️ ARMADILHA: app e Instagram no mesmo portfolio retornam token SEM conta IG',
-      '✓ Solução: selecione a Página + IG explicitamente no diálogo de login',
-      '✓ A conta Instagram deve ser Profissional (Business/Creator)',
-      '✓ Instagram vinculado a uma Página do Facebook',
+      'A conta Instagram precisa ser Profissional (Business/Creator).',
+      'O Instagram deve estar vinculado a uma Página do Facebook.',
+      'Selecione Página + Instagram explicitamente no diálogo de login.',
     ],
-    metaUrl: '',
+  },
+  igAppId: {
+    title: 'Instagram App ID',
+    description: 'ID do Instagram no produto Instagram do seu Meta App (opcional).',
+    steps: [
+      'No app, abra o produto Instagram.',
+      'Vá em API setup / Configuração da API.',
+      'Copie o Instagram App ID exibido na página.',
+      'Use apenas se o fluxo exigir o ID específico do Instagram (além do Meta App ID).',
+    ],
+    tips: [
+      'Na maioria dos fluxos com Facebook Login for Business, o Meta App ID basta.',
+      'Preencha se estiver usando Instagram API with Instagram Login.',
+    ],
+  },
+  igAppSecret: {
+    title: 'Instagram App Secret',
+    description: 'Secret do Instagram Business App vinculado (opcional).',
+    steps: [
+      'No app, abra o produto Instagram.',
+      'Vá em API setup / Configuração da API.',
+      'Copie o Instagram App Secret (Mostrar / revelar).',
+      'Cole aqui apenas se o fluxo OAuth do Instagram exigir.',
+    ],
+    tips: [
+      'Trate como segredo. Nunca exponha em frontend ou repos públicos.',
+      'Se não usar Instagram Login direto, pode deixar em branco.',
+    ],
   },
   webhookToken: {
-    title: 'Webhook Verify Token - Token de Verificação',
+    title: 'Webhook Verify Token',
+    description: 'Token compartilhado entre o Flowcomments e a inscrição de webhook no Meta.',
     steps: [
-      '1. Crie um token aleatório seguro (mínimo 20 caracteres)',
-      '2. Copie e guarde bem (vai precisar no passo seguinte)',
-      '3. No app Meta, vá em "Webhooks" → "Instagram"',
-      '4. Clique em "Edit Subscription" ou "Subscribe"',
-      '5. Cole a URL do webhook e ESTE MESMO TOKEN no campo "Verify Token"',
-      '6. Selecione os campos: comments, messages, mentions',
+      'Crie um token aleatório seguro (mínimo 20 caracteres) ou use Gerar.',
+      'Salve o mesmo valor aqui no Flowcomments.',
+      'No Meta, vá em Webhooks → Instagram.',
+      'Em Edit Subscription, cole a Callback URL e este mesmo Verify Token.',
+      'Inscreva nos campos: comments, messages, mentions.',
     ],
     tips: [
-      '✓ Use o botão "Gerar" para criar um token seguro',
-      '⚠️ O token aqui e no Meta devem ser IDÊNTICOS',
+      'O token no Flowcomments e no Meta deve ser idêntico.',
+      'Trocar o token exige atualizar os dois lados.',
     ],
-    metaUrl: '',
   },
   webhookUrl: {
-    title: 'Webhook URL - URL de Retorno de Chamada',
+    title: 'Webhook URL',
+    description: 'Callback HTTPS que o Meta chama quando chegam eventos.',
     steps: [
-      '1. Copie esta URL (já está pronta)',
-      '2. No app Meta, vá em "Webhooks" → produto "Instagram"',
-      '3. Cole a URL no campo "Callback URL"',
-      '4. Cole o Verify Token (mesmo que digitou acima)',
-      '5. Clique em "Verify and Save"',
-      '6. Depois, clique em "Manage" e inscreva nos campos:',
-      '   • comments',
-      '   • messages', 
-      '   • mentions',
+      'Copie a URL do webhook do Flowcomments.',
+      'No Meta, vá em Webhooks → produto Instagram.',
+      'Cole a URL em Callback URL.',
+      'Cole o mesmo Verify Token configurado no Flowcomments.',
+      'Clique em Verify and Save e inscreva comments, messages e mentions.',
     ],
     tips: [
-      '⚠️ O webhook só funciona com HTTPS (não http://localhost)',
-      '✓ Railway fornece HTTPS automaticamente',
+      'Webhooks exigem HTTPS (localhost sem túnel não funciona).',
+      'Railway já fornece HTTPS automaticamente.',
     ],
-    metaUrl: '',
+  },
+  oauthCallback: {
+    title: 'OAuth Callback URL',
+    description: 'Redirect URI válida para o fluxo de autenticação Instagram.',
+    steps: [
+      'Copie a Callback URL do Flowcomments.',
+      'No Meta, abra Facebook Login for Business → Settings.',
+      'Em Valid OAuth Redirect URIs, cole a URL.',
+      'Salve as alterações antes de testar a conexão.',
+    ],
+    tips: [
+      'A URL precisa bater exatamente (incluindo https e path).',
+      'Depois de salvar, teste o fluxo Conectar Instagram.',
+    ],
   },
 };
 
-export function MetaFieldHelp({ field, appId, onGenerate }: MetaFieldHelpProps) {
+function resolveMetaUrl(field: MetaHelpField, appId?: string): string {
+  const id = appId?.trim();
+
+  if (!id) {
+    return APPS_HOME;
+  }
+
+  switch (field) {
+    case 'appId':
+    case 'appSecret':
+      return `https://developers.facebook.com/apps/${id}/settings/basic/`;
+    case 'configId':
+      return `https://developers.facebook.com/apps/${id}/fb-login/configurations/`;
+    case 'igAppId':
+    case 'igAppSecret':
+      return `https://developers.facebook.com/apps/${id}/instagram-business/API-Setup/`;
+    case 'webhookToken':
+    case 'webhookUrl':
+      return `https://developers.facebook.com/apps/${id}/webhooks/`;
+    case 'oauthCallback':
+      return `https://developers.facebook.com/apps/${id}/fb-login/settings/`;
+    default:
+      return APPS_HOME;
+  }
+}
+
+export function MetaFieldHelp({ field, appId, onGenerate, compact = false }: MetaFieldHelpProps) {
   const content = helpContent[field];
-  
-  const getMetaUrl = () => {
-    if (field === 'appId' && appId) {
-      return `https://developers.facebook.com/apps/${appId}/settings/basic/`;
-    }
-    if (field === 'appId') {
-      return 'https://developers.facebook.com/apps/';
-    }
-    if (field === 'appSecret' && appId) {
-      return `https://developers.facebook.com/apps/${appId}/settings/basic/`;
-    }
-    if (field === 'configId' && appId) {
-      return `https://developers.facebook.com/apps/${appId}/fb-login/`;
-    }
-    if (field === 'webhookToken' && appId) {
-      return `https://developers.facebook.com/apps/${appId}/webhooks/`;
-    }
-    if (field === 'webhookUrl' && appId) {
-      return `https://developers.facebook.com/apps/${appId}/webhooks/`;
-    }
-    return content.metaUrl;
-  };
+  const metaUrl = resolveMetaUrl(field, appId);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       <Dialog>
         <DialogTrigger asChild>
-          <Button
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 text-gray-500 hover:text-zinc-600"
+            className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-zinc-100 text-zinc-500 hover:text-zinc-700"
+            title={content.title}
+            aria-label={`Ajuda: ${content.title}`}
           >
-            <HelpCircle className="h-4 w-4" />
-            <span className="sr-only">Ajuda</span>
-          </Button>
+            <HelpCircle className="w-3.5 h-3.5" />
+          </button>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{content.title}</DialogTitle>
-            <DialogDescription>
-              Passo a passo detalhado
-            </DialogDescription>
+            <DialogDescription>{content.description}</DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4">
             <div>
-              <h4 className="font-medium mb-2">Como configurar:</h4>
-              <ol className="space-y-2 text-sm">
-                {content.steps.map((step, idx) => (
-                  <li key={idx} className="text-gray-700 leading-relaxed whitespace-pre-line">
+              <h4 className="text-sm font-medium mb-2">Como configurar</h4>
+              <ol className="list-decimal list-inside space-y-2 text-sm text-zinc-700">
+                {content.steps.map((step) => (
+                  <li key={step} className="leading-relaxed">
                     {step}
                   </li>
                 ))}
               </ol>
             </div>
-            <div className="rounded-lg bg-yellow-50 p-4">
-              <h4 className="font-medium text-yellow-900 mb-2">Dicas importantes:</h4>
-              <ul className="space-y-1 text-sm">
-                {content.tips.map((tip, idx) => (
-                  <li key={idx} className="text-yellow-800">
-                    {tip}
-                  </li>
+
+            <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
+              <h4 className="text-sm font-medium text-amber-900 mb-2">Dicas</h4>
+              <ul className="space-y-1.5 text-sm text-amber-900/90">
+                {content.tips.map((tip) => (
+                  <li key={tip}>• {tip}</li>
                 ))}
               </ul>
             </div>
+
+            <Button
+              type="button"
+              className="w-full"
+              onClick={() => window.open(metaUrl, '_blank', 'noopener,noreferrer')}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Abrir página correta na Meta
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {getMetaUrl() && (
+      {!compact && (
         <Button
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => window.open(getMetaUrl(), '_blank')}
-          className="text-xs"
+          onClick={() => window.open(metaUrl, '_blank', 'noopener,noreferrer')}
+          className="h-7 text-xs px-2"
         >
           <ExternalLink className="h-3 w-3 mr-1" />
           Abrir na Meta
@@ -199,7 +260,7 @@ export function MetaFieldHelp({ field, appId, onGenerate }: MetaFieldHelpProps) 
           variant="outline"
           size="sm"
           onClick={onGenerate}
-          className="text-xs"
+          className="h-7 text-xs px-2"
         >
           <RefreshCw className="h-3 w-3 mr-1" />
           Gerar
@@ -207,4 +268,8 @@ export function MetaFieldHelp({ field, appId, onGenerate }: MetaFieldHelpProps) 
       )}
     </div>
   );
+}
+
+export function getMetaFieldUrl(field: MetaHelpField, appId?: string) {
+  return resolveMetaUrl(field, appId);
 }

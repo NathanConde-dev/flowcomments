@@ -120,6 +120,14 @@ export async function GET(request: Request) {
 
     if (accounts.length === 1) {
       const account = accounts[0];
+      const existing = await prisma.instagramAccount.findUnique({
+        where: { igUserId: account.id },
+      });
+
+      if (existing && existing.userId !== session.userId) {
+        return NextResponse.redirect('/settings?error=account_owned_by_other');
+      }
+
       const encryptedToken = encrypt(longLivedToken);
       const expiresAt = new Date(Date.now() + expiresIn * 1000);
 
@@ -155,25 +163,25 @@ export async function GET(request: Request) {
       return NextResponse.redirect('/settings?success=connected');
     }
 
+    const pendingPayload = encrypt(
+      JSON.stringify({
+        accounts,
+        token: longLivedToken,
+        expiresIn,
+        timestamp: Date.now(),
+      })
+    );
+
     await prisma.systemConfig.upsert({
       where: { key: `pending_accounts_${session.userId}` },
       create: {
         key: `pending_accounts_${session.userId}`,
-        value: JSON.stringify({
-          accounts,
-          token: longLivedToken,
-          expiresIn,
-          timestamp: Date.now(),
-        }),
-        encrypted: false,
+        value: pendingPayload,
+        encrypted: true,
       },
       update: {
-        value: JSON.stringify({
-          accounts,
-          token: longLivedToken,
-          expiresIn,
-          timestamp: Date.now(),
-        }),
+        value: pendingPayload,
+        encrypted: true,
       },
     });
 

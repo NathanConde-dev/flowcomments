@@ -1,6 +1,5 @@
 import { getIronSession, IronSession } from 'iron-session';
 import { cookies } from 'next/headers';
-import { prisma } from '@/lib/db/client';
 import crypto from 'crypto';
 
 export interface SessionData {
@@ -19,52 +18,33 @@ const defaultSession: SessionData = {
   isLoggedIn: false,
 };
 
-// In-memory cache for session secret
+// In-memory cache for session secret (env-derived only; never persist in DB)
 let cachedSecret: string | null = null;
 
 async function getSessionSecret(): Promise<string> {
-  // Check env vars first (highest priority)
-  const envSecret = process.env.SESSION_SECRET || process.env.ENCRYPTION_KEY;
-  if (envSecret && envSecret.length >= 32) {
-    return envSecret;
-  }
-
-  // Check memory cache
   if (cachedSecret) {
     return cachedSecret;
   }
 
-  // Try to get from database
-  try {
-    let config = await prisma.systemConfig.findUnique({
-      where: { key: 'SESSION_SECRET' },
-    });
-
-    if (!config || config.value.length < 32) {
-      // Generate new secret
-      const newSecret = crypto.randomBytes(32).toString('hex');
-      config = await prisma.systemConfig.upsert({
-        where: { key: 'SESSION_SECRET' },
-        create: {
-          key: 'SESSION_SECRET',
-          value: newSecret,
-          encrypted: false,
-        },
-        update: {
-          value: newSecret,
-        },
-      });
-    }
-
-    cachedSecret = config.value;
-    return config.value;
-  } catch (error) {
-    // Fallback for first boot before DB is ready
-    // Generate a temporary secret (will be persisted on next successful DB access)
-    const tempSecret = crypto.randomBytes(32).toString('hex');
-    cachedSecret = tempSecret;
-    return tempSecret;
+  const envSecret = process.env.SESSION_SECRET || process.env.ENCRYPTION_KEY;
+  if (envSecret && envSecret.length >= 32) {
+    cachedSecret = envSecret;
+    return envSecret;
   }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'SESSION_SECRET (or ENCRYPTION_KEY) must be set in production (min 32 chars). Do not store session secrets in the database.'
+    );
+  }
+
+  // Dev-only ephemeral secret; sessions reset on process restart
+  const tempSecret = crypto.randomBytes(32).toString('hex');
+  cachedSecret = tempSecret;
+  console.warn(
+    '[security] SESSION_SECRET missing; using ephemeral runtime secret (dev only). Set SESSION_SECRET for stable sessions.'
+  );
+  return tempSecret;
 }
 
 const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
