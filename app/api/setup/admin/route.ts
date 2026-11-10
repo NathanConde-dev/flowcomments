@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     if (adminCount > 0) {
       return NextResponse.json(
         { error: 'Setup já foi concluído' },
-        { status: 400 }
+        { status: 403 }
       );
     }
 

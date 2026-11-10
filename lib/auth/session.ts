@@ -70,6 +70,51 @@ async function getSessionSecret(): Promise<string> {
 const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const ABSOLUTE_TIMEOUT = 12 * 60 * 60 * 1000; // 12 hours
 
+// Read-only session check for Server Components (no cookie writes)
+export async function readSession(): Promise<IronSession<SessionData>> {
+  const cookieStore = await cookies();
+  const secret = await getSessionSecret();
+  
+  const session = await getIronSession<SessionData>(cookieStore, {
+    password: secret,
+    cookieName: 'flowcomments_session',
+    cookieOptions: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      sameSite: 'lax',
+    },
+  });
+
+  // Check expiry but don't write
+  if (session.isLoggedIn) {
+    const now = Date.now();
+    
+    if (
+      (session.lastSeen && now - session.lastSeen > IDLE_TIMEOUT) ||
+      (session.loginAt && now - session.loginAt > ABSOLUTE_TIMEOUT)
+    ) {
+      // Expired - return logged out (will be cleaned up by requireAuth)
+      return {
+        ...session,
+        userId: defaultSession.userId,
+        username: defaultSession.username,
+        isAdmin: defaultSession.isAdmin,
+        isLoggedIn: defaultSession.isLoggedIn,
+      } as IronSession<SessionData>;
+    }
+  }
+
+  if (!session.isLoggedIn) {
+    session.userId = defaultSession.userId;
+    session.username = defaultSession.username;
+    session.isAdmin = defaultSession.isAdmin;
+    session.isLoggedIn = defaultSession.isLoggedIn;
+  }
+
+  return session;
+}
+
+// Full session with write capability for Route Handlers
 export async function getSession(): Promise<IronSession<SessionData>> {
   const cookieStore = await cookies();
   const secret = await getSessionSecret();
@@ -81,8 +126,6 @@ export async function getSession(): Promise<IronSession<SessionData>> {
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       sameSite: 'lax',
-      // Session cookie - no maxAge means browser session only
-      // Will be cleared when browser closes
     },
   });
 
@@ -91,23 +134,6 @@ export async function getSession(): Promise<IronSession<SessionData>> {
     session.username = defaultSession.username;
     session.isAdmin = defaultSession.isAdmin;
     session.isLoggedIn = defaultSession.isLoggedIn;
-  } else {
-    // Check idle timeout and absolute expiry
-    const now = Date.now();
-    
-    if (session.lastSeen && now - session.lastSeen > IDLE_TIMEOUT) {
-      // Idle timeout exceeded - destroy and reset
-      await session.destroy();
-      return session;
-    } else if (session.loginAt && now - session.loginAt > ABSOLUTE_TIMEOUT) {
-      // Absolute expiry exceeded - destroy and reset
-      await session.destroy();
-      return session;
-    } else {
-      // Update last seen for sliding window
-      session.lastSeen = now;
-      await session.save();
-    }
   }
 
   return session;
