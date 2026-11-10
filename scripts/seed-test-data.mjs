@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { PrismaClient } from '@prisma/client';
-import { hashPassword } from '../lib/crypto/password.js';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -8,7 +8,7 @@ async function seed() {
   console.log('🌱 Seeding test data...');
 
   // Create admin user
-  const hashedPassword = await hashPassword('admin123');
+  const hashedPassword = await bcrypt.hash('admin123', 10);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@test.com' },
     update: {},
