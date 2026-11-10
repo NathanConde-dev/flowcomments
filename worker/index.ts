@@ -2,6 +2,11 @@ import { createWorker, QUEUE_NAMES } from '@/lib/queue/client';
 import { executeAutomation } from '@/lib/automation/engine';
 import { processWebhookEvent } from '@/lib/instagram/webhook';
 
+if (!process.env.REDIS_URL) {
+  console.log('⚠️  REDIS_URL not set. Worker will not start (using in-process queue fallback).');
+  process.exit(0);
+}
+
 const automationWorker = createWorker(QUEUE_NAMES.AUTOMATION, async (job) => {
   const { automationId, context } = job.data;
   await executeAutomation(automationId, context);
@@ -27,7 +32,7 @@ webhookWorker.on('failed', (job, err) => {
   console.error(`[WEBHOOK] Job ${job?.id} failed:`, err.message);
 });
 
-console.log('Workers started successfully');
+console.log('✅ Workers started successfully');
 
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, closing workers...');

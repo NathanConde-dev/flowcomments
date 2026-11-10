@@ -148,7 +148,11 @@ export interface InstagramAccountInfo {
   ig_id?: number;
 }
 
-export async function discoverInstagramAccounts(accessToken: string): Promise<InstagramAccountInfo[]> {
+export async function discoverInstagramAccounts(
+  accessToken: string,
+  appId: string,
+  appSecret: string
+): Promise<InstagramAccountInfo[]> {
   const accounts: InstagramAccountInfo[] = [];
   const seenIds = new Set<string>();
 
@@ -173,6 +177,38 @@ export async function discoverInstagramAccounts(accessToken: string): Promise<In
     }
   } catch (error) {
     console.error('Error getting assigned_instagram_accounts:', error);
+  }
+
+  try {
+    const appToken = `${appId}|${appSecret}`;
+    const debugData = await debugToken(accessToken, appToken);
+    
+    if (debugData.data.granular_scopes) {
+      for (const scopeObj of debugData.data.granular_scopes) {
+        if (
+          scopeObj.target_ids &&
+          (scopeObj.scope.includes('instagram_') || scopeObj.scope.includes('pages_'))
+        ) {
+          for (const targetId of scopeObj.target_ids) {
+            if (!seenIds.has(targetId)) {
+              const details = await getInstagramAccountDetails(targetId, accessToken);
+              if (details) {
+                accounts.push(details);
+                seenIds.add(targetId);
+              } else {
+                const pageDetails = await getPageInstagramAccount(targetId, accessToken);
+                if (pageDetails && !seenIds.has(pageDetails.id)) {
+                  accounts.push(pageDetails);
+                  seenIds.add(pageDetails.id);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error discovering via debug_token:', error);
   }
 
   try {
@@ -206,7 +242,82 @@ export async function discoverInstagramAccounts(accessToken: string): Promise<In
     console.error('Error getting pages with instagram_business_account:', error);
   }
 
+  try {
+    const businessResponse = await fetch(
+      `${GRAPH_API_BASE}/me/businesses?fields=id&access_token=${accessToken}`
+    );
+    
+    if (businessResponse.ok) {
+      const businessData = await businessResponse.json();
+      if (businessData.data && Array.isArray(businessData.data)) {
+        for (const business of businessData.data) {
+          const ownedResponse = await fetch(
+            `${GRAPH_API_BASE}/${business.id}/owned_instagram_accounts?access_token=${accessToken}`
+          );
+          
+          if (ownedResponse.ok) {
+            const ownedData = await ownedResponse.json();
+            if (ownedData.data) {
+              for (const account of ownedData.data) {
+                if (account.id && !seenIds.has(account.id)) {
+                  const details = await getInstagramAccountDetails(account.id, accessToken);
+                  if (details) {
+                    accounts.push(details);
+                    seenIds.add(account.id);
+                  }
+                }
+              }
+            }
+          }
+
+          const clientResponse = await fetch(
+            `${GRAPH_API_BASE}/${business.id}/client_instagram_accounts?access_token=${accessToken}`
+          );
+          
+          if (clientResponse.ok) {
+            const clientData = await clientResponse.json();
+            if (clientData.data) {
+              for (const account of clientData.data) {
+                if (account.id && !seenIds.has(account.id)) {
+                  const details = await getInstagramAccountDetails(account.id, accessToken);
+                  if (details) {
+                    accounts.push(details);
+                    seenIds.add(account.id);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error getting business owned/client accounts:', error);
+  }
+
   return accounts;
+}
+
+async function getPageInstagramAccount(
+  pageId: string,
+  accessToken: string
+): Promise<InstagramAccountInfo | null> {
+  try {
+    const response = await fetch(
+      `${GRAPH_API_BASE}/${pageId}?fields=instagram_business_account&access_token=${accessToken}`
+    );
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    if (data.instagram_business_account?.id) {
+      return getInstagramAccountDetails(data.instagram_business_account.id, accessToken);
+    }
+    
+    return null;
+  } catch (error) {
+    return null;
+  }
 }
 
 async function getInstagramAccountDetails(
@@ -256,7 +367,15 @@ export async function subscribePageToWebhooks(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          subscribed_fields: ['messages', 'messaging_postbacks', 'messaging_optins', 'message_deliveries'],
+          subscribed_fields: [
+            'messages',
+            'messaging_postbacks',
+            'messaging_optins',
+            'message_deliveries',
+            'comments',
+            'live_comments',
+            'mentions',
+          ],
           access_token: pageAccessToken,
         }),
       }

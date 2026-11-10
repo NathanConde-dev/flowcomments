@@ -1,11 +1,15 @@
 import { Queue, Worker, Job, QueueEvents } from 'bullmq';
 import IORedis from 'ioredis';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
+const REDIS_URL = process.env.REDIS_URL;
 
 let connection: IORedis | null = null;
 
-function getConnection(): IORedis {
+function getConnection(): IORedis | null {
+  if (!REDIS_URL) {
+    return null;
+  }
+  
   if (!connection) {
     connection = new IORedis(REDIS_URL, {
       maxRetriesPerRequest: null,
@@ -23,9 +27,15 @@ export const QUEUE_NAMES = {
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
 
-export function createQueue(queueName: QueueName): Queue {
+export function createQueue(queueName: QueueName): Queue | null {
+  const conn = getConnection();
+  if (!conn) {
+    console.warn(`⚠️  Queue ${queueName} not available (Redis not configured). Using in-process fallback.`);
+    return null;
+  }
+  
   return new Queue(queueName, {
-    connection: getConnection(),
+    connection: conn,
     defaultJobOptions: {
       attempts: 3,
       backoff: {
@@ -48,15 +58,25 @@ export function createWorker<T = any>(
   queueName: QueueName,
   processor: (job: Job<T>) => Promise<any>
 ): Worker<T> {
+  const conn = getConnection();
+  if (!conn) {
+    throw new Error('Redis connection required for worker');
+  }
+  
   return new Worker<T>(queueName, processor, {
-    connection: getConnection(),
+    connection: conn,
     concurrency: 5,
   });
 }
 
 export function createQueueEvents(queueName: QueueName): QueueEvents {
+  const conn = getConnection();
+  if (!conn) {
+    throw new Error('Redis connection required for queue events');
+  }
+  
   return new QueueEvents(queueName, {
-    connection: getConnection(),
+    connection: conn,
   });
 }
 

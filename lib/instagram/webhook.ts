@@ -42,9 +42,13 @@ export async function verifyWebhook(
 export async function handleWebhookEvent(payload: WebhookPayload): Promise<void> {
   const queue = createQueue(QUEUE_NAMES.WEBHOOK);
 
-  await queue.add('process-webhook', payload, {
-    priority: 1,
-  });
+  if (queue) {
+    await queue.add('process-webhook', payload, {
+      priority: 1,
+    });
+  } else {
+    await processWebhookEvent(payload);
+  }
 }
 
 export async function processWebhookEvent(payload: WebhookPayload): Promise<void> {
@@ -106,7 +110,7 @@ async function handleCommentEvent(value: any): Promise<void> {
 
   for (const automationId of matchedAutomations) {
     const queue = createQueue(QUEUE_NAMES.AUTOMATION);
-    await queue.add('execute-automation', {
+    const jobData = {
       automationId,
       context: {
         commentId,
@@ -114,7 +118,14 @@ async function handleCommentEvent(value: any): Promise<void> {
         userId: igUserId,
         username: comment.from?.username,
       },
-    });
+    };
+    
+    if (queue) {
+      await queue.add('execute-automation', jobData);
+    } else {
+      const { executeAutomation } = await import('@/lib/automation/engine');
+      await executeAutomation(automationId, jobData.context);
+    }
   }
 
   let contact = await prisma.contact.findFirst({

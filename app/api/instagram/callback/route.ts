@@ -96,7 +96,7 @@ export async function GET(request: Request) {
 
     let accounts;
     try {
-      accounts = await discoverInstagramAccounts(longLivedToken);
+      accounts = await discoverInstagramAccounts(longLivedToken, config.appId, config.appSecret);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Account discovery failed';
       const hint = getErrorHintPtBR(message);
