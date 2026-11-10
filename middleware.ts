@@ -8,18 +8,20 @@ const publicPathsExact = [
   '/login',
   '/setup',
   '/licenca',
+  '/setup-com-ia.md',
+  '/favicon.ico',
 ];
 
 const publicPathsPrefixes = [
   '/api/auth/login',
   '/api/auth/logout',
-  '/api/auth/ping',
-  '/api/setup/', // Individual routes check auth after setup
+  '/api/setup/',
   '/api/health',
   '/api/webhook',
   '/api/instagram/callback', // Meta OAuth callback
   '/api/mcp', // Uses Bearer token auth, not session
   '/_next/',
+  '/public/',
 ];
 
 export function middleware(request: NextRequest) {
@@ -27,11 +29,6 @@ export function middleware(request: NextRequest) {
 
   // Check exact matches
   if (publicPathsExact.includes(pathname)) {
-    return NextResponse.next();
-  }
-
-  // Allow static files (anything with a file extension)
-  if (/\.[a-z0-9]+$/i.test(pathname)) {
     return NextResponse.next();
   }
 

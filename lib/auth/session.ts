@@ -105,6 +105,7 @@ export async function readSession(): Promise<SessionData> {
       ...defaultSession,
     };
   }
+
   // Return plain data object, not iron-session proxy
   return {
     userId: session.userId,
@@ -128,6 +129,8 @@ export async function getSession(): Promise<IronSession<SessionData>> {
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       sameSite: 'lax',
+      // Session cookie - no maxAge means browser session only
+      // Will be cleared when browser closes
     },
   });
 
@@ -136,6 +139,23 @@ export async function getSession(): Promise<IronSession<SessionData>> {
     session.username = defaultSession.username;
     session.isAdmin = defaultSession.isAdmin;
     session.isLoggedIn = defaultSession.isLoggedIn;
+  } else {
+    // Check idle timeout and absolute expiry
+    const now = Date.now();
+    
+    if (session.lastSeen && now - session.lastSeen > IDLE_TIMEOUT) {
+      // Idle timeout exceeded - destroy and reset
+      await session.destroy();
+      return session;
+    } else if (session.loginAt && now - session.loginAt > ABSOLUTE_TIMEOUT) {
+      // Absolute expiry exceeded - destroy and reset
+      await session.destroy();
+      return session;
+    } else {
+      // Update last seen for sliding window
+      session.lastSeen = now;
+      await session.save();
+    }
   }
 
   return session;

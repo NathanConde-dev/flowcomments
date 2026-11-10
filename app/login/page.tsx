@@ -41,10 +41,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 rounded bg-primary-600"></div>
+          <div className="mx-auto mb-4 h-12 w-12 rounded bg-zinc-600"></div>
           <CardTitle>Flowcomments</CardTitle>
           <CardDescription>Entre com suas credenciais</CardDescription>
         </CardHeader>

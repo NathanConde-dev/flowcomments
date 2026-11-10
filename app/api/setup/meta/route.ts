@@ -15,13 +15,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Require auth if Meta config already exists (post-initial-setup updates)
-    const existingMetaConfig = await prisma.systemConfig.findFirst({
-      where: { key: 'META_APP_ID' },
+    // Require auth if admin exists (post-initial-setup)
+    // Note: admin creation automatically logs in, so setup wizard still works
+    const adminCount = await prisma.user.count({
+      where: { isAdmin: true },
     });
     
-    if (existingMetaConfig) {
-      // Meta already configured - require auth for updates
+    if (adminCount > 0) {
+      // Setup complete - require authentication for Meta config
       try {
         await requireAuth();
       } catch {

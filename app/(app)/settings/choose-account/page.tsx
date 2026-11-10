@@ -84,7 +84,7 @@ export default function ChooseAccountPage() {
               {accounts.map((account) => (
                 <div
                   key={account.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 p-4 hover:border-primary-300"
+                  className="flex items-center justify-between rounded-lg border border-gray-200 p-4 hover:border-zinc-300"
                 >
                   <div className="flex items-center gap-4">
                     {account.profile_picture_url ? (
@@ -94,8 +94,8 @@ export default function ChooseAccountPage() {
                         className="h-12 w-12 rounded-full"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
-                        <Instagram className="h-6 w-6 text-primary-600" />
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100">
+                        <Instagram className="h-6 w-6 text-zinc-600" />
                       </div>
                     )}
                     <div>

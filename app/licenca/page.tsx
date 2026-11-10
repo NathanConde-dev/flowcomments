@@ -5,11 +5,11 @@ import { Check, X, Info } from 'lucide-react';
 
 export default function LicencaPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100">
-      <nav className="border-b border-primary-200 bg-white/80 backdrop-blur">
+    <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100">
+      <nav className="border-b border-zinc-200 bg-white/80 backdrop-blur">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded bg-primary-600"></div>
+            <div className="h-8 w-8 rounded bg-zinc-600"></div>
             <span className="text-xl font-bold text-gray-900">Flowcomments</span>
           </Link>
           <div className="flex items-center gap-4">
@@ -36,10 +36,10 @@ export default function LicencaPage() {
           </p>
         </div>
 
-        <Card className="mb-8 border-blue-200 bg-blue-50">
+        <Card className="mb-8 border-blue-200 bg-zinc-50">
           <CardContent className="p-6">
             <div className="flex gap-3">
-              <Info className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <Info className="h-5 w-5 text-zinc-900 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="font-medium text-blue-900 mb-2">
                   Nossa Filosofia
@@ -205,7 +205,7 @@ export default function LicencaPage() {
                 Estamos desenvolvendo uma versão hospedada oficial na nuvem, <strong>mais barata que o
                 ManyChat</strong>, sem se preocupar com servidores, atualizações ou configurações.
                 <br />
-                <a href="mailto:contato@nathanconde.com?subject=Interesse%20em%20Flowcomments%20Cloud" className="text-primary-600 hover:underline font-medium">
+                <a href="mailto:contato@nathanconde.com?subject=Interesse%20em%20Flowcomments%20Cloud" className="text-zinc-600 hover:underline font-medium">
                   → Entre em contato
                 </a> para saber mais
               </p>
@@ -219,7 +219,7 @@ export default function LicencaPage() {
                 Para casos como white-label, oferecê-lo como SaaS, remover atribuição ou outros usos
                 comerciais, entre em contato para licenciamento comercial:<br />
                 <strong>E-mail:</strong>{' '}
-                <a href="mailto:contato@nathanconde.com" className="text-primary-600 hover:underline">
+                <a href="mailto:contato@nathanconde.com" className="text-zinc-600 hover:underline">
                   contato@nathanconde.com
                 </a>
               </p>
@@ -271,7 +271,7 @@ export default function LicencaPage() {
             Flowcomments © 2026 Nathan Condé • Licença: Sustainable Use License
           </p>
           <div className="mt-2">
-            <Link href="/licenca" className="text-primary-600 hover:underline">
+            <Link href="/licenca" className="text-zinc-600 hover:underline">
               Licença
             </Link>
             {' • '}
@@ -279,14 +279,14 @@ export default function LicencaPage() {
               href="https://github.com/NathanConde-dev/flowcomments"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary-600 hover:underline"
+              className="text-zinc-600 hover:underline"
             >
               GitHub
             </a>
             {' • '}
             <a
               href="mailto:contato@nathanconde.com"
-              className="text-primary-600 hover:underline"
+              className="text-zinc-600 hover:underline"
             >
               Contato
             </a>

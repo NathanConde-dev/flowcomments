@@ -270,7 +270,7 @@ export function MCPTokenSection() {
           </div>
         )}
 
-        <div className="rounded-lg bg-blue-50 p-4">
+        <div className="rounded-lg bg-zinc-50 p-4">
           <p className="text-xs text-blue-900">
             <strong>Ferramentas disponíveis:</strong> get_setup_guide, get_instance_urls, 
             check_setup_status, test_meta_credentials, explain_error

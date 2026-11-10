@@ -1,16 +1,26 @@
 import { redirect } from 'next/navigation';
 import { readSession } from '@/lib/auth/session';
+import { SessionKeepalive } from '@/components/providers/session-keepalive';
+import { Sidebar } from '@/components/layout/sidebar-server';
 
 export default async function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const sessionData = await readSession();
+  const session = await readSession();
   
-  if (!sessionData.isLoggedIn) {
+  if (!session.isLoggedIn) {
     redirect('/login');
   }
 
-  return <>{children}</>;
+  return (
+    <div className="flex h-screen overflow-hidden bg-zinc-50">
+      <Sidebar />
+      <main className="flex-1 overflow-auto">
+        <SessionKeepalive />
+        {children}
+      </main>
+    </div>
+  );
 }

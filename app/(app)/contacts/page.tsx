@@ -1,4 +1,5 @@
-import { requireAuth } from '@/lib/auth/session';
+import { readSession } from '@/lib/auth/session';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Users } from 'lucide-react';
@@ -21,7 +22,11 @@ async function getContacts(userId: string) {
 }
 
 export default async function ContactsPage() {
-  const session = await requireAuth();
+  const session = await readSession();
+  
+  if (!session.isLoggedIn) {
+    redirect('/login');
+  };
   const contacts = await getContacts(session.userId);
 
   return (
@@ -36,8 +41,8 @@ export default async function ContactsPage() {
       {contacts.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="mb-4 rounded-full bg-primary-50 p-4">
-              <Users className="h-8 w-8 text-primary-600" />
+            <div className="mb-4 rounded-full bg-zinc-50 p-4">
+              <Users className="h-8 w-8 text-zinc-600" />
             </div>
             <h3 className="mb-2 text-lg font-semibold">Nenhum contato ainda</h3>
             <p className="text-center text-gray-600">
@@ -51,8 +56,8 @@ export default async function ContactsPage() {
             <div className="divide-y divide-gray-200">
               {contacts.map((contact) => (
                 <div key={contact.id} className="flex items-center gap-4 p-4 hover:bg-gray-50">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100">
-                    <Users className="h-6 w-6 text-primary-600" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-100">
+                    <Users className="h-6 w-6 text-zinc-600" />
                   </div>
                   <div className="flex-1">
                     <p className="font-medium">@{contact.igUsername}</p>
@@ -71,7 +76,7 @@ export default async function ContactsPage() {
                       {JSON.parse(contact.tags).map((tag: string, idx: number) => (
                         <span
                           key={idx}
-                          className="rounded-full bg-primary-50 px-2 py-1 text-xs text-primary-700"
+                          className="rounded-full bg-zinc-50 px-2 py-1 text-xs text-zinc-700"
                         >
                           {tag}
                         </span>
