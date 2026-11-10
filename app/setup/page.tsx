@@ -272,24 +272,60 @@ export default function SetupPage() {
                   </p>
                 </div>
 
-                <div className="rounded-lg bg-blue-50 p-4">
-                  <p className="text-sm font-medium text-blue-900 mb-2">
-                    URL do Webhook (cole no Meta):
-                  </p>
-                  <div className="flex gap-2">
-                    <Input
-                      value={webhookUrl}
-                      readOnly
-                      className="text-xs"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigator.clipboard.writeText(webhookUrl)}
-                    >
-                      Copiar
-                    </Button>
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-blue-50 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-medium text-blue-900">
+                        URL do Webhook (cole no Meta):
+                      </p>
+                      <MetaFieldHelp field="webhookUrl" appId={metaConfig.appId} />
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        value={webhookUrl}
+                        readOnly
+                        className="text-xs"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigator.clipboard.writeText(webhookUrl)}
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-purple-50 p-4">
+                    <p className="text-sm font-medium text-purple-900 mb-2">
+                      OAuth Redirect URI (adicione no Meta):
+                    </p>
+                    <div className="flex gap-2">
+                      <Input
+                        value={typeof window !== 'undefined' 
+                          ? `${window.location.origin}/api/instagram/callback`
+                          : 'https://seu-dominio.com/api/instagram/callback'}
+                        readOnly
+                        className="text-xs"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const url = typeof window !== 'undefined' 
+                            ? `${window.location.origin}/api/instagram/callback`
+                            : '';
+                          navigator.clipboard.writeText(url);
+                        }}
+                      >
+                        Copiar
+                      </Button>
+                    </div>
+                    <p className="mt-2 text-xs text-purple-700">
+                      Cole em: Facebook Login for Business → Settings → Valid OAuth Redirect URIs
+                    </p>
                   </div>
                 </div>
 
