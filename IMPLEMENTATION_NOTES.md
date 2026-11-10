@@ -24,60 +24,53 @@
 - Testes unitários para automation engine e webhook
 - README completo em pt-BR
 
-## 🚧 O Que Ainda Precisa Ser Implementado
+## ✅ P0 COMPLETO - Fluxo OAuth do Instagram
 
-### 1. Fluxo OAuth do Instagram (CRÍTICO para funcionar)
+### Implementado em 100%:
 
-Atualmente o código tem:
-- ✅ Cliente da API do Instagram
-- ✅ Armazenamento de tokens no banco
-- ⚠️ **Falta**: Rotas de OAuth callback e fluxo completo
+#### ✅ a) OAuth Connect (`app/api/instagram/connect/route.ts`)
+- Gera URL do Facebook Login com todos os scopes
+- Usa config_id do setup wizard
+- CSRF protection com state token
+- Redireciona usuário para Meta
 
-**O que precisa ser implementado:**
+#### ✅ b) OAuth Callback (`app/api/instagram/callback/route.ts`)
+- Recebe e valida code + state (CSRF check)
+- Troca code por short-lived token
+- Converte para long-lived token (60 dias)
+- Descobre contas via:
+  - `/me/assigned_instagram_accounts`
+  - `/me/accounts` + `instagram_business_account`
+- Salva tokens encrypted no banco
+- Subscreve webhook automaticamente
+- Suporta múltiplas contas com página de escolha
 
-#### a) Rota de início do OAuth (client-side)
-`app/api/instagram/connect/route.ts`:
-- Gerar URL do Facebook Login com scopes corretos
-- Redirecionar usuário para o Meta
-- Scopes necessários:
-  - `instagram_basic`
-  - `instagram_manage_comments`
-  - `instagram_manage_messages`
-  - `pages_show_list`
-  - `pages_read_engagement`
-  - `business_management` (se usar Facebook Login for Business)
+#### ✅ c) UI Completa (`app/settings/page.tsx`)
+- Botão "Conectar Instagram" funcional
+- Loading states
+- Mensagens de erro claras com hints em pt-BR
+- Botão "Testar Credenciais" antes de conectar
+- Fallback: conexão manual com token
+- Lista de contas conectadas
+- Botão desconectar
 
-#### b) Rota de callback OAuth
-`app/api/instagram/callback/route.ts`:
-- Receber `code` do Meta
-- Trocar por access_token usando App Secret
-- Buscar contas do Instagram vinculadas via Graph API:
-  - `/me/accounts` (páginas do Facebook)
-  - Para cada página: `/{page-id}?fields=instagram_business_account`
-  - OU usar `debug_token` para pegar `target_ids` e `granular_scopes`
-- Salvar no banco: `InstagramAccount` com token, user_id, ig_username
-- Redirecionar para `/settings` com mensagem de sucesso
+#### ✅ d) Fallback Manual (`app/api/instagram/manual-connect/route.ts`)
+- Conectar com system-user ou long-lived token
+- Validação via Graph API
+- Mesmo fluxo de salvamento
 
-#### c) Componente de botão "Conectar Instagram"
-Em `app/settings/page.tsx`:
-- Botão que chama `/api/instagram/connect`
-- Loading state
-- Tratamento de erros com mensagens claras:
-  - "Redirect URI não configurado no Meta"
-  - "Permissões insuficientes"
-  - "App em modo Development"
-  - "Conta não encontrada (mesmo Business Portfolio)"
+#### ✅ e) Desconectar Conta (`app/api/instagram/disconnect/route.ts`)
+- Marca `isActive = false`
+- Confirmação na UI
+- Preserva token para possível reativação
 
-#### d) Renovação de Tokens
-Instagram Business tokens expiram (60 dias por padrão). Implementar:
+### ⚠️ Ainda Por Implementar (P1):
+
+#### d) Renovação Automática de Tokens
+Instagram Business tokens expiram (60 dias). Implementar:
 - Cron job ou background task para renovar tokens próximos do vencimento
 - Endpoint: `GET /{ig-user-id}?fields=access_token&grant_type=ig_refresh_token`
 - Atualizar `accessToken` e `tokenExpiresAt` no banco
-
-#### e) Desconectar Conta
-`app/api/instagram/disconnect/route.ts`:
-- Marcar `isActive = false` no banco
-- Opcionalmente: revocar token no Meta
 
 ### 2. Melhorias de UX
 
