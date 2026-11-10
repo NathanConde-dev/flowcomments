@@ -1,8 +1,26 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/client';
 import { encrypt } from '@/lib/crypto/encryption';
+import { requireAuth } from '@/lib/auth/session';
 
 export async function POST(request: Request) {
+  // Require auth after initial setup
+  const adminCount = await prisma.user.count({
+    where: { isAdmin: true },
+  });
+  
+  if (adminCount > 0) {
+    // Setup complete - require authentication
+    try {
+      await requireAuth();
+    } catch {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 403 }
+      );
+    }
+  }
+
   try {
     const body = await request.json();
     const { appId, appSecret, configId, webhookVerifyToken } = body;

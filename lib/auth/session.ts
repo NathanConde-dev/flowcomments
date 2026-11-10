@@ -156,10 +156,36 @@ export class AuthError extends Error {
 
 export async function requireAuth(): Promise<SessionData> {
   const session = await getSession();
+
   if (!session.isLoggedIn) {
-    throw new AuthError('Unauthorized', 401);
+    throw new AuthError('Authentication required', 401);
   }
-  return session as SessionData;
+
+  // Check expiry and refresh lastSeen for idle timeout
+  const now = Date.now();
+  
+  if (session.lastSeen && now - session.lastSeen > IDLE_TIMEOUT) {
+    await session.destroy();
+    throw new AuthError('Session expired (idle timeout)', 401);
+  }
+  
+  if (session.loginAt && now - session.loginAt > ABSOLUTE_TIMEOUT) {
+    await session.destroy();
+    throw new AuthError('Session expired (absolute timeout)', 401);
+  }
+
+  // Refresh lastSeen for sliding window
+  session.lastSeen = now;
+  await session.save();
+
+  return {
+    userId: session.userId,
+    username: session.username,
+    isAdmin: session.isAdmin,
+    isLoggedIn: session.isLoggedIn,
+    loginAt: session.loginAt,
+    lastSeen: session.lastSeen,
+  };
 }
 
 export async function requireAdmin(): Promise<SessionData> {
