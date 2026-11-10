@@ -7,14 +7,15 @@ import { useState } from 'react';
 
 interface SidebarClientProps {
   username: string;
+  email: string;
   igAccount: {
     username: string;
     userId: string;
   } | null;
 }
 
-export function SidebarClient({ username, igAccount }: SidebarClientProps) {
-  return <SidebarInner username={username} igAccount={igAccount} />;
+export function SidebarClient({ username, email, igAccount }: SidebarClientProps) {
+  return <SidebarInner username={username} email={email} igAccount={igAccount} />;
 }
 
 const navigation = [
@@ -25,7 +26,7 @@ const navigation = [
   { name: 'Configurações', href: '/settings', icon: Settings },
 ];
 
-function SidebarInner({ username, igAccount }: SidebarClientProps) {
+function SidebarInner({ username, email, igAccount }: SidebarClientProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -72,12 +73,12 @@ function SidebarInner({ username, igAccount }: SidebarClientProps) {
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`
-                    flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium
+                    flex items-center gap-3 px-3 py-2 rounded-md text-sm
                     transition-colors
                     ${
                       isActive
-                        ? 'bg-zinc-100 text-zinc-900'
-                        : 'text-white bg-zinc-900 hover:bg-zinc-800zinc-50 hover:text-zinc-900'
+                        ? 'bg-zinc-100 text-zinc-900 font-medium'
+                        : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                     }
                   `}
                 >
@@ -95,6 +96,7 @@ function SidebarInner({ username, igAccount }: SidebarClientProps) {
               <Link 
                 href="/settings/instagram"
                 className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-zinc-50 transition-colors"
+                title={`@${igAccount.username}`}
               >
                 <div className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center text-white text-sm font-medium">
                   {igAccount.username[0].toUpperCase()}
@@ -115,8 +117,9 @@ function SidebarInner({ username, igAccount }: SidebarClientProps) {
             )}
 
             {/* User info */}
-            <div className="px-3 py-2 text-xs text-zinc-500">
-              {username}
+            <div className="px-3 py-2">
+              <p className="text-sm font-medium text-zinc-900">{username}</p>
+              {email && <p className="text-xs text-zinc-500">{email}</p>}
             </div>
 
             {/* Logout */}

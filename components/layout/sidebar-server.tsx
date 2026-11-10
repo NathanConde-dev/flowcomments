@@ -9,6 +9,15 @@ export async function Sidebar() {
     return null;
   }
 
+  // Get user details
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: {
+      username: true,
+      email: true,
+    },
+  });
+
   // Get connected IG account
   const igAccount = await prisma.instagramAccount.findFirst({
     where: { userId: session.userId, isActive: true },
@@ -20,7 +29,8 @@ export async function Sidebar() {
 
   return (
     <SidebarClient
-      username={session.username}
+      username={user?.username || session.username}
+      email={user?.email || ''}
       igAccount={igAccount ? {
         username: igAccount.igUsername,
         userId: igAccount.igUserId,
