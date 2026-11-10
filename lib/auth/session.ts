@@ -76,7 +76,8 @@ export async function getSession(): Promise<IronSession<SessionData>> {
       secure: process.env.NODE_ENV === 'production',
       httpOnly: true,
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7,
+      // Session cookie - no maxAge means browser session only
+      // Will be cleared when browser closes
     },
   });
 
@@ -88,6 +89,11 @@ export async function getSession(): Promise<IronSession<SessionData>> {
   }
 
   return session;
+}
+
+export async function destroySession(): Promise<void> {
+  const session = await getSession();
+  session.destroy();
 }
 
 export class AuthError extends Error {
