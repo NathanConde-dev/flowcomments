@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth/session';
+import { requireAuth, AuthError } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
 import crypto from 'crypto';
 
@@ -39,6 +39,12 @@ export async function POST() {
       message: 'Token gerado com sucesso. Guarde-o em local seguro - não será exibido novamente.',
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode }
+      );
+    }
     console.error('Error generating MCP token:', error);
     return NextResponse.json(
       { error: 'Failed to generate token' },
@@ -68,6 +74,12 @@ export async function DELETE() {
       message: 'Token revogado com sucesso',
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode }
+      );
+    }
     console.error('Error revoking MCP token:', error);
     return NextResponse.json(
       { error: 'Failed to revoke token' },
@@ -96,6 +108,12 @@ export async function GET() {
       hasToken: !!config,
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.statusCode }
+      );
+    }
     console.error('Error checking MCP token:', error);
     return NextResponse.json(
       { error: 'Failed to check token' },
