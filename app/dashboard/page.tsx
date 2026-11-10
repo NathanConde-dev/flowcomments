@@ -1,9 +1,10 @@
-import { requireAuth } from '@/lib/auth/session';
+import { readSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity, Zap, Users, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,12 @@ async function getDashboardStats(userId: string) {
 }
 
 export default async function DashboardPage() {
-  const session = await requireAuth();
+  const session = await readSession();
+  
+  if (!session.isLoggedIn) {
+    redirect('/login');
+  }
+  
   const stats = await getDashboardStats(session.userId);
 
   return (
