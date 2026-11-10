@@ -71,7 +71,7 @@ const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const ABSOLUTE_TIMEOUT = 12 * 60 * 60 * 1000; // 12 hours
 
 // Read-only session check for Server Components (no cookie writes)
-export async function readSession(): Promise<IronSession<SessionData>> {
+export async function readSession(): Promise<SessionData> {
   const cookieStore = await cookies();
   const secret = await getSessionSecret();
   
@@ -85,7 +85,7 @@ export async function readSession(): Promise<IronSession<SessionData>> {
     },
   });
 
-  // Check expiry but don't write
+  // Check expiry but don't write - just return plain data
   if (session.isLoggedIn) {
     const now = Date.now();
     
@@ -93,25 +93,28 @@ export async function readSession(): Promise<IronSession<SessionData>> {
       (session.lastSeen && now - session.lastSeen > IDLE_TIMEOUT) ||
       (session.loginAt && now - session.loginAt > ABSOLUTE_TIMEOUT)
     ) {
-      // Expired - return logged out (will be cleaned up by requireAuth)
+      // Expired - return logged out
       return {
-        ...session,
-        userId: defaultSession.userId,
-        username: defaultSession.username,
-        isAdmin: defaultSession.isAdmin,
-        isLoggedIn: defaultSession.isLoggedIn,
-      } as IronSession<SessionData>;
+        ...defaultSession,
+      };
     }
   }
 
   if (!session.isLoggedIn) {
-    session.userId = defaultSession.userId;
-    session.username = defaultSession.username;
-    session.isAdmin = defaultSession.isAdmin;
-    session.isLoggedIn = defaultSession.isLoggedIn;
+    return {
+      ...defaultSession,
+    };
   }
 
-  return session;
+  // Return plain data object, not iron-session proxy
+  return {
+    userId: session.userId,
+    username: session.username,
+    isAdmin: session.isAdmin,
+    isLoggedIn: session.isLoggedIn,
+    loginAt: session.loginAt,
+    lastSeen: session.lastSeen,
+  };
 }
 
 // Full session with write capability for Route Handlers
