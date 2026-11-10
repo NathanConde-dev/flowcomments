@@ -42,10 +42,13 @@ export async function POST(request: Request) {
     }
 
     const session = await getSession();
+    const now = Date.now();
     session.userId = user.id;
     session.username = user.username;
     session.isAdmin = user.isAdmin;
     session.isLoggedIn = true;
+    session.loginAt = now;
+    session.lastSeen = now;
     await session.save();
 
     return NextResponse.json({

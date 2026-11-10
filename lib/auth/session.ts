@@ -8,6 +8,8 @@ export interface SessionData {
   username: string;
   isAdmin: boolean;
   isLoggedIn: boolean;
+  loginAt?: number; // Timestamp when user logged in
+  lastSeen?: number; // Last activity timestamp
 }
 
 const defaultSession: SessionData = {
