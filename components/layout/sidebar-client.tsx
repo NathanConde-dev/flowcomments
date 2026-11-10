@@ -17,8 +17,6 @@ export function SidebarClient({ username, igAccount }: SidebarClientProps) {
   return <SidebarInner username={username} igAccount={igAccount} />;
 }
 
-function SidebarInner({ username, igAccount }: SidebarClientProps) {
-
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
   { name: 'Contatos', href: '/contacts', icon: Users },
