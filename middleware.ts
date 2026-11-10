@@ -1,30 +1,39 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Public paths that don't require authentication
-const publicPaths = [
+// Paths that don't require authentication
+// Use exact match for root-level paths, prefix match only for actual prefixes
+const publicPathsExact = [
   '/',
   '/login',
   '/setup',
   '/licenca',
   '/setup-com-ia.md',
+  '/favicon.ico',
+];
+
+const publicPathsPrefixes = [
   '/api/auth/login',
   '/api/auth/logout',
-  '/api/setup/admin',
-  '/api/setup/meta',
+  '/api/setup/',
   '/api/health',
-  '/api/webhook', // Meta webhooks are unauthenticated
-  '/api/instagram/oauth/callback',
+  '/api/webhook',
+  '/api/instagram/callback', // Meta OAuth callback
   '/api/mcp', // Uses Bearer token auth, not session
-  '/_next',
-  '/favicon.ico',
+  '/_next/',
+  '/public/',
 ];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public paths
-  if (publicPaths.some(path => pathname.startsWith(path))) {
+  // Check exact matches
+  if (publicPathsExact.includes(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Check prefix matches
+  if (publicPathsPrefixes.some(prefix => pathname.startsWith(prefix))) {
     return NextResponse.next();
   }
 
@@ -53,6 +62,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image).*)',
   ],
 };
