@@ -85,14 +85,19 @@ export async function readSession(): Promise<SessionData> {
     },
   });
 
+  console.log('[readSession] isLoggedIn:', session.isLoggedIn, 'userId:', session.userId);
+
   // Check expiry but don't write - just return plain data
   if (session.isLoggedIn) {
     const now = Date.now();
+    
+    console.log('[readSession] Checking expiry: now:', now, 'lastSeen:', session.lastSeen, 'loginAt:', session.loginAt);
     
     if (
       (session.lastSeen && now - session.lastSeen > IDLE_TIMEOUT) ||
       (session.loginAt && now - session.loginAt > ABSOLUTE_TIMEOUT)
     ) {
+      console.log('[readSession] Session expired');
       // Expired - return logged out
       return {
         ...defaultSession,
@@ -101,11 +106,13 @@ export async function readSession(): Promise<SessionData> {
   }
 
   if (!session.isLoggedIn) {
+    console.log('[readSession] Not logged in, returning default');
     return {
       ...defaultSession,
     };
   }
 
+  console.log('[readSession] Returning valid session');
   // Return plain data object, not iron-session proxy
   return {
     userId: session.userId,
