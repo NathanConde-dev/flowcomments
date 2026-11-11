@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Copy, Key, Sparkles } from 'lucide-react';
+import { toast } from '@/lib/ui/toast';
 
 type Guide = {
   id: string;
@@ -134,11 +135,12 @@ export function MCPTokenSection() {
         const data = await res.json();
         setGeneratedToken(data.token);
         setHasToken(true);
+        toast.success('Token MCP gerado', 'Copie agora — ele só aparece uma vez.');
       } else {
-        alert('Erro ao gerar token');
+        toast.error('Erro ao gerar token');
       }
     } catch {
-      alert('Erro ao gerar token');
+      toast.error('Erro ao gerar token');
     } finally {
       setGenerating(false);
     }
@@ -154,9 +156,12 @@ export function MCPTokenSection() {
       if (res.ok) {
         setHasToken(false);
         setGeneratedToken(null);
+        toast.success('Token MCP revogado');
+      } else {
+        toast.error('Erro ao revogar token');
       }
     } catch {
-      alert('Erro ao revogar token');
+      toast.error('Erro ao revogar token');
     }
   };
 
@@ -184,6 +189,7 @@ Header: Authorization: Bearer ${tokenPlaceholder}`;
   const copyText = async (value: string, id: string) => {
     await navigator.clipboard.writeText(value);
     setCopied(id);
+    toast.success('Copiado');
     setTimeout(() => setCopied(null), 1600);
   };
 

@@ -16,11 +16,12 @@ const allowed = [
 
 const forbidden = [
   'Vender ou revender o Flowcomments como produto ou serviço',
-  'Oferecer o Flowcomments como SaaS/serviço hospedado para terceiros',
+  'Oferecer o Flowcomments como SaaS/serviço hospedado para terceiros (assinatura mensal concorrente)',
   'White-label (remover nossa marca e vender como se fosse seu)',
   'Cobrar de outras pessoas especificamente pelo acesso ao software',
   'Remover ou modificar o logo “Flowcomments” e o texto “Powered by Flowcomments” da interface',
   'Criar um produto concorrente usando nosso código',
+  'Usar este repositório público para montar um “Flowcomments Cloud” próprio comercial',
 ];
 
 const faqs = [

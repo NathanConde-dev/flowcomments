@@ -8,13 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { MetaFieldHelp } from '@/components/setup/MetaFieldHelp';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { Copy } from 'lucide-react';
+import { toast } from '@/lib/ui/toast';
 
 export default function SetupPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  
+
   const [adminData, setAdminData] = useState({
     username: '',
     password: '',
@@ -34,19 +34,19 @@ export default function SetupPage() {
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
     setMetaConfig({ ...metaConfig, webhookVerifyToken: token });
+    toast.success('Verify Token gerado');
   };
 
   const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
 
     if (adminData.password !== adminData.confirmPassword) {
-      setError('As senhas não coincidem');
+      toast.error('As senhas não coincidem');
       return;
     }
 
     if (adminData.password.length < 8) {
-      setError('A senha deve ter pelo menos 8 caracteres');
+      toast.error('A senha deve ter pelo menos 8 caracteres');
       return;
     }
 
@@ -63,9 +63,10 @@ export default function SetupPage() {
         throw new Error(data.error || 'Erro ao criar admin');
       }
 
+      toast.success('Administrador criado');
       setStep(2);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      toast.error(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
@@ -73,7 +74,6 @@ export default function SetupPage() {
 
   const handleMetaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
@@ -88,9 +88,10 @@ export default function SetupPage() {
         throw new Error(data.error || 'Erro ao salvar configuração');
       }
 
+      toast.success('Configuração Meta salva');
       setStep(3);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      toast.error(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
@@ -165,11 +166,6 @@ export default function SetupPage() {
                     minLength={8}
                   />
                 </div>
-                {error && (
-                  <div className="rounded bg-red-50 p-3 text-sm text-red-600">
-                    {error}
-                  </div>
-                )}
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Criando...' : 'Continuar'}
                 </Button>
@@ -198,7 +194,10 @@ export default function SetupPage() {
                     const filled = prompt
                       .replace(/\{\{NEXT_PUBLIC_URL\}\}/g, baseUrl);
                     await navigator.clipboard.writeText(filled);
-                    alert('✓ Prompt copiado! Cole no Claude, ChatGPT ou Cursor para receber ajuda passo-a-passo.');
+                    toast.success(
+                      'Prompt copiado!',
+                      'Cole no Claude, ChatGPT ou Cursor para receber ajuda passo a passo.'
+                    );
                   }}
                   className="ml-4"
                 >
@@ -320,6 +319,7 @@ export default function SetupPage() {
                             ? `${window.location.origin}/api/instagram/callback`
                             : '';
                           navigator.clipboard.writeText(url);
+                          toast.success('URL de callback copiada');
                         }}
                       >
                         Copiar
@@ -330,12 +330,6 @@ export default function SetupPage() {
                     </p>
                   </div>
                 </div>
-
-                {error && (
-                  <div className="rounded bg-red-50 p-3 text-sm text-red-600">
-                    {error}
-                  </div>
-                )}
 
                 <div className="flex gap-2">
                   <Button

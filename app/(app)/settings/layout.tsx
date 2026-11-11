@@ -2,13 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Instagram, KeyRound, Sparkles, UserRound } from 'lucide-react';
+import { ArrowUpCircle, Bell, Instagram, KeyRound, Sparkles, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { AnnouncementBadge } from '@/components/settings/AnnouncementBadge';
+import { UpdateBadge } from '@/components/settings/UpdateBadge';
 
-const settingsTabs: { name: string; href: string; icon: LucideIcon }[] = [
+const settingsTabs: {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  badge?: 'updates' | 'announcements';
+}[] = [
   { name: 'Instagram', href: '/settings/instagram', icon: Instagram },
   { name: 'Meta App', href: '/settings/meta', icon: KeyRound },
   { name: 'MCP / IA', href: '/settings/mcp', icon: Sparkles },
+  { name: 'Comunicados', href: '/settings/announcements', icon: Bell, badge: 'announcements' },
+  { name: 'Atualizações', href: '/settings/updates', icon: ArrowUpCircle, badge: 'updates' },
   { name: 'Conta', href: '/settings/account', icon: UserRound },
 ];
 
@@ -47,6 +56,8 @@ export default function SettingsLayout({
                     }`}
                   />
                   {tab.name}
+                  {tab.badge === 'updates' ? <UpdateBadge /> : null}
+                  {tab.badge === 'announcements' ? <AnnouncementBadge /> : null}
                 </Link>
               );
             })}

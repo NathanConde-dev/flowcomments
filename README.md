@@ -149,6 +149,17 @@ Durante o setup wizard ou depois nas configurações:
 4. Cole o **Webhook Verify Token**
 5. Conecte sua conta do Instagram
 
+## 🔄 Atualizações e comunicados (self-hosted)
+
+Instalações locais/VPS em **Configurações**:
+
+- **Atualizações** — release nova no GitHub, changelog, update opt-in ([docs/UPDATES.md](./docs/UPDATES.md))
+- **Comunicados** — avisos/vídeos oficiais via control plane (`FLOWCOMMENTS_CONTROL_PLANE_URL`)
+
+O SaaS hospedado e o admin de comunicados ficam no repositório **privado** [`flowcomments-cloud`](https://github.com/NathanConde-dev/flowcomments-cloud). Este repo é só o core self-host. Detalhes: [docs/CLOUD_VS_SELFHOST.md](./docs/CLOUD_VS_SELFHOST.md).
+
+> Self-host para uso próprio: permitido. Revender como SaaS/assinatura concorrente: **proibido** pela [LICENSE](./LICENSE) (Sustainable Use).
+
 ## 🛠️ Desenvolvimento
 
 ```bash

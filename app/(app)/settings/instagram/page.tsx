@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Instagram } from 'lucide-react';
 import { AccountRowSkeleton } from '@/components/ui/skeletons';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { toast } from '@/lib/ui/toast';
 
 interface IGAccount {
   id: string;
@@ -16,6 +18,7 @@ interface IGAccount {
 }
 
 export default function InstagramSettingsPage() {
+  const router = useRouter();
   const [igAccounts, setIgAccounts] = useState<IGAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -48,6 +51,21 @@ export default function InstagramSettingsPage() {
     load();
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const success = params.get('success');
+    const error = params.get('error');
+    const message = params.get('message');
+
+    if (success === 'connected') {
+      toast.success('Conta Instagram conectada');
+      router.replace('/settings/instagram');
+    } else if (error) {
+      toast.error(message || 'Falha ao conectar Instagram');
+      router.replace('/settings/instagram');
+    }
+  }, [router]);
+
   const handleConnect = async () => {
     if (!metaConfigured) return;
     setConnecting(true);
@@ -65,14 +83,18 @@ export default function InstagramSettingsPage() {
       });
 
       if (res.ok) {
+        toast.success(`@${username} desconectada`);
         const accountsRes = await fetch('/api/instagram/accounts');
         if (accountsRes.ok) {
           const data = await accountsRes.json();
           setIgAccounts(data.accounts || []);
         }
+      } else {
+        toast.error('Erro ao desconectar conta');
       }
     } catch (error) {
       console.error('Error disconnecting:', error);
+      toast.error('Erro ao desconectar conta');
     }
   };
 

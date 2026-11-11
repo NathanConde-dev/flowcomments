@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Instagram } from 'lucide-react';
 import { ChooseAccountSkeleton } from '@/components/ui/skeletons';
+import { toast } from '@/lib/ui/toast';
 
 interface Account {
   id: string;
@@ -51,11 +52,11 @@ export default function ChooseAccountPage() {
       if (res.ok) {
         router.push('/settings/instagram?success=connected');
       } else {
-        alert('Erro ao conectar conta');
+        toast.error('Erro ao conectar conta');
       }
     } catch (error) {
       console.error('Error selecting account:', error);
-      alert('Erro ao conectar conta');
+      toast.error('Erro ao conectar conta');
     } finally {
       setSelecting(null);
     }

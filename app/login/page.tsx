@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { BrandLogo } from '@/components/brand/BrandLogo';
+import { toast } from '@/lib/ui/toast';
 
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [credentials, setCredentials] = useState({
     username: '',
     password: '',
@@ -20,7 +20,6 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
@@ -35,9 +34,10 @@ export default function LoginPage() {
         throw new Error(data.error || 'Erro ao fazer login');
       }
 
+      toast.success('Login realizado');
       router.push('/dashboard');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      toast.error(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setLoading(false);
     }
@@ -94,11 +94,6 @@ export default function LoginPage() {
                 autoComplete="current-password"
               />
             </div>
-            {error && (
-              <div className="rounded bg-red-50 p-3 text-sm text-red-600">
-                {error}
-              </div>
-            )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Entrando...' : 'Entrar'}
             </Button>

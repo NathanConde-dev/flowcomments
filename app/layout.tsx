@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Nunito_Sans } from 'next/font/google';
+import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
 
 const nunitoSans = Nunito_Sans({
@@ -41,7 +42,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className={`${nunitoSans.variable} font-sans antialiased`}>{children}</body>
+      <body className={`${nunitoSans.variable} font-sans antialiased`}>
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }

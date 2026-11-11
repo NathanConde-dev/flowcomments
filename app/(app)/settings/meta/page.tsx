@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MetaFieldHelp, getMetaFieldUrl } from '@/components/setup/MetaFieldHelp';
 import { SettingsFormSkeleton } from '@/components/ui/skeletons';
+import { toast } from '@/lib/ui/toast';
 
 const DRAFT_KEY = 'fc-meta-settings-draft';
 
@@ -74,6 +75,7 @@ function ConfigField({
     if (!canCopy) return;
     await navigator.clipboard.writeText(value);
     setCopied(true);
+    toast.success('Copiado');
     setTimeout(() => setCopied(false), 1400);
   };
 
@@ -157,7 +159,6 @@ export default function MetaAppSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const hydratedRef = useRef(false);
   const skipAutosaveRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -188,10 +189,7 @@ export default function MetaAppSettingsPage() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('needConfig') === '1') {
-        setMessage({
-          type: 'error',
-          text: 'Configure o Meta App antes de conectar o Instagram.',
-        });
+        toast.warning('Configure o Meta App antes de conectar o Instagram.');
       }
     }
   }, []);
@@ -289,7 +287,6 @@ export default function MetaAppSettingsPage() {
   ) => {
     const silent = options?.silent ?? false;
     setSaving(true);
-    if (!silent) setMessage(null);
 
     try {
       const res = await fetch('/api/settings/meta', {
@@ -303,7 +300,7 @@ export default function MetaAppSettingsPage() {
       if (res.ok) {
         setSaveState('saved');
         if (!silent) {
-          setMessage({ type: 'success', text: 'Configurações salvas. Agora conecte o Instagram.' });
+          toast.success('Configurações salvas', 'Agora conecte o Instagram.');
         }
         if (data.config) {
           skipAutosaveRef.current = true;
@@ -327,18 +324,16 @@ export default function MetaAppSettingsPage() {
         }
       } else {
         setSaveState('error');
-        setMessage({
-          type: 'error',
-          text:
-            data.error ||
+        toast.error(
+          data.error ||
             (res.status === 404
               ? 'API de configuração indisponível. Faça redeploy da versão mais recente.'
-              : 'Erro ao salvar configurações'),
-        });
+              : 'Erro ao salvar configurações')
+        );
       }
     } catch {
       setSaveState('error');
-      setMessage({ type: 'error', text: 'Erro ao salvar configurações' });
+      toast.error('Erro ao salvar configurações');
     } finally {
       setSaving(false);
     }
@@ -348,12 +343,11 @@ export default function MetaAppSettingsPage() {
 
   const handleTest = async () => {
     if (!config.metaAppId || !config.metaAppSecret || config.metaAppSecret.includes('••••')) {
-      setMessage({ type: 'error', text: 'Preencha App ID e App Secret (sem máscara) para testar' });
+      toast.error('Preencha App ID e App Secret (sem máscara) para testar');
       return;
     }
 
     setTesting(true);
-    setMessage(null);
 
     try {
       const res = await fetch('/api/instagram/test-credentials', {
@@ -363,12 +357,10 @@ export default function MetaAppSettingsPage() {
       });
 
       const data = await res.json();
-      setMessage({
-        type: data.valid ? 'success' : 'error',
-        text: data.valid ? 'Credenciais válidas!' : data.error || 'Credenciais inválidas',
-      });
+      if (data.valid) toast.success('Credenciais válidas!');
+      else toast.error(data.error || 'Credenciais inválidas');
     } catch {
-      setMessage({ type: 'error', text: 'Erro ao testar credenciais' });
+      toast.error('Erro ao testar credenciais');
     } finally {
       setTesting(false);
     }
@@ -384,16 +376,6 @@ export default function MetaAppSettingsPage() {
 
   return (
     <div className="w-full space-y-6">
-      {message && (
-        <div
-          className={`rounded-2xl p-4 text-sm ${
-            message.type === 'error' ? 'bg-red-50 text-red-900' : 'bg-green-50 text-green-900'
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
-
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">

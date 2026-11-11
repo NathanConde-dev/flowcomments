@@ -17,6 +17,7 @@ import {
   type FlowNodeId,
   type IGAccountOption,
 } from './types';
+import { toast } from '@/lib/ui/toast';
 
 export function AutomationBuilder() {
   const router = useRouter();
@@ -26,7 +27,6 @@ export function AutomationBuilder() {
   const [selected, setSelected] = useState<FlowNodeId>('trigger');
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -50,7 +50,6 @@ export function AutomationBuilder() {
   }, []);
 
   const handleSave = async () => {
-    setError('');
     setSaving(true);
 
     try {
@@ -116,9 +115,10 @@ export function AutomationBuilder() {
         throw new Error(data.error || 'Erro ao criar automação');
       }
 
+      toast.success('Automação criada');
       router.push('/automations');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      toast.error(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setSaving(false);
     }
@@ -188,12 +188,6 @@ export function AutomationBuilder() {
           </Button>
         </div>
       </header>
-
-      {error && (
-        <div className="border-b border-red-100 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">
-          {error}
-        </div>
-      )}
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <div className="fc-canvas-dot min-h-[280px] flex-1 overflow-auto sm:min-h-[420px]">
