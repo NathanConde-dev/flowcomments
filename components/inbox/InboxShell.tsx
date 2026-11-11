@@ -31,7 +31,7 @@ export function InboxShell({ initialConversationId }: { initialConversationId?: 
   const [listLoading, setListLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(initialConversationId || null);
   const [detail, setDetail] = useState<InboxConversationDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [, setDetailLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileShowChat, setMobileShowChat] = useState(Boolean(initialConversationId));
   const [listWidth, setListWidth] = useState(LIST_WIDTH_DEFAULT);

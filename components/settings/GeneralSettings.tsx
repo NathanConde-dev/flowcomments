@@ -14,12 +14,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { ACCOUNT_TIMEZONES, DEFAULT_ACCOUNT_TIMEZONE } from '@/lib/settings/timezones';
+import {
+  ACCOUNT_TIMEZONES,
+  DEFAULT_ACCOUNT_TIMEZONE,
+  isAccountTimezone,
+  type AccountTimezone,
+} from '@/lib/settings/timezones';
 import { toast } from '@/lib/ui/toast';
 
 export function GeneralSettings() {
   const router = useRouter();
-  const [timezone, setTimezone] = useState(DEFAULT_ACCOUNT_TIMEZONE);
+  const [timezone, setTimezone] = useState<AccountTimezone>(DEFAULT_ACCOUNT_TIMEZONE);
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingTz, setSavingTz] = useState(false);
@@ -36,7 +41,8 @@ export function GeneralSettings() {
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Erro ao carregar');
         if (cancelled) return;
-        setTimezone(json.timezone || DEFAULT_ACCOUNT_TIMEZONE);
+        const nextTz = String(json.timezone || '');
+        setTimezone(isAccountTimezone(nextTz) ? nextTz : DEFAULT_ACCOUNT_TIMEZONE);
         setUsername(json.username || '');
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Erro ao carregar');
@@ -50,6 +56,10 @@ export function GeneralSettings() {
   }, []);
 
   const saveTimezone = async (next: string) => {
+    if (!isAccountTimezone(next)) {
+      toast.error('Fuso horário inválido');
+      return;
+    }
     setTimezone(next);
     setSavingTz(true);
     try {
