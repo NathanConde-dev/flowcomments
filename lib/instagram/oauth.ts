@@ -92,6 +92,19 @@ export async function exchangeCodeForToken(
   return data;
 }
 
+/** Meta long-lived user tokens are typically ~60 days when expires_in is omitted. */
+export const DEFAULT_LONG_LIVED_TOKEN_SECONDS = 60 * 24 * 60 * 60;
+
+export function resolveTokenExpiresAt(expiresInSeconds?: number | null): Date {
+  const seconds =
+    typeof expiresInSeconds === 'number' &&
+    Number.isFinite(expiresInSeconds) &&
+    expiresInSeconds > 0
+      ? expiresInSeconds
+      : DEFAULT_LONG_LIVED_TOKEN_SECONDS;
+  return new Date(Date.now() + seconds * 1000);
+}
+
 export async function getLongLivedToken(
   shortLivedToken: string,
   appId: string,
@@ -111,7 +124,19 @@ export async function getLongLivedToken(
     throw new Error(data.error?.message || 'Failed to get long-lived token');
   }
 
-  return data;
+  if (!data?.access_token) {
+    throw new Error('Long-lived token response missing access_token');
+  }
+
+  const expiresIn =
+    typeof data.expires_in === 'number' && Number.isFinite(data.expires_in) && data.expires_in > 0
+      ? data.expires_in
+      : DEFAULT_LONG_LIVED_TOKEN_SECONDS;
+
+  return {
+    access_token: data.access_token,
+    expires_in: expiresIn,
+  };
 }
 
 export async function debugToken(

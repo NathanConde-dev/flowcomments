@@ -8,6 +8,7 @@ import {
   discoverInstagramAccounts,
   subscribePageToWebhooks,
   getErrorHintPtBR,
+  resolveTokenExpiresAt,
 } from '@/lib/instagram/oauth';
 import { encrypt } from '@/lib/crypto/encryption';
 
@@ -18,6 +19,15 @@ function absoluteUrl(request: Request, path: string) {
 
 function redirectTo(request: Request, path: string) {
   return NextResponse.redirect(absoluteUrl(request, path));
+}
+
+/** Keep user-facing redirect query short — never dump Prisma / stack traces into the URL. */
+function publicErrorMessage(error: unknown, fallback: string): string {
+  const raw = error instanceof Error ? error.message : fallback;
+  if (/Prisma|Invalid `|Expected Date|invocation/i.test(raw) || raw.length > 180) {
+    return fallback;
+  }
+  return raw;
 }
 
 export async function GET(request: Request) {
@@ -139,7 +149,7 @@ export async function GET(request: Request) {
       }
 
       const encryptedToken = encrypt(longLivedToken);
-      const expiresAt = new Date(Date.now() + expiresIn * 1000);
+      const expiresAt = resolveTokenExpiresAt(expiresIn);
 
       await prisma.instagramAccount.upsert({
         where: { igUserId: account.id },
@@ -206,7 +216,7 @@ export async function GET(request: Request) {
     return redirectTo(request, '/settings/choose-account');
   } catch (error) {
     console.error('OAuth callback error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+    const message = publicErrorMessage(error, 'Falha ao salvar a conta Instagram');
     const hint = getErrorHintPtBR(message);
     const params = new URLSearchParams({
       error: 'callback_failed',

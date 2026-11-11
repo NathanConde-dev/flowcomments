@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
 import { encrypt, decrypt } from '@/lib/crypto/encryption';
-import { subscribePageToWebhooks } from '@/lib/instagram/oauth';
+import { resolveTokenExpiresAt, subscribePageToWebhooks } from '@/lib/instagram/oauth';
 
 function parsePending(value: string, encrypted: boolean) {
   const raw = encrypted ? decrypt(value) : value;
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     }
 
     const encryptedToken = encrypt(data.token);
-    const expiresAt = new Date(Date.now() + data.expiresIn * 1000);
+    const expiresAt = resolveTokenExpiresAt(data.expiresIn);
 
     await prisma.instagramAccount.upsert({
       where: { igUserId: account.id },

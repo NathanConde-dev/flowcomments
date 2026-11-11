@@ -56,12 +56,16 @@ export default function InstagramSettingsPage() {
     const success = params.get('success');
     const error = params.get('error');
     const message = params.get('message');
+    const hint = params.get('hint');
 
     if (success === 'connected') {
       toast.success('Conta Instagram conectada');
       router.replace('/settings/instagram');
     } else if (error) {
-      toast.error(message || 'Falha ao conectar Instagram');
+      const detail = hint || message;
+      toast.error(
+        detail && detail.length <= 180 ? detail : 'Falha ao conectar Instagram'
+      );
       router.replace('/settings/instagram');
     }
   }, [router]);
