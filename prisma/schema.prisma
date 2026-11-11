@@ -198,14 +198,19 @@ model WebhookEvent {
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   igAccountId String?
   igAccount   InstagramAccount? @relation(fields: [igAccountId], references: [id], onDelete: SetNull)
+  /// Idempotency key, e.g. comment_<commentId>
+  externalId  String?  @unique
   eventType   String
   payload     String   @db.Text
   processed   Boolean  @default(false)
   processedAt DateTime?
   error       String?  @db.Text
+  attempts    Int      @default(0)
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([processed])
   @@index([createdAt])
   @@index([eventType])
+  @@index([processed, createdAt])
 }

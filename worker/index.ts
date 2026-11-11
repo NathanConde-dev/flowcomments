@@ -4,6 +4,10 @@ import {
   executeButtonPostback,
   executeFollowGatePostback,
 } from '@/lib/automation/engine';
+import {
+  startCommentRecoveryLoop,
+  stopCommentRecoveryLoop,
+} from '@/lib/automation/recovery';
 import { processWebhookEvent } from '@/lib/instagram/webhook';
 
 if (!process.env.REDIS_URL) {
@@ -54,10 +58,12 @@ webhookWorker.on('failed', (job, err) => {
   console.error(`[WEBHOOK] Job ${job?.id} failed:`, err.message);
 });
 
+startCommentRecoveryLoop();
 console.log('✅ Workers started successfully');
 
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received, closing workers...');
+  stopCommentRecoveryLoop();
   await automationWorker.close();
   await webhookWorker.close();
   process.exit(0);

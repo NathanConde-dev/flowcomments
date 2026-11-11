@@ -146,6 +146,87 @@ export async function processWebhookEvent(payload: WebhookPayload): Promise<void
   }
 }
 
+function commentExternalId(triggerType: string, commentId: string) {
+  return `${triggerType}_${commentId}`;
+}
+
+async function upsertCommentWebhookEvent(params: {
+  externalId: string;
+  userId?: string | null;
+  igAccountId?: string | null;
+  eventType: string;
+  payload: unknown;
+}) {
+  return prisma.webhookEvent.upsert({
+    where: { externalId: params.externalId },
+    create: {
+      externalId: params.externalId,
+      userId: params.userId || null,
+      igAccountId: params.igAccountId || null,
+      eventType: params.eventType,
+      payload: JSON.stringify(params.payload),
+      processed: false,
+      attempts: 0,
+    },
+    update: {
+      userId: params.userId || undefined,
+      igAccountId: params.igAccountId || undefined,
+      payload: JSON.stringify(params.payload),
+      // keep processed as-is; recovery/handler manages it
+    },
+  });
+}
+
+async function markWebhookProcessed(eventId: string, error?: string | null) {
+  await prisma.webhookEvent.update({
+    where: { id: eventId },
+    data: error
+      ? {
+          processed: false,
+          error,
+          attempts: { increment: 1 },
+        }
+      : {
+          processed: true,
+          processedAt: new Date(),
+          error: null,
+          attempts: { increment: 1 },
+        },
+  });
+}
+
+async function ensureCommentContact(params: {
+  userId: string;
+  igAccountId: string;
+  igUserId: string;
+  igUsername?: string;
+}) {
+  const existing = await prisma.contact.findFirst({
+    where: { igAccountId: params.igAccountId, igUserId: params.igUserId },
+  });
+
+  if (!existing) {
+    await prisma.contact.create({
+      data: {
+        userId: params.userId,
+        igAccountId: params.igAccountId,
+        igUserId: params.igUserId,
+        igUsername: params.igUsername || params.igUserId,
+        lastSeenAt: new Date(),
+      },
+    });
+    return;
+  }
+
+  await prisma.contact.update({
+    where: { id: existing.id },
+    data: {
+      lastSeenAt: new Date(),
+      ...(params.igUsername ? { igUsername: params.igUsername } : {}),
+    },
+  });
+}
+
 async function handleCommentEvent(
   value: any,
   triggerType: 'comment' | 'live_comment',
@@ -164,6 +245,8 @@ async function handleCommentEvent(
     });
     return;
   }
+
+  const externalId = commentExternalId(triggerType, commentId);
 
   // Meta puts the IG business account on entry.id; media.owner.id is often absent.
   const ownerCandidates = [
@@ -187,71 +270,174 @@ async function handleCommentEvent(
       mediaId: value.media?.id || value.media_id,
       commentId,
     });
+    const orphan = await upsertCommentWebhookEvent({
+      externalId,
+      eventType: triggerType,
+      payload: { ...value, entryIgUserId },
+    });
+    await markWebhookProcessed(orphan.id, 'IG account not found');
     return;
   }
 
   // Evita loop: resposta pública / comentário da própria conta re-dispara o webhook
   if (igUserId === igAccount.igUserId) {
     console.log('Comment event: ignoring own-account comment', { commentId, igUserId });
-    return;
-  }
-
-  await prisma.webhookEvent.create({
-    data: {
+    const own = await upsertCommentWebhookEvent({
+      externalId,
       userId: igAccount.userId,
       igAccountId: igAccount.id,
       eventType: triggerType,
-      payload: JSON.stringify(value),
-      processed: false,
-    },
+      payload: { ...value, entryIgUserId: igAccount.igUserId },
+    });
+    await markWebhookProcessed(own.id);
+    return;
+  }
+
+  const event = await upsertCommentWebhookEvent({
+    externalId,
+    userId: igAccount.userId,
+    igAccountId: igAccount.id,
+    eventType: triggerType,
+    payload: { ...value, entryIgUserId: igAccount.igUserId },
   });
 
-  const mediaId = comment.media?.id || value.media?.id || value.media_id;
-  const matchedAutomations = await findMatchingAutomations(
-    igAccount.id,
-    { text: commentText, mediaId },
-    triggerType
-  );
+  if (event.processed) {
+    console.log('Comment event already processed', { commentId, externalId });
+    return;
+  }
 
-  if (matchedAutomations.length === 0) {
-    console.log('Comment event: no matching automation', {
+  try {
+    // Contato primeiro — sobrevive mesmo se a automação falhar depois
+    await ensureCommentContact({
+      userId: igAccount.userId,
       igAccountId: igAccount.id,
-      mediaId,
-      text: commentText,
-      triggerType,
+      igUserId,
+      igUsername: comment.from?.username,
     });
-  }
 
-  for (const automationId of matchedAutomations) {
-    await queueOrExecuteAutomation(automationId, {
-      commentId,
-      commentText,
-      userId: igUserId,
-      username: comment.from?.username,
-      source: triggerType,
-    });
-  }
+    const mediaId = comment.media?.id || value.media?.id || value.media_id;
+    const matchedAutomations = await findMatchingAutomations(
+      igAccount.id,
+      { text: commentText, mediaId },
+      triggerType
+    );
 
-  const existing = await prisma.contact.findFirst({
-    where: { igAccountId: igAccount.id, igUserId },
+    if (matchedAutomations.length === 0) {
+      console.log('Comment event: no matching automation', {
+        igAccountId: igAccount.id,
+        mediaId,
+        text: commentText,
+        triggerType,
+      });
+      await markWebhookProcessed(event.id);
+      return;
+    }
+
+    for (const automationId of matchedAutomations) {
+      await queueOrExecuteAutomation(automationId, {
+        commentId,
+        commentText,
+        userId: igUserId,
+        username: comment.from?.username,
+        source: triggerType,
+      });
+    }
+
+    // Só marca processado quando todas as automações casadas concluíram.
+    // Se a fila ainda está rodando / falhou, fica pending p/ recovery.
+    const pendingAutomations: string[] = [];
+    for (const automationId of matchedAutomations) {
+      const done = await prisma.automationExecution.findFirst({
+        where: {
+          automationId,
+          triggeredBy: commentId,
+          status: 'completed',
+        },
+        select: { id: true },
+      });
+      if (!done) pendingAutomations.push(automationId);
+    }
+
+    if (pendingAutomations.length === 0) {
+      await markWebhookProcessed(event.id);
+    } else {
+      await prisma.webhookEvent.update({
+        where: { id: event.id },
+        data: {
+          processed: false,
+          error: `pending_automations:${pendingAutomations.length}`,
+          attempts: { increment: 1 },
+        },
+      });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    await markWebhookProcessed(event.id, message);
+    throw error;
+  }
+}
+
+/**
+ * Reprocessa comentários persistidos que ainda não foram concluídos
+ * (queda, falha de fila, token temporário, etc.) — janela de 7 dias.
+ */
+export async function recoverPendingCommentEvents(limit = 30): Promise<{
+  scanned: number;
+  recovered: number;
+  failed: number;
+}> {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const pending = await prisma.webhookEvent.findMany({
+    where: {
+      processed: false,
+      eventType: { in: ['comment', 'live_comment'] },
+      createdAt: { gte: since },
+      attempts: { lt: 20 },
+    },
+    orderBy: { createdAt: 'asc' },
+    take: limit,
   });
 
-  if (!existing) {
-    await prisma.contact.create({
-      data: {
-        userId: igAccount.userId,
-        igAccountId: igAccount.id,
-        igUserId,
-        igUsername: comment.from?.username || igUserId,
-        lastSeenAt: new Date(),
-      },
-    });
-  } else {
-    await prisma.contact.update({
-      where: { id: existing.id },
-      data: { lastSeenAt: new Date() },
-    });
+  let recovered = 0;
+  let failed = 0;
+
+  for (const event of pending) {
+    try {
+      const value = JSON.parse(event.payload);
+      const triggerType = (event.eventType === 'live_comment' ? 'live_comment' : 'comment') as
+        | 'comment'
+        | 'live_comment';
+      const entryIgUserId =
+        (typeof value.entryIgUserId === 'string' && value.entryIgUserId) ||
+        (event.igAccountId
+          ? (
+              await prisma.instagramAccount.findUnique({
+                where: { id: event.igAccountId },
+                select: { igUserId: true },
+              })
+            )?.igUserId
+          : undefined);
+
+      // Force reprocess: clear processed flag path by ensuring not processed
+      await prisma.webhookEvent.update({
+        where: { id: event.id },
+        data: { processed: false, error: null },
+      });
+
+      await handleCommentEvent(value, triggerType, entryIgUserId);
+      const refreshed = await prisma.webhookEvent.findUnique({ where: { id: event.id } });
+      if (refreshed?.processed) recovered += 1;
+      else failed += 1;
+    } catch (error) {
+      failed += 1;
+      console.error('recoverPendingCommentEvents failed', {
+        eventId: event.id,
+        error: error instanceof Error ? error.message : error,
+      });
+    }
   }
+
+  return { scanned: pending.length, recovered, failed };
 }
 
 async function handleMentionEvent(value: any, entryIgUserId?: string): Promise<void> {

@@ -860,13 +860,30 @@ export async function queueOrExecuteAutomation(
     const jobId = context.commentId
       ? `auto_${automationId}_c_${context.commentId}`
       : undefined;
+
+    if (jobId) {
+      const existing = await queue.getJob(jobId);
+      if (existing) {
+        const state = await existing.getState();
+        if (state === 'completed') return;
+        if (state === 'failed' || state === 'waiting' || state === 'delayed') {
+          // Re-enfileira recovery: remove job morto/travado e sobe de novo
+          if (state === 'failed') {
+            await existing.remove();
+          } else {
+            return;
+          }
+        }
+        if (state === 'active') return;
+      }
+    }
+
     await queue.add(
       'execute-automation',
       { automationId, context },
       jobId
         ? {
             jobId,
-            // Um comentário = uma execução; retries só no mesmo job
             attempts: 3,
           }
         : undefined
@@ -874,6 +891,61 @@ export async function queueOrExecuteAutomation(
   } else {
     await executeAutomation(automationId, context);
   }
+}
+
+/** Reprocessa execuções de comentário que falharam e ainda não têm completed. */
+export async function recoverFailedCommentAutomations(limit = 30): Promise<{
+  scanned: number;
+  queued: number;
+}> {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const failed = await prisma.automationExecution.findMany({
+    where: {
+      status: 'failed',
+      createdAt: { gte: since },
+      triggeredBy: { not: null },
+    },
+    orderBy: { createdAt: 'asc' },
+    take: limit,
+    select: {
+      id: true,
+      automationId: true,
+      triggeredBy: true,
+      metadata: true,
+    },
+  });
+
+  let queued = 0;
+  for (const exec of failed) {
+    if (!exec.triggeredBy) continue;
+    const done = await prisma.automationExecution.findFirst({
+      where: {
+        automationId: exec.automationId,
+        triggeredBy: exec.triggeredBy,
+        status: 'completed',
+      },
+      select: { id: true },
+    });
+    if (done) continue;
+
+    let meta: AutomationContext = {};
+    try {
+      meta = JSON.parse(exec.metadata || '{}') as AutomationContext;
+    } catch {
+      meta = {};
+    }
+
+    await queueOrExecuteAutomation(exec.automationId, {
+      commentId: meta.commentId || exec.triggeredBy,
+      commentText: meta.commentText,
+      userId: meta.userId,
+      username: meta.username,
+      source: meta.source,
+    });
+    queued += 1;
+  }
+
+  return { scanned: failed.length, queued };
 }
 
 /** @deprecated alias kept for older imports */
