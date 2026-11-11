@@ -5,17 +5,38 @@ import { Card, CardContent } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/motion';
 import { ClosedBadge, OpenBadge } from '@/components/ui/status-badge';
 import { InstagramDirectIcon } from '@/components/icons/InstagramDirectIcon';
+import {
+  DEFAULT_PAGE_SIZE,
+  PaginationNav,
+  parsePage,
+} from '@/components/ui/pagination-nav';
 
 export const dynamic = 'force-dynamic';
 
-async function getConversations(userId: string) {
-  return prisma.conversation.findMany({
-    where: { userId },
+export default async function InboxPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ page?: string }>;
+}) {
+  const session = await readSession();
+  if (!session.isLoggedIn) redirect('/login');
+
+  const params = (await searchParams) || {};
+  const page = parsePage(params.page);
+  const pageSize = DEFAULT_PAGE_SIZE;
+  const where = { userId: session.userId };
+  const totalItems = await prisma.conversation.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const conversations = await prisma.conversation.findMany({
+    where,
     include: {
       contact: {
         select: {
           igUsername: true,
           fullName: true,
+          profilePic: true,
         },
       },
       igAccount: {
@@ -25,17 +46,9 @@ async function getConversations(userId: string) {
       },
     },
     orderBy: { lastMessageAt: 'desc' },
-    take: 50,
+    skip: (safePage - 1) * pageSize,
+    take: pageSize,
   });
-}
-
-export default async function InboxPage() {
-  const session = await readSession();
-
-  if (!session.isLoggedIn) {
-    redirect('/login');
-  }
-  const conversations = await getConversations(session.userId);
 
   return (
     <PageShell className="p-4 sm:p-6 md:p-8">
@@ -43,6 +56,7 @@ export default async function InboxPage() {
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Inbox</h1>
         <p className="mt-1 text-[15px] text-muted-foreground">
           Conversas e mensagens recebidas
+          {totalItems > 0 ? ` · ${totalItems} no total` : ''}
         </p>
       </div>
 
@@ -65,12 +79,22 @@ export default async function InboxPage() {
               {conversations.map((conversation) => (
                 <div
                   key={conversation.id}
-                  className="flex items-center gap-4 p-4 hover:bg-muted/70 transition-colors duration-200 cursor-pointer"
+                  className="flex cursor-pointer items-center gap-4 p-4 transition-colors duration-200 hover:bg-muted/70"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                    <InstagramDirectIcon className="h-6 w-6 text-muted-foreground" />
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-muted">
+                    {conversation.contact.profilePic ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={conversation.contact.profilePic}
+                        alt={`@${conversation.contact.igUsername}`}
+                        className="h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <InstagramDirectIcon className="h-6 w-6 text-muted-foreground" />
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-semibold">@{conversation.contact.igUsername}</p>
                       {conversation.unreadCount > 0 && (
@@ -80,12 +104,24 @@ export default async function InboxPage() {
                       )}
                     </div>
                     {conversation.contact.fullName && (
-                      <p className="text-sm text-muted-foreground">{conversation.contact.fullName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {conversation.contact.fullName}
+                      </p>
                     )}
                     <p className="text-xs text-muted-foreground">
                       Via @{conversation.igAccount.igUsername}
                       {conversation.lastMessageAt && (
-                        <> • {new Date(conversation.lastMessageAt).toLocaleDateString('pt-BR')}</>
+                        <>
+                          {' '}
+                          ·{' '}
+                          {new Date(conversation.lastMessageAt).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </>
                       )}
                     </p>
                   </div>
@@ -93,6 +129,13 @@ export default async function InboxPage() {
                 </div>
               ))}
             </div>
+            <PaginationNav
+              page={safePage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              basePath="/inbox"
+            />
           </CardContent>
         </Card>
       )}

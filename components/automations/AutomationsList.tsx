@@ -43,6 +43,10 @@ export function AutomationsList({ initialItems }: AutomationsListProps) {
   const [deleteTarget, setDeleteTarget] = useState<AutomationListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  useEffect(() => {
+    setItems(initialItems);
+  }, [initialItems]);
+
   const accountIds = useMemo(
     () => [...new Set(items.map((item) => item.igAccountId))],
     [items]

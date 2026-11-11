@@ -98,16 +98,28 @@ async function getOrCreateContact(params: {
   igAccountId: string;
   igUserId: string;
   igUsername?: string;
+  client?: InstagramClient;
 }) {
   const existing = await prisma.contact.findFirst({
     where: { igAccountId: params.igAccountId, igUserId: params.igUserId },
   });
+
+  let profilePic = existing?.profilePic || undefined;
+  let fullName = existing?.fullName || undefined;
+  if ((!profilePic || !fullName) && params.client) {
+    const profile = await params.client.getScopedUserProfile(params.igUserId);
+    if (profile?.profilePic) profilePic = profile.profilePic;
+    if (profile?.name) fullName = profile.name;
+  }
+
   if (existing) {
     return prisma.contact.update({
       where: { id: existing.id },
       data: {
         lastSeenAt: new Date(),
         ...(params.igUsername ? { igUsername: params.igUsername } : {}),
+        ...(profilePic && profilePic !== existing.profilePic ? { profilePic } : {}),
+        ...(fullName && fullName !== existing.fullName ? { fullName } : {}),
       },
     });
   }
@@ -117,6 +129,8 @@ async function getOrCreateContact(params: {
       igAccountId: params.igAccountId,
       igUserId: params.igUserId,
       igUsername: params.igUsername || params.igUserId,
+      profilePic: profilePic || null,
+      fullName: fullName || null,
       lastSeenAt: new Date(),
     },
   });
@@ -361,6 +375,7 @@ export async function executeAutomation(
         igAccountId: automation.igAccountId,
         igUserId: context.userId,
         igUsername: context.username,
+        client,
       });
       contactId = contact.id;
       state = readContactState(contact);
@@ -504,6 +519,7 @@ export async function executeButtonPostback(params: {
     userId: automation.userId,
     igAccountId: automation.igAccountId,
     igUserId: params.senderId,
+    client,
   });
   const state = readContactState(contact);
 

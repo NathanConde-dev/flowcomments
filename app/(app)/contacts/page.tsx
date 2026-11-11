@@ -3,40 +3,78 @@ import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/motion';
+import {
+  DEFAULT_PAGE_SIZE,
+  PaginationNav,
+  parsePage,
+} from '@/components/ui/pagination-nav';
+import { ExportContactsButton } from '@/components/contacts/ExportContactsButton';
 import { Users } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-async function getContacts(userId: string) {
-  return prisma.contact.findMany({
-    where: { userId },
+function parseCustomData(raw: string | null) {
+  if (!raw) return [] as Array<[string, string]>;
+  try {
+    const data = JSON.parse(raw) as Record<string, unknown>;
+    return Object.entries(data)
+      .filter(([key, value]) => !key.startsWith('_') && value != null && String(value).trim())
+      .map(([key, value]) => [key, String(value)] as [string, string]);
+  } catch {
+    return [];
+  }
+}
+
+function parseTags(raw: string | null) {
+  if (!raw) return [] as string[];
+  try {
+    const tags = JSON.parse(raw) as unknown;
+    return Array.isArray(tags) ? tags.map(String).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+export default async function ContactsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ page?: string }>;
+}) {
+  const session = await readSession();
+  if (!session.isLoggedIn) redirect('/login');
+
+  const params = (await searchParams) || {};
+  const page = parsePage(params.page);
+  const pageSize = DEFAULT_PAGE_SIZE;
+
+  const where = { userId: session.userId };
+  const totalItems = await prisma.contact.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const contacts = await prisma.contact.findMany({
+    where,
     include: {
       igAccount: {
-        select: {
-          igUsername: true,
-        },
+        select: { igUsername: true },
       },
     },
     orderBy: { lastSeenAt: 'desc' },
-    take: 50,
+    skip: (safePage - 1) * pageSize,
+    take: pageSize,
   });
-}
-
-export default async function ContactsPage() {
-  const session = await readSession();
-
-  if (!session.isLoggedIn) {
-    redirect('/login');
-  }
-  const contacts = await getContacts(session.userId);
 
   return (
     <PageShell className="p-4 sm:p-6 md:p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Contatos</h1>
-        <p className="mt-1 text-[15px] text-muted-foreground">
-          Pessoas que interagiram com suas automações
-        </p>
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Contatos</h1>
+          <p className="mt-1 text-[15px] text-muted-foreground">
+            Pessoas que interagiram com suas automações
+            {totalItems > 0 ? ` · ${totalItems} no total` : ''}
+          </p>
+        </div>
+        {totalItems > 0 && <ExportContactsButton />}
       </div>
 
       {contacts.length === 0 ? (
@@ -55,42 +93,72 @@ export default async function ContactsPage() {
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             <div className="fc-stagger divide-y divide-border">
-              {contacts.map((contact) => (
-                <div
-                  key={contact.id}
-                  className="flex items-center gap-4 p-4 hover:bg-muted/70 transition-colors duration-200"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                    <Users className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold">@{contact.igUsername}</p>
-                    {contact.fullName && (
-                      <p className="text-sm text-muted-foreground">{contact.fullName}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Via @{contact.igAccount.igUsername}
-                      {contact.lastSeenAt && (
-                        <>
-                          {' '}
-                          • Última interação:{' '}
-                          {new Date(contact.lastSeenAt).toLocaleString('pt-BR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </>
-                      )}
-                    </p>
-                  </div>
-                  <div className="flex max-w-[220px] flex-col items-end gap-1">
-                    {contact.tags && JSON.parse(contact.tags).length > 0 && (
-                      <div className="flex flex-wrap justify-end gap-1">
-                        {JSON.parse(contact.tags).map((tag: string, idx: number) => (
+              {contacts.map((contact) => {
+                const tags = parseTags(contact.tags);
+                const fields = parseCustomData(contact.customData);
+                return (
+                  <div
+                    key={contact.id}
+                    className="flex flex-col gap-3 p-4 transition-colors duration-200 hover:bg-muted/70 sm:flex-row sm:items-start sm:gap-4"
+                  >
+                    <div className="flex min-w-0 flex-1 items-start gap-4">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+                        {contact.profilePic ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={contact.profilePic}
+                            alt={`@${contact.igUsername}`}
+                            className="h-full w-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <Users className="h-6 w-6 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">@{contact.igUsername}</p>
+                        {contact.fullName && (
+                          <p className="text-sm text-muted-foreground">{contact.fullName}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          Via @{contact.igAccount.igUsername}
+                          {contact.lastSeenAt && (
+                            <>
+                              {' '}
+                              · Última interação:{' '}
+                              {new Date(contact.lastSeenAt).toLocaleString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </>
+                          )}
+                        </p>
+
+                        {fields.length > 0 && (
+                          <div className="mt-2.5 flex flex-wrap gap-1.5">
+                            {fields.map(([key, value]) => (
+                              <span
+                                key={key}
+                                className="inline-flex max-w-full items-center gap-1 rounded-lg border border-border bg-zinc-50 px-2 py-1 text-[11px] text-foreground"
+                                title={`${key}: ${value}`}
+                              >
+                                <span className="font-semibold text-muted-foreground">{key}</span>
+                                <span className="truncate">{value}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 sm:max-w-[220px] sm:justify-end">
+                        {tags.map((tag) => (
                           <span
-                            key={idx}
+                            key={tag}
                             className="rounded-full bg-muted px-2 py-1 text-xs text-foreground"
                           >
                             {tag}
@@ -98,19 +166,17 @@ export default async function ContactsPage() {
                         ))}
                       </div>
                     )}
-                    {contact.customData &&
-                      Object.entries(JSON.parse(contact.customData) as Record<string, unknown>)
-                        .filter(([key]) => !key.startsWith('_'))
-                        .slice(0, 3)
-                        .map(([key, value]) => (
-                          <span key={key} className="truncate text-[11px] text-muted-foreground">
-                            {key}: {String(value)}
-                          </span>
-                        ))}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+            <PaginationNav
+              page={safePage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              basePath="/contacts"
+            />
           </CardContent>
         </Card>
       )}

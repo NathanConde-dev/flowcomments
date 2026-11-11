@@ -104,6 +104,45 @@ export class InstagramClient {
     );
   }
 
+  /** Best-effort profile for a scoped Instagram user (commenter / DM sender). */
+  async getScopedUserProfile(
+    igsId: string
+  ): Promise<{ username?: string; name?: string; profilePic?: string } | null> {
+    try {
+      const data = await this.request<{
+        username?: string;
+        name?: string;
+        profile_pic?: string;
+        profile_picture_url?: string;
+      }>(
+        `/${igsId}?fields=name,username,profile_pic&access_token=${this.accessToken}`,
+        {},
+        IG_GRAPH_API_BASE
+      );
+      return {
+        username: data.username,
+        name: data.name,
+        profilePic: data.profile_pic || data.profile_picture_url,
+      };
+    } catch {
+      try {
+        const data = await this.request<{
+          username?: string;
+          name?: string;
+          profile_pic?: string;
+          profile_picture_url?: string;
+        }>(`/${igsId}?fields=name,username,profile_pic,profile_picture_url&access_token=${this.accessToken}`);
+        return {
+          username: data.username,
+          name: data.name,
+          profilePic: data.profile_pic || data.profile_picture_url,
+        };
+      } catch {
+        return null;
+      }
+    }
+  }
+
   async replyToComment(commentId: string, message: string): Promise<{ id: string }> {
     return this.request<{ id: string }>(`/${commentId}/replies`, {
       method: 'POST',

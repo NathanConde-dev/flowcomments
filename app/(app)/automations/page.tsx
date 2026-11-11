@@ -9,12 +9,32 @@ import {
   AutomationsList,
   type AutomationListItem,
 } from '@/components/automations/AutomationsList';
+import {
+  DEFAULT_PAGE_SIZE,
+  PaginationNav,
+  parsePage,
+} from '@/components/ui/pagination-nav';
 
 export const dynamic = 'force-dynamic';
 
-async function getAutomations(userId: string) {
-  return prisma.automation.findMany({
-    where: { userId },
+export default async function AutomationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ page?: string }>;
+}) {
+  const session = await readSession();
+  if (!session.isLoggedIn) redirect('/login');
+
+  const params = (await searchParams) || {};
+  const page = parsePage(params.page);
+  const pageSize = DEFAULT_PAGE_SIZE;
+  const where = { userId: session.userId };
+  const totalItems = await prisma.automation.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(page, totalPages);
+
+  const automations = await prisma.automation.findMany({
+    where,
     include: {
       igAccount: {
         select: {
@@ -24,17 +44,9 @@ async function getAutomations(userId: string) {
       },
     },
     orderBy: { createdAt: 'desc' },
+    skip: (safePage - 1) * pageSize,
+    take: pageSize,
   });
-}
-
-export default async function AutomationsPage() {
-  const session = await readSession();
-
-  if (!session.isLoggedIn) {
-    redirect('/login');
-  }
-
-  const automations = await getAutomations(session.userId);
 
   const items: AutomationListItem[] = automations.map((automation) => {
     let keywords: string[] = [];
@@ -72,6 +84,7 @@ export default async function AutomationsPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Automações</h1>
           <p className="mt-1 text-[15px] text-muted-foreground">
             Gerencie fluxos de comentários e DMs
+            {totalItems > 0 ? ` · ${totalItems} no total` : ''}
           </p>
         </div>
         <Link href="/automations/new" className="w-full sm:w-auto">
@@ -83,6 +96,17 @@ export default async function AutomationsPage() {
       </div>
 
       <AutomationsList initialItems={items} />
+      {totalItems > 0 && (
+        <div className="mt-4 overflow-hidden rounded-xl border border-border bg-white shadow-soft">
+          <PaginationNav
+            page={safePage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pageSize}
+            basePath="/automations"
+          />
+        </div>
+      )}
     </PageShell>
   );
 }
