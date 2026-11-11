@@ -35,6 +35,7 @@ export async function AppShellServer({ children }: { children: React.ReactNode }
     igAccounts.map(async (account) => {
       if (account.profilePictureUrl) {
         return {
+          id: account.id,
           username: account.igUsername,
           userId: account.igUserId,
           profilePictureUrl: account.profilePictureUrl,
@@ -53,6 +54,7 @@ export async function AppShellServer({ children }: { children: React.ReactNode }
             data: { profilePictureUrl: profile.profile_picture_url },
           });
           return {
+            id: account.id,
             username: account.igUsername,
             userId: account.igUserId,
             profilePictureUrl: profile.profile_picture_url,
@@ -63,6 +65,7 @@ export async function AppShellServer({ children }: { children: React.ReactNode }
       }
 
       return {
+        id: account.id,
         username: account.igUsername,
         userId: account.igUserId,
         profilePictureUrl: null,

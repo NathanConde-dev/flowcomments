@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PageShell, Stagger } from '@/components/ui/motion';
+import { GrowthInsights } from '@/components/dashboard/GrowthInsights';
 import { toast } from '@/lib/ui/toast';
 import {
   Check,
@@ -149,97 +150,109 @@ export default function DashboardPage() {
         </h1>
         <p className="mt-1.5 text-[15px] text-muted-foreground">
           {setupComplete
-            ? 'Setup concluído. Acompanhe e evolua suas automações.'
+            ? 'Acompanhe o crescimento dos contatos por conta conectada.'
             : 'Bem-vindo ao Flowcomments. Comece automatizando suas interações no Instagram.'}
         </p>
       </div>
 
-      {status != null && !setupComplete && (
-        <section className="overflow-hidden rounded-2xl border border-border/70 bg-white shadow-float">
-          <div className="flex items-start justify-between gap-3 px-4 pb-4 pt-5 sm:gap-4 sm:px-6 sm:pt-6">
-            <div>
-              <h2 className="text-xl font-bold tracking-tight text-foreground">Primeiros passos</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {doneCount}/{checklistItems.length} concluídos
-              </p>
-            </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
-              <ListTodo className="h-3.5 w-3.5" />
-              Setup
-            </span>
-          </div>
-
-          <Stagger className="divide-y divide-border/70 border-t border-border/70">
-            {checklistItems.map((item) => (
-              <Link
-                key={item.id}
-                href={item.href}
-                className="group flex items-start gap-3 px-4 py-4 transition-colors duration-200 hover:bg-muted/50 sm:px-6"
-              >
-                <span
-                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors duration-200 ${
-                    item.done
-                      ? 'border-emerald-500/30 bg-emerald-500 text-white'
-                      : 'border-zinc-300 bg-white text-transparent group-hover:border-zinc-400'
-                  }`}
-                  aria-hidden
-                >
-                  <Check className="h-3 w-3" strokeWidth={2.5} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p
-                    className={`text-[15px] font-semibold tracking-tight ${
-                      item.done ? 'text-muted-foreground line-through' : 'text-foreground'
-                    }`}
-                  >
-                    {item.title}
+      {setupComplete ? (
+        <GrowthInsights />
+      ) : (
+        <>
+          {status != null && (
+            <section className="overflow-hidden rounded-2xl border border-border/70 bg-white shadow-float">
+              <div className="flex items-start justify-between gap-3 px-4 pb-4 pt-5 sm:gap-4 sm:px-6 sm:pt-6">
+                <div>
+                  <h2 className="text-xl font-bold tracking-tight text-foreground">
+                    Primeiros passos
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {doneCount}/{checklistItems.length} concluídos
                   </p>
-                  <p className="mt-0.5 text-sm text-muted-foreground">{item.description}</p>
                 </div>
-              </Link>
-            ))}
-          </Stagger>
-        </section>
-      )}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+                  <ListTodo className="h-3.5 w-3.5" />
+                  Setup
+                </span>
+              </div>
 
-      <div>
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-foreground">
-            {setupComplete ? 'Templates' : 'Comece Aqui'}
-          </h2>
-          <Link href="/automations">
-            <Button variant="ghost" size="sm">
-              Ver todos
-            </Button>
-          </Link>
-        </div>
-        <Stagger className="grid gap-4 md:grid-cols-3">
-          {templates.map((template) => {
-            const Icon = template.icon;
-            return (
-              <Link key={template.id} href={template.href} className="block">
-                <Card className="relative h-full cursor-pointer overflow-hidden p-6 fc-hover-lift">
-                  <Icon
-                    aria-hidden
-                    strokeWidth={0.75}
-                    className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 text-zinc-100"
-                  />
-                  <div className="relative space-y-3">
-                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      {template.category}
+              <Stagger className="divide-y divide-border/70 border-t border-border/70">
+                {checklistItems.map((item) => (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    className="group flex items-start gap-3 px-4 py-4 transition-colors duration-200 hover:bg-muted/50 sm:px-6"
+                  >
+                    <span
+                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors duration-200 ${
+                        item.done
+                          ? 'border-emerald-500/30 bg-emerald-500 text-white'
+                          : 'border-zinc-300 bg-white text-transparent group-hover:border-zinc-400'
+                      }`}
+                      aria-hidden
+                    >
+                      <Check className="h-3 w-3" strokeWidth={2.5} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`text-[15px] font-semibold tracking-tight ${
+                          item.done
+                            ? 'text-muted-foreground line-through'
+                            : 'text-foreground'
+                        }`}
+                      >
+                        {item.title}
+                      </p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        {item.description}
+                      </p>
                     </div>
-                    <h3 className="font-bold text-foreground">{template.title}</h3>
-                    <p className="text-sm text-muted-foreground">{template.description}</p>
-                    <Button variant="outline" size="sm" className="mt-2 w-full">
-                      Usar template
-                    </Button>
-                  </div>
-                </Card>
+                  </Link>
+                ))}
+              </Stagger>
+            </section>
+          )}
+
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-foreground">Comece Aqui</h2>
+              <Link href="/automations">
+                <Button variant="ghost" size="sm">
+                  Ver todos
+                </Button>
               </Link>
-            );
-          })}
-        </Stagger>
-      </div>
+            </div>
+            <Stagger className="grid gap-4 md:grid-cols-3">
+              {templates.map((template) => {
+                const Icon = template.icon;
+                return (
+                  <Link key={template.id} href={template.href} className="block">
+                    <Card className="relative h-full cursor-pointer overflow-hidden p-6 fc-hover-lift">
+                      <Icon
+                        aria-hidden
+                        strokeWidth={0.75}
+                        className="pointer-events-none absolute -right-6 -top-6 h-32 w-32 text-zinc-100"
+                      />
+                      <div className="relative space-y-3">
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {template.category}
+                        </div>
+                        <h3 className="font-bold text-foreground">{template.title}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {template.description}
+                        </p>
+                        <Button variant="outline" size="sm" className="mt-2 w-full">
+                          Usar template
+                        </Button>
+                      </div>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </Stagger>
+          </div>
+        </>
+      )}
     </PageShell>
   );
 }
