@@ -11,6 +11,15 @@ import {
 } from '@/lib/instagram/oauth';
 import { encrypt } from '@/lib/crypto/encryption';
 
+function absoluteUrl(request: Request, path: string) {
+  const base = process.env.NEXT_PUBLIC_URL || new URL(request.url).origin;
+  return new URL(path, base);
+}
+
+function redirectTo(request: Request, path: string) {
+  return NextResponse.redirect(absoluteUrl(request, path));
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -26,16 +35,16 @@ export async function GET(request: Request) {
         message: errorDescription || error,
         hint,
       });
-      return NextResponse.redirect(`/settings?${params.toString()}`);
+      return redirectTo(request, `/settings/instagram?${params.toString()}`);
     }
 
     if (!code || !state) {
-      return NextResponse.redirect('/settings?error=missing_params');
+      return redirectTo(request, '/settings/instagram?error=missing_params');
     }
 
     const session = await getSession();
     if (!session.isLoggedIn) {
-      return NextResponse.redirect('/login');
+      return redirectTo(request, '/login');
     }
 
     const stateConfig = await prisma.systemConfig.findUnique({
@@ -43,24 +52,24 @@ export async function GET(request: Request) {
     });
 
     if (!stateConfig) {
-      return NextResponse.redirect('/settings?error=invalid_state');
+      return redirectTo(request, '/settings/instagram?error=invalid_state');
     }
 
     const stateData = JSON.parse(stateConfig.value);
     if (stateData.state !== state) {
-      return NextResponse.redirect('/settings?error=csrf_mismatch');
+      return redirectTo(request, '/settings/instagram?error=csrf_mismatch');
     }
 
     if (Date.now() - stateData.timestamp > 10 * 60 * 1000) {
-      return NextResponse.redirect('/settings?error=state_expired');
+      return redirectTo(request, '/settings/instagram?error=state_expired');
     }
 
     const config = await getMetaConfig();
     if (!config) {
-      return NextResponse.redirect('/settings?error=no_config');
+      return redirectTo(request, '/settings/meta?needConfig=1');
     }
 
-    const redirectUri = `${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/instagram/callback`;
+    const redirectUri = `${process.env.NEXT_PUBLIC_URL || new URL(request.url).origin}/api/instagram/callback`;
 
     let shortLivedToken: string;
     try {
@@ -74,7 +83,7 @@ export async function GET(request: Request) {
         message,
         hint,
       });
-      return NextResponse.redirect(`/settings?${params.toString()}`);
+      return redirectTo(request, `/settings/instagram?${params.toString()}`);
     }
 
     let longLivedToken: string;
@@ -91,7 +100,7 @@ export async function GET(request: Request) {
         message,
         hint,
       });
-      return NextResponse.redirect(`/settings?${params.toString()}`);
+      return redirectTo(request, `/settings/instagram?${params.toString()}`);
     }
 
     let accounts;
@@ -105,17 +114,18 @@ export async function GET(request: Request) {
         message,
         hint,
       });
-      return NextResponse.redirect(`/settings?${params.toString()}`);
+      return redirectTo(request, `/settings/instagram?${params.toString()}`);
     }
 
     if (accounts.length === 0) {
-      const hint = 'Nenhuma conta do Instagram encontrada. Verifique: (1) A conta é Professional (Business/Creator)? (2) Está no mesmo Business Portfolio do app? (3) Foi vinculada a uma página do Facebook?';
+      const hint =
+        'Nenhuma conta do Instagram encontrada. Verifique: (1) A conta é Professional (Business/Creator)? (2) Está no mesmo Business Portfolio do app? (3) Foi vinculada a uma página do Facebook?';
       const params = new URLSearchParams({
         error: 'no_accounts',
         message: 'No Instagram accounts found',
         hint,
       });
-      return NextResponse.redirect(`/settings?${params.toString()}`);
+      return redirectTo(request, `/settings/instagram?${params.toString()}`);
     }
 
     if (accounts.length === 1) {
@@ -125,7 +135,7 @@ export async function GET(request: Request) {
       });
 
       if (existing && existing.userId !== session.userId) {
-        return NextResponse.redirect('/settings?error=account_owned_by_other');
+        return redirectTo(request, '/settings/instagram?error=account_owned_by_other');
       }
 
       const encryptedToken = encrypt(longLivedToken);
@@ -152,15 +162,21 @@ export async function GET(request: Request) {
         },
       });
 
-      if ((account as any).pageId && (account as any).pageAccessToken) {
-        await subscribePageToWebhooks((account as any).pageId, (account as any).pageAccessToken);
+      if ((account as { pageId?: string; pageAccessToken?: string }).pageId &&
+          (account as { pageAccessToken?: string }).pageAccessToken) {
+        await subscribePageToWebhooks(
+          (account as { pageId: string }).pageId,
+          (account as { pageAccessToken: string }).pageAccessToken
+        );
       }
 
-      await prisma.systemConfig.delete({
-        where: { key: `oauth_state_${session.userId}` },
-      }).catch(() => {});
+      await prisma.systemConfig
+        .delete({
+          where: { key: `oauth_state_${session.userId}` },
+        })
+        .catch(() => {});
 
-      return NextResponse.redirect('/settings?success=connected');
+      return redirectTo(request, '/settings/instagram?success=connected');
     }
 
     const pendingPayload = encrypt(
@@ -185,11 +201,13 @@ export async function GET(request: Request) {
       },
     });
 
-    await prisma.systemConfig.delete({
-      where: { key: `oauth_state_${session.userId}` },
-    }).catch(() => {});
+    await prisma.systemConfig
+      .delete({
+        where: { key: `oauth_state_${session.userId}` },
+      })
+      .catch(() => {});
 
-    return NextResponse.redirect('/settings/choose-account');
+    return redirectTo(request, '/settings/choose-account');
   } catch (error) {
     console.error('OAuth callback error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -199,6 +217,6 @@ export async function GET(request: Request) {
       message,
       hint,
     });
-    return NextResponse.redirect(`/settings?${params.toString()}`);
+    return redirectTo(request, `/settings/instagram?${params.toString()}`);
   }
 }

@@ -3,10 +3,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ExternalLink } from 'lucide-react';
+import { Dices, ExternalLink } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { MetaFieldHelp, getMetaFieldUrl } from '@/components/setup/MetaFieldHelp';
 import { SettingsFormSkeleton } from '@/components/ui/skeletons';
+
+function generateWebhookToken() {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 interface MetaConfig {
   metaAppId: string;
@@ -47,6 +53,15 @@ export default function MetaAppSettingsPage() {
 
   useEffect(() => {
     fetchConfig();
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('needConfig') === '1') {
+        setMessage({
+          type: 'error',
+          text: 'Configure o Meta App antes de conectar o Instagram.',
+        });
+      }
+    }
   }, []);
 
   const fetchConfig = async () => {
@@ -277,27 +292,57 @@ export default function MetaAppSettingsPage() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="mb-2 flex items-center justify-between gap-2">
               <label className="flex items-center gap-2 text-sm font-medium">
                 Webhook Verify Token
                 <MetaFieldHelp field="webhookToken" appId={appId} compact />
               </label>
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-zinc-600"
+                  onClick={() =>
+                    setConfig({
+                      ...config,
+                      webhookVerifyToken: generateWebhookToken(),
+                    })
+                  }
+                >
+                  <Dices className="mr-1 h-3 w-3" />
+                  Gerar
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-zinc-600"
+                  onClick={() => openMeta('webhookToken')}
+                >
+                  <ExternalLink className="mr-1 h-3 w-3" />
+                  Abrir
+                </Button>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={config.webhookVerifyToken}
+                onChange={(e) => setConfig({ ...config, webhookVerifyToken: e.target.value })}
+                placeholder="Clique em Gerar e cole o mesmo token no Meta"
+              />
               <Button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-zinc-600"
-                onClick={() => openMeta('webhookToken')}
+                variant="outline"
+                disabled={!config.webhookVerifyToken || config.webhookVerifyToken.includes('••••')}
+                onClick={() => navigator.clipboard.writeText(config.webhookVerifyToken)}
               >
-                <ExternalLink className="w-3 h-3 mr-1" />
-                Abrir
+                Copiar
               </Button>
             </div>
-            <Input
-              value={config.webhookVerifyToken}
-              onChange={(e) => setConfig({ ...config, webhookVerifyToken: e.target.value })}
-              placeholder="seu_token_secreto_aqui"
-            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Gere um token, salve aqui e cole o mesmo valor no Verify Token do webhook na Meta.
+            </p>
           </div>
 
           <div className="flex gap-2 pt-4">

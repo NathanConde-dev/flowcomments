@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Instagram } from 'lucide-react';
@@ -18,26 +19,37 @@ export default function InstagramSettingsPage() {
   const [igAccounts, setIgAccounts] = useState<IGAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
+  const [metaConfigured, setMetaConfigured] = useState(false);
 
   useEffect(() => {
-    fetchAccounts();
+    const load = async () => {
+      try {
+        const [accountsRes, setupRes] = await Promise.all([
+          fetch('/api/instagram/accounts'),
+          fetch('/api/settings/setup-status'),
+        ]);
+
+        if (accountsRes.ok) {
+          const data = await accountsRes.json();
+          setIgAccounts(data.accounts || []);
+        }
+
+        if (setupRes.ok) {
+          const setup = await setupRes.json();
+          setMetaConfigured(Boolean(setup.metaConfigured));
+        }
+      } catch (error) {
+        console.error('Error fetching Instagram settings:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
   }, []);
 
-  const fetchAccounts = async () => {
-    try {
-      const res = await fetch('/api/instagram/accounts');
-      if (res.ok) {
-        const data = await res.json();
-        setIgAccounts(data.accounts || []);
-      }
-    } catch (error) {
-      console.error('Error fetching accounts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleConnect = async () => {
+    if (!metaConfigured) return;
     setConnecting(true);
     window.location.href = '/api/instagram/connect?returnUrl=/settings/instagram';
   };
@@ -53,15 +65,41 @@ export default function InstagramSettingsPage() {
       });
 
       if (res.ok) {
-        fetchAccounts();
+        const accountsRes = await fetch('/api/instagram/accounts');
+        if (accountsRes.ok) {
+          const data = await accountsRes.json();
+          setIgAccounts(data.accounts || []);
+        }
       }
     } catch (error) {
       console.error('Error disconnecting:', error);
     }
   };
 
+  const connectButton = (
+    <Button onClick={handleConnect} disabled={connecting || !metaConfigured}>
+      {connecting ? 'Conectando...' : '+ Conectar Instagram'}
+    </Button>
+  );
+
   return (
-    <div className="w-full">
+    <div className="w-full space-y-4">
+      {!loading && !metaConfigured && (
+        <Card className="border-amber-200 bg-amber-50 shadow-soft">
+          <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">Meta App ainda não configurado</p>
+              <p className="mt-1 text-sm text-amber-900/80">
+                Configure App ID, App Secret e Webhook Verify Token antes de conectar o Instagram.
+              </p>
+            </div>
+            <Link href="/settings/meta">
+              <Button className="rounded-full whitespace-nowrap">Configurar Meta App</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -76,11 +114,14 @@ export default function InstagramSettingsPage() {
           {loading ? (
             <AccountRowSkeleton rows={2} />
           ) : igAccounts.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-zinc-600 mb-4">Nenhuma conta conectada</p>
-              <Button onClick={handleConnect} disabled={connecting}>
-                {connecting ? 'Conectando...' : '+ Conectar Instagram'}
-              </Button>
+            <div className="py-6 text-center">
+              <p className="mb-4 text-zinc-600">Nenhuma conta conectada</p>
+              {connectButton}
+              {!metaConfigured && (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  O botão fica bloqueado até o Meta App estar pronto.
+                </p>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -90,13 +131,13 @@ export default function InstagramSettingsPage() {
                   className="flex items-center justify-between rounded-2xl border border-border p-4"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 text-white font-medium">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 font-medium text-white">
                       {account.igUsername[0].toUpperCase()}
                     </div>
                     <div>
                       <p className="font-medium">@{account.igUsername}</p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                        {account.isActive ? (
+                        {account.isActive !== false ? (
                           <StatusBadge tone="success">Ativa</StatusBadge>
                         ) : (
                           <StatusBadge tone="expired">Inativa</StatusBadge>
@@ -123,9 +164,18 @@ export default function InstagramSettingsPage() {
                   </Button>
                 </div>
               ))}
-              <Button onClick={handleConnect} disabled={connecting} className="w-full">
+              <Button
+                onClick={handleConnect}
+                disabled={connecting || !metaConfigured}
+                className="w-full"
+              >
                 {connecting ? 'Conectando...' : '+ Adicionar Outra Conta'}
               </Button>
+              {!metaConfigured && (
+                <p className="text-center text-sm text-muted-foreground">
+                  Configure o Meta App para adicionar contas.
+                </p>
+              )}
             </div>
           )}
         </CardContent>

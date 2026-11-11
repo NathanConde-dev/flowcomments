@@ -12,9 +12,9 @@ export async function GET(request: Request) {
 
     const config = await getMetaConfig();
     if (!config) {
-      return NextResponse.json(
-        { error: 'Configuração do Meta App não encontrada' },
-        { status: 400 }
+      const base = process.env.NEXT_PUBLIC_URL || new URL(request.url).origin;
+      return NextResponse.redirect(
+        new URL('/settings/meta?needConfig=1', base)
       );
     }
 
