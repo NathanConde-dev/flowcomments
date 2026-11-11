@@ -82,7 +82,7 @@ type FlowEdge = { from: FlowNodeId; to: FlowNodeId; label?: string };
 type InsertSlot = {
   id: string;
   from: FlowNodeId;
-  to: FlowNodeId | null;
+  to: FlowNodeId;
   x: number;
   y: number;
   label: string;
