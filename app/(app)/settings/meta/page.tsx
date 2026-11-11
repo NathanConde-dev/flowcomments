@@ -1,17 +1,33 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
+import {
+  Check,
+  Copy,
+  Dices,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  LoaderCircle,
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dices, ExternalLink } from 'lucide-react';
-import { useState, useEffect } from 'react';
 import { MetaFieldHelp, getMetaFieldUrl } from '@/components/setup/MetaFieldHelp';
 import { SettingsFormSkeleton } from '@/components/ui/skeletons';
+
+const DRAFT_KEY = 'fc-meta-settings-draft';
 
 function generateWebhookToken() {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function mergePreferPlain(prev: string, next?: string) {
+  if (!next) return prev;
+  if (next.includes('••••') && prev && !prev.includes('••••')) return prev;
+  return next;
 }
 
 interface MetaConfig {
@@ -21,6 +37,111 @@ interface MetaConfig {
   igAppId: string;
   igAppSecret: string;
   webhookVerifyToken: string;
+}
+
+type MetaField = Parameters<typeof getMetaFieldUrl>[0];
+
+function ConfigField({
+  label,
+  helpField,
+  appId,
+  value,
+  onChange,
+  placeholder,
+  secret,
+  readOnly,
+  onOpenMeta,
+  onGenerate,
+  hint,
+}: {
+  label: string;
+  helpField?: MetaField;
+  appId?: string;
+  value: string;
+  onChange?: (value: string) => void;
+  placeholder?: string;
+  secret?: boolean;
+  readOnly?: boolean;
+  onOpenMeta?: () => void;
+  onGenerate?: () => void;
+  hint?: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const canCopy = Boolean(value) && !value.includes('••••');
+
+  const copy = async () => {
+    if (!canCopy) return;
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  };
+
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          {label}
+          {helpField ? <MetaFieldHelp field={helpField} appId={appId} compact /> : null}
+        </label>
+        <div className="flex items-center gap-1">
+          {onGenerate ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-zinc-600"
+              onClick={onGenerate}
+            >
+              <Dices className="mr-1 h-3 w-3" />
+              Gerar
+            </Button>
+          ) : null}
+          {onOpenMeta ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-zinc-600"
+              onClick={onOpenMeta}
+            >
+              <ExternalLink className="mr-1 h-3 w-3" />
+              Abrir
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Input
+            type={secret && !visible ? 'password' : 'text'}
+            value={value}
+            readOnly={readOnly}
+            onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+            placeholder={placeholder}
+            className={secret ? 'pr-10' : undefined}
+          />
+          {secret ? (
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={() => setVisible((v) => !v)}
+              aria-label={visible ? 'Ocultar valor' : 'Mostrar valor'}
+            >
+              {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          ) : null}
+        </div>
+        <Button type="button" variant="outline" disabled={!canCopy} onClick={copy}>
+          {copied ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
+          {copied ? 'Copiado' : 'Copiar'}
+        </Button>
+      </div>
+
+      {hint ? <p className="mt-2 text-xs text-muted-foreground">{hint}</p> : null}
+    </div>
+  );
 }
 
 export default function MetaAppSettingsPage() {
@@ -35,21 +156,32 @@ export default function MetaAppSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const hydratedRef = useRef(false);
+  const skipAutosaveRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const configRef = useRef(config);
 
-  const webhookUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/api/webhook`
-    : process.env.NEXT_PUBLIC_URL
-    ? `${process.env.NEXT_PUBLIC_URL}/api/webhook`
-    : 'https://seu-dominio.com/api/webhook';
+  const webhookUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/api/webhook`
+      : process.env.NEXT_PUBLIC_URL
+        ? `${process.env.NEXT_PUBLIC_URL}/api/webhook`
+        : 'https://seu-dominio.com/api/webhook';
 
-  const oauthCallbackUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/api/instagram/callback`
-    : process.env.NEXT_PUBLIC_URL
-    ? `${process.env.NEXT_PUBLIC_URL}/api/instagram/callback`
-    : 'https://seu-dominio.com/api/instagram/callback';
+  const oauthCallbackUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/api/instagram/callback`
+      : process.env.NEXT_PUBLIC_URL
+        ? `${process.env.NEXT_PUBLIC_URL}/api/instagram/callback`
+        : 'https://seu-dominio.com/api/instagram/callback';
 
   const appId = config.metaAppId;
+
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
 
   useEffect(() => {
     fetchConfig();
@@ -64,37 +196,137 @@ export default function MetaAppSettingsPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(config));
+    } catch {
+      // ignore quota / private mode
+    }
+
+    if (skipAutosaveRef.current) {
+      skipAutosaveRef.current = false;
+      return;
+    }
+
+    if (!config.metaAppId.trim()) {
+      setSaveState('idle');
+      return;
+    }
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    setSaveState('saving');
+    saveTimerRef.current = setTimeout(() => {
+      void persistConfig(configRef.current, { silent: true });
+    }, 650);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [config]);
+
   const fetchConfig = async () => {
     try {
+      let draft: Partial<MetaConfig> | null = null;
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (raw) draft = JSON.parse(raw);
+      } catch {
+        draft = null;
+      }
+
       const res = await fetch('/api/settings/meta');
       if (res.ok) {
         const data = await res.json();
-        setConfig(data.config || config);
+        const next = data.config || {};
+        setConfig({
+          metaAppId: draft?.metaAppId || next.metaAppId || '',
+          metaAppSecret:
+            draft?.metaAppSecret && !draft.metaAppSecret.includes('••••')
+              ? draft.metaAppSecret
+              : next.metaAppSecret || '',
+          metaConfigId: draft?.metaConfigId || next.metaConfigId || '',
+          igAppId: draft?.igAppId || next.igAppId || '',
+          igAppSecret:
+            draft?.igAppSecret && !draft.igAppSecret.includes('••••')
+              ? draft.igAppSecret
+              : next.igAppSecret || '',
+          webhookVerifyToken:
+            (draft?.webhookVerifyToken && !draft.webhookVerifyToken.includes('••••')
+              ? draft.webhookVerifyToken
+              : next.webhookVerifyToken) || generateWebhookToken(),
+        });
+      } else {
+        setConfig((prev) => ({
+          metaAppId: draft?.metaAppId || prev.metaAppId,
+          metaAppSecret: draft?.metaAppSecret || prev.metaAppSecret,
+          metaConfigId: draft?.metaConfigId || prev.metaConfigId,
+          igAppId: draft?.igAppId || prev.igAppId,
+          igAppSecret: draft?.igAppSecret || prev.igAppSecret,
+          webhookVerifyToken:
+            draft?.webhookVerifyToken || prev.webhookVerifyToken || generateWebhookToken(),
+        }));
       }
     } catch (error) {
       console.error('Error fetching config:', error);
+      setConfig((prev) => ({
+        ...prev,
+        webhookVerifyToken: prev.webhookVerifyToken || generateWebhookToken(),
+      }));
     } finally {
       setLoading(false);
+      // Enable autosave after paint so hydration itself does not POST
+      requestAnimationFrame(() => {
+        hydratedRef.current = true;
+      });
     }
   };
 
-  const handleSave = async () => {
+  const persistConfig = async (
+    payload: MetaConfig,
+    options?: { silent?: boolean }
+  ) => {
+    const silent = options?.silent ?? false;
     setSaving(true);
-    setMessage(null);
+    if (!silent) setMessage(null);
 
     try {
       const res = await fetch('/api/settings/meta', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
-        setMessage({ type: 'success', text: 'Configurações salvas com sucesso!' });
-        if (data.config) setConfig((prev) => ({ ...prev, ...data.config }));
+        setSaveState('saved');
+        if (!silent) {
+          setMessage({ type: 'success', text: 'Configurações salvas. Agora conecte o Instagram.' });
+        }
+        if (data.config) {
+          skipAutosaveRef.current = true;
+          setConfig((prev) => ({
+            ...prev,
+            metaAppId: data.config.metaAppId || prev.metaAppId,
+            metaConfigId: data.config.metaConfigId || prev.metaConfigId,
+            igAppId: data.config.igAppId || prev.igAppId,
+            metaAppSecret: mergePreferPlain(prev.metaAppSecret, data.config.metaAppSecret),
+            igAppSecret: mergePreferPlain(prev.igAppSecret, data.config.igAppSecret),
+            webhookVerifyToken: mergePreferPlain(
+              prev.webhookVerifyToken,
+              data.config.webhookVerifyToken
+            ),
+          }));
+        }
+        try {
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(configRef.current));
+        } catch {
+          // ignore
+        }
       } else {
+        setSaveState('error');
         setMessage({
           type: 'error',
           text:
@@ -105,15 +337,18 @@ export default function MetaAppSettingsPage() {
         });
       }
     } catch {
+      setSaveState('error');
       setMessage({ type: 'error', text: 'Erro ao salvar configurações' });
     } finally {
       setSaving(false);
     }
   };
 
+  const handleSave = () => persistConfig(configRef.current, { silent: false });
+
   const handleTest = async () => {
-    if (!config.metaAppId || !config.metaAppSecret) {
-      setMessage({ type: 'error', text: 'Preencha App ID e App Secret para testar' });
+    if (!config.metaAppId || !config.metaAppSecret || config.metaAppSecret.includes('••••')) {
+      setMessage({ type: 'error', text: 'Preencha App ID e App Secret (sem máscara) para testar' });
       return;
     }
 
@@ -130,16 +365,16 @@ export default function MetaAppSettingsPage() {
       const data = await res.json();
       setMessage({
         type: data.valid ? 'success' : 'error',
-        text: data.valid ? '✓ Credenciais válidas!' : data.error || 'Credenciais inválidas',
+        text: data.valid ? 'Credenciais válidas!' : data.error || 'Credenciais inválidas',
       });
-    } catch (error) {
+    } catch {
       setMessage({ type: 'error', text: 'Erro ao testar credenciais' });
     } finally {
       setTesting(false);
     }
   };
 
-  const openMeta = (field: Parameters<typeof getMetaFieldUrl>[0]) => {
+  const openMeta = (field: MetaField) => {
     window.open(getMetaFieldUrl(field, appId), '_blank', 'noopener,noreferrer');
   };
 
@@ -151,7 +386,7 @@ export default function MetaAppSettingsPage() {
     <div className="w-full space-y-6">
       {message && (
         <div
-          className={`rounded-2xl p-4 ${
+          className={`rounded-2xl p-4 text-sm ${
             message.type === 'error' ? 'bg-red-50 text-red-900' : 'bg-green-50 text-green-900'
           }`}
         >
@@ -161,291 +396,180 @@ export default function MetaAppSettingsPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle>Configuração do Meta App</CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => openMeta('appId')}
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Abrir na Meta
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>1. Credenciais do Meta App</CardTitle>
+              <CardDescription className="mt-1">
+                Copie App ID e App Secret do Meta for Developers e cole aqui.
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => openMeta('appId')}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Abrir Meta
             </Button>
           </div>
-          <CardDescription>
-            Configure as credenciais do seu Meta App para conectar contas do Instagram
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                Meta App ID
-                <MetaFieldHelp field="appId" appId={appId} compact />
-              </label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-zinc-600"
-                onClick={() => openMeta('appId')}
-              >
-                <ExternalLink className="w-3 h-3 mr-1" />
-                Abrir
-              </Button>
-            </div>
-            <Input
-              value={config.metaAppId}
-              onChange={(e) => setConfig({ ...config, metaAppId: e.target.value })}
-              placeholder="123456789012345"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                Meta App Secret
-                <MetaFieldHelp field="appSecret" appId={appId} compact />
-              </label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-zinc-600"
-                onClick={() => openMeta('appSecret')}
-              >
-                <ExternalLink className="w-3 h-3 mr-1" />
-                Abrir
-              </Button>
-            </div>
-            <Input
-              type="password"
-              value={config.metaAppSecret}
-              onChange={(e) => setConfig({ ...config, metaAppSecret: e.target.value })}
-              placeholder="••••••••••••••••"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                Meta Config ID
-                <MetaFieldHelp field="configId" appId={appId} compact />
-              </label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-zinc-600"
-                onClick={() => openMeta('configId')}
-              >
-                <ExternalLink className="w-3 h-3 mr-1" />
-                Abrir
-              </Button>
-            </div>
-            <Input
-              value={config.metaConfigId}
-              onChange={(e) => setConfig({ ...config, metaConfigId: e.target.value })}
-              placeholder="987654321098765"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                Instagram App ID
-                <MetaFieldHelp field="igAppId" appId={appId} compact />
-              </label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-zinc-600"
-                onClick={() => openMeta('igAppId')}
-              >
-                <ExternalLink className="w-3 h-3 mr-1" />
-                Abrir
-              </Button>
-            </div>
-            <Input
-              value={config.igAppId}
-              onChange={(e) => setConfig({ ...config, igAppId: e.target.value })}
-              placeholder="456789012345678"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                Instagram App Secret
-                <MetaFieldHelp field="igAppSecret" appId={appId} compact />
-              </label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-zinc-600"
-                onClick={() => openMeta('igAppSecret')}
-              >
-                <ExternalLink className="w-3 h-3 mr-1" />
-                Abrir
-              </Button>
-            </div>
-            <Input
-              type="password"
-              value={config.igAppSecret}
-              onChange={(e) => setConfig({ ...config, igAppSecret: e.target.value })}
-              placeholder="••••••••••••••••"
-            />
-          </div>
-
-          <div>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                Webhook Verify Token
-                <MetaFieldHelp field="webhookToken" appId={appId} compact />
-              </label>
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-zinc-600"
-                  onClick={() =>
-                    setConfig({
-                      ...config,
-                      webhookVerifyToken: generateWebhookToken(),
-                    })
-                  }
-                >
-                  <Dices className="mr-1 h-3 w-3" />
-                  Gerar
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs text-zinc-600"
-                  onClick={() => openMeta('webhookToken')}
-                >
-                  <ExternalLink className="mr-1 h-3 w-3" />
-                  Abrir
-                </Button>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={config.webhookVerifyToken}
-                onChange={(e) => setConfig({ ...config, webhookVerifyToken: e.target.value })}
-                placeholder="Clique em Gerar e cole o mesmo token no Meta"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!config.webhookVerifyToken || config.webhookVerifyToken.includes('••••')}
-                onClick={() => navigator.clipboard.writeText(config.webhookVerifyToken)}
-              >
-                Copiar
-              </Button>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Gere um token, salve aqui e cole o mesmo valor no Verify Token do webhook na Meta.
-            </p>
-          </div>
-
-          <div className="flex gap-2 pt-4">
-            <Button onClick={handleSave} disabled={saving} className={saving ? 'opacity-80' : undefined}>
-              {saving ? 'Salvando...' : 'Salvar Configurações'}
-            </Button>
-            <Button variant="outline" onClick={handleTest} disabled={testing}>
-              {testing ? 'Testando...' : 'Testar Credenciais'}
-            </Button>
-          </div>
+          <ConfigField
+            label="Meta App ID"
+            helpField="appId"
+            appId={appId}
+            value={config.metaAppId}
+            onChange={(v) => setConfig({ ...config, metaAppId: v })}
+            placeholder="123456789012345"
+            onOpenMeta={() => openMeta('appId')}
+          />
+          <ConfigField
+            label="Meta App Secret"
+            helpField="appSecret"
+            appId={appId}
+            value={config.metaAppSecret}
+            onChange={(v) => setConfig({ ...config, metaAppSecret: v })}
+            placeholder="Cole o App Secret"
+            secret
+            onOpenMeta={() => openMeta('appSecret')}
+          />
+          <ConfigField
+            label="Meta Config ID (opcional)"
+            helpField="configId"
+            appId={appId}
+            value={config.metaConfigId}
+            onChange={(v) => setConfig({ ...config, metaConfigId: v })}
+            placeholder="Se usar Facebook Login for Business"
+            onOpenMeta={() => openMeta('configId')}
+          />
+          <ConfigField
+            label="Instagram App ID (opcional)"
+            helpField="igAppId"
+            appId={appId}
+            value={config.igAppId}
+            onChange={(v) => setConfig({ ...config, igAppId: v })}
+            placeholder="Só se o produto Instagram tiver ID separado"
+            onOpenMeta={() => openMeta('igAppId')}
+          />
+          <ConfigField
+            label="Instagram App Secret (opcional)"
+            helpField="igAppSecret"
+            appId={appId}
+            value={config.igAppSecret}
+            onChange={(v) => setConfig({ ...config, igAppSecret: v })}
+            placeholder="Opcional"
+            secret
+            onOpenMeta={() => openMeta('igAppSecret')}
+          />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <CardTitle>OAuth Callback URL</CardTitle>
-              <CardDescription>
-                Configure esta URL no Meta for Developers para o fluxo OAuth
+              <CardTitle>2. Webhook (URL + Verify Token)</CardTitle>
+              <CardDescription className="mt-1">
+                No Meta → Webhooks → Instagram, cole a URL e o mesmo token gerado abaixo.
               </CardDescription>
             </div>
-            <MetaFieldHelp field="oauthCallback" appId={appId} />
+            <Button variant="outline" size="sm" onClick={() => openMeta('webhookUrl')}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Abrir Webhooks
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">Callback URL</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={oauthCallbackUrl}
-                readOnly
-                className="flex h-10 w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm"
-              />
-              <Button
-                variant="outline"
-                onClick={() => navigator.clipboard.writeText(oauthCallbackUrl)}
-              >
-                Copiar
-              </Button>
-            </div>
-          </div>
-          <div className="rounded-xl bg-zinc-50 p-4 text-sm">
-            <p className="font-medium mb-2">Como configurar no Meta:</p>
-            <ol className="list-decimal list-inside space-y-1 text-zinc-700">
-              <li>Abra Facebook Login for Business → Settings</li>
-              <li>Cole a URL em Valid OAuth Redirect URIs</li>
-              <li>Salve e teste o fluxo Conectar Instagram</li>
+          <div className="rounded-2xl border border-border/70 bg-muted/30 p-4 text-sm">
+            <ol className="list-decimal space-y-1.5 pl-4 text-muted-foreground">
+              <li>Copie a URL do webhook</li>
+              <li>Gere/copie o Verify Token</li>
+              <li>Cole os dois no Meta e ative: comments, mentions, messages</li>
+              <li>Os campos salvam sozinhos ao colar/digitar</li>
             </ol>
           </div>
+
+          <ConfigField
+            label="URL do Webhook"
+            helpField="webhookUrl"
+            appId={appId}
+            value={webhookUrl}
+            readOnly
+            hint="Callback URL HTTPS do produto Instagram no Meta."
+          />
+
+          <ConfigField
+            label="Verify Token"
+            helpField="webhookToken"
+            appId={appId}
+            value={config.webhookVerifyToken}
+            onChange={(v) => setConfig({ ...config, webhookVerifyToken: v })}
+            placeholder="Gere e cole o mesmo valor no Meta"
+            secret
+            onGenerate={() =>
+              setConfig({
+                ...config,
+                webhookVerifyToken: generateWebhookToken(),
+              })
+            }
+            onOpenMeta={() => openMeta('webhookToken')}
+            hint="Tem que ser exatamente igual no Flowcomments e no campo Verify Token da Meta."
+          />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <CardTitle>Webhook do Meta</CardTitle>
-              <CardDescription>
-                Configure este webhook no Meta for Developers
+              <CardTitle>3. OAuth Callback URL</CardTitle>
+              <CardDescription className="mt-1">
+                Cole em Facebook Login for Business → Valid OAuth Redirect URIs.
               </CardDescription>
             </div>
-            <MetaFieldHelp field="webhookUrl" appId={appId} />
+            <Button variant="outline" size="sm" onClick={() => openMeta('oauthCallback')}>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Abrir OAuth
+            </Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">URL do Webhook</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={webhookUrl}
-                readOnly
-                className="flex h-10 w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm"
-              />
-              <Button
-                variant="outline"
-                onClick={() => navigator.clipboard.writeText(webhookUrl)}
-              >
-                Copiar
-              </Button>
-            </div>
-          </div>
-          <div className="rounded-xl bg-zinc-50 p-4 text-sm">
-            <p className="font-medium mb-2">Como configurar:</p>
-            <ol className="list-decimal list-inside space-y-1 text-zinc-700">
-              <li>Abra Webhooks do seu App</li>
-              <li>Cole a URL acima no produto Instagram</li>
-              <li>Use o Verify Token configurado acima</li>
-              <li>Ative os campos: comments, mentions, messages</li>
-            </ol>
-          </div>
+        <CardContent>
+          <ConfigField
+            label="Callback URL"
+            helpField="oauthCallback"
+            appId={appId}
+            value={oauthCallbackUrl}
+            readOnly
+            hint="Sem essa URL, o botão Conectar Instagram falha no retorno da Meta."
+          />
         </CardContent>
       </Card>
+
+      <div className="sticky bottom-4 z-10 flex flex-col gap-3 rounded-2xl border border-border bg-white/95 p-3 shadow-float backdrop-blur sm:flex-row sm:items-center sm:justify-between">
+        <p className="flex items-center gap-2 px-1 text-sm text-muted-foreground">
+          {saveState === 'saving' || saving ? (
+            <>
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              Salvando automaticamente...
+            </>
+          ) : saveState === 'saved' ? (
+            <>
+              <Check className="h-4 w-4 text-emerald-600" />
+              Salvo automaticamente
+            </>
+          ) : saveState === 'error' ? (
+            'Falha ao salvar. Use o botão Salvar ou tente de novo.'
+          ) : config.metaAppId.trim() ? (
+            'Alterações salvam sozinhas ao colar/digitar'
+          ) : (
+            'Cole o Meta App ID para começar o autosave'
+          )}
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button onClick={handleSave} disabled={saving} className="sm:min-w-[160px]">
+            {saving ? 'Salvando...' : 'Salvar agora'}
+          </Button>
+          <Button variant="outline" onClick={handleTest} disabled={testing}>
+            {testing ? 'Testando...' : 'Testar credenciais'}
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

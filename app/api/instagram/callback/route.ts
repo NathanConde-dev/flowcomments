@@ -162,12 +162,8 @@ export async function GET(request: Request) {
         },
       });
 
-      if ((account as { pageId?: string; pageAccessToken?: string }).pageId &&
-          (account as { pageAccessToken?: string }).pageAccessToken) {
-        await subscribePageToWebhooks(
-          (account as { pageId: string }).pageId,
-          (account as { pageAccessToken: string }).pageAccessToken
-        );
+      if (account.pageId && account.pageAccessToken) {
+        await subscribePageToWebhooks(account.pageId, account.pageAccessToken);
       }
 
       await prisma.systemConfig

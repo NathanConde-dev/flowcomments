@@ -146,6 +146,8 @@ export interface InstagramAccountInfo {
   biography?: string;
   website?: string;
   ig_id?: number;
+  pageId?: string;
+  pageAccessToken?: string;
 }
 
 export async function discoverInstagramAccounts(
