@@ -145,9 +145,50 @@ export function AutomationsPageSkeleton() {
 
 export function InboxPageSkeleton() {
   return (
-    <div className="p-6 md:p-8">
-      <PageHeaderSkeleton />
-      <TableRowsSkeleton rows={7} />
+    <div className="flex h-full min-h-0 w-full overflow-hidden bg-background">
+      <div className="flex h-full w-full flex-col border-r border-border bg-white md:w-[340px] lg:w-[380px]">
+        <div className="space-y-3 border-b border-border p-3">
+          <Skeleton className="h-10 w-full rounded-xl" />
+          <div className="flex gap-2">
+            <Skeleton className="h-7 w-16 rounded-full" />
+            <Skeleton className="h-7 w-20 rounded-full" />
+            <Skeleton className="h-7 w-20 rounded-full" />
+          </div>
+        </div>
+        <div className="space-y-2 p-3">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 py-2">
+              <Skeleton className="h-11 w-11 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="hidden min-h-0 flex-1 flex-col md:flex">
+        <div className="flex items-center justify-between border-b border-border bg-white px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-full" />
+            <Skeleton className="h-4 w-36" />
+          </div>
+          <div className="flex gap-1">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-9 w-9 rounded-lg" />
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 space-y-3 bg-muted/20 p-4">
+          <Skeleton className="ml-auto h-16 w-2/3 rounded-2xl" />
+          <Skeleton className="h-12 w-1/2 rounded-2xl" />
+          <Skeleton className="ml-auto h-20 w-3/5 rounded-2xl" />
+        </div>
+        <div className="border-t border-border bg-white p-3 space-y-2">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <Skeleton className="ml-auto h-10 w-48" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -236,6 +277,91 @@ export function AutomationBuilderSkeleton() {
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-24 w-full" />
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function WhatsNewSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-3xl space-y-6 p-4 sm:p-6 md:p-8">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-4 w-72 max-w-full" />
+      </div>
+
+      <div className="rounded-xl border border-border bg-white p-6 shadow-soft space-y-3">
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-4 w-full max-w-md" />
+        <div className="space-y-2 pt-1">
+          <Skeleton className="h-4 w-64 max-w-full" />
+          <Skeleton className="h-4 w-56 max-w-full" />
+          <Skeleton className="h-4 w-60 max-w-full" />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-white p-6 shadow-soft space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-4 w-56 max-w-full" />
+          </div>
+          <Skeleton className="h-8 w-28" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl border border-border bg-muted/40 p-4 space-y-2">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+          <div className="rounded-2xl border border-border bg-muted/40 p-4 space-y-2">
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+        </div>
+        <Skeleton className="h-10 w-40" />
+      </div>
+
+      <div className="rounded-xl border border-border bg-white p-6 shadow-soft space-y-5">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-4 w-52 max-w-full" />
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="space-y-2 border-b border-border pb-5 last:border-0 last:pb-0">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full max-w-md" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function AnnouncementsPageSkeleton() {
+  return (
+    <div className="mx-auto w-full max-w-3xl space-y-6">
+      <div className="rounded-xl border border-border bg-white p-6 shadow-soft space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-2">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-64 max-w-full" />
+          </div>
+          <Skeleton className="h-8 w-28" />
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="space-y-2 border-b border-border pb-5 last:border-0 last:pb-0">
+            <div className="flex items-center justify-between gap-3">
+              <Skeleton className="h-5 w-44" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full max-w-sm" />
+          </div>
+        ))}
       </div>
     </div>
   );

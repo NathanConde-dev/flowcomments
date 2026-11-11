@@ -4,9 +4,11 @@ import { decrypt } from '@/lib/crypto/encryption';
 import {
   BUTTON_PREFIX,
   buttonPayload,
+  DEFAULT_FOLLOW_RECHECK_LABEL,
   evaluateKeywordMatch,
   followCheckPayload,
   followRecheckPayload,
+  pickFollowNudgeMessage,
   type ActionConfig,
   type ActionsConfigEnvelope,
   type KeywordTriggerConfig,
@@ -88,6 +90,11 @@ async function recordOutboundInbox(params: {
   text: string;
   messageType: string;
   dedupeKey: string;
+  automationId?: string;
+  automationName?: string;
+  buttons?: Array<{ title: string }>;
+  attachments?: string | null;
+  isNote?: boolean;
 }) {
   const igThreadId = `${params.businessIgUserId}_${params.recipientIgUserId}`;
   const conversation = await prisma.conversation.upsert({
@@ -115,6 +122,11 @@ async function recordOutboundInbox(params: {
         toIgUserId: params.recipientIgUserId,
         messageType: params.messageType,
         text: params.text,
+        attachments: params.attachments || null,
+        automationId: params.automationId || null,
+        automationName: params.automationName || null,
+        buttonsJson: params.buttons?.length ? JSON.stringify(params.buttons) : null,
+        isNote: Boolean(params.isNote),
         isFromPage: true,
         sentAt: new Date(),
       },
@@ -324,6 +336,7 @@ async function runActions(params: {
   actions: ActionConfig[];
   automation: {
     id: string;
+    name: string;
     userId: string;
     igAccountId: string;
     businessIgUserId: string;
@@ -339,7 +352,12 @@ async function runActions(params: {
   let { state } = params;
   const completedActions = params.completedActions || new Set<string>();
 
-  const trackOutbound = async (text: string, messageType: string, suffix: string) => {
+  const trackOutbound = async (
+    text: string,
+    messageType: string,
+    suffix: string,
+    buttons?: Array<{ title: string }>
+  ) => {
     await logDm({
       userId: automation.userId,
       igAccountId: automation.igAccountId,
@@ -356,7 +374,10 @@ async function runActions(params: {
         recipientIgUserId: context.userId,
         text,
         messageType,
-        dedupeKey: `out:${automation.id}:${context.commentId || context.userId}:${suffix}`,
+        dedupeKey: `out:${automation.id}:${context.commentId || context.userId}:${suffix}:${Date.now()}`,
+        automationId: automation.id,
+        automationName: automation.name,
+        buttons,
       });
     }
   };
@@ -420,7 +441,9 @@ async function runActions(params: {
           await trackOutbound(
             action.text,
             action.buttons?.length ? 'buttons' : 'text',
-            `dm:${action.text.slice(0, 24)}`
+            `dm:${action.text.slice(0, 24)}`,
+            action.buttons?.map((b) => ({ title: b.title })) ||
+              action.quickReplies?.map((b) => ({ title: b.title }))
           );
         }
         await markDone(key);
@@ -436,13 +459,16 @@ async function runActions(params: {
 
       case 'follow_gate':
         if (context.commentId && action.prompt) {
+          const gateButton = {
+            title: action.buttonLabel || 'Já sigo',
+            payload: followCheckPayload(automation.id),
+          };
           await client.sendPrivateReplyWithButtons(context.commentId, action.prompt, [
-            {
-              title: action.buttonLabel || 'Já sigo',
-              payload: followCheckPayload(automation.id),
-            },
+            gateButton,
           ]);
-          await trackOutbound(action.prompt, 'follow_gate', 'follow_gate');
+          await trackOutbound(action.prompt, 'follow_gate', 'follow_gate', [
+            { title: gateButton.title },
+          ]);
         }
         await markDone(key);
         break;
@@ -540,6 +566,7 @@ export async function executeAutomation(
 
     let contactId = '';
     let state: ContactState = { tags: [], customData: {} };
+    let automationPaused = false;
     if (context.userId) {
       const contact = await getOrCreateContact({
         userId: automation.userId,
@@ -550,12 +577,29 @@ export async function executeAutomation(
       });
       contactId = contact.id;
       state = readContactState(contact);
+      automationPaused = Boolean(contact.automationPaused);
+    }
+
+    if (automationPaused) {
+      await prisma.automationExecution.update({
+        where: { id: execution.id },
+        data: {
+          status: 'completed',
+          metadata: JSON.stringify({
+            ...context,
+            skipped: 'automation_paused',
+            completedActions: Array.from(completedActions),
+          }),
+        },
+      });
+      return;
     }
 
     await runActions({
       actions,
       automation: {
         id: automation.id,
+        name: automation.name,
         userId: automation.userId,
         igAccountId: automation.igAccountId,
         businessIgUserId: automation.igAccount.igUserId,
@@ -619,34 +663,98 @@ export async function executeFollowGatePostback(params: {
   try {
     const accessToken = decrypt(automation.igAccount.accessToken);
     const client = createInstagramClient(accessToken, automation.igAccount.igUserId);
+    const contact = await getOrCreateContact({
+      userId: automation.userId,
+      igAccountId: automation.igAccountId,
+      igUserId: params.senderId,
+      client,
+    });
+
+    if (contact.automationPaused) {
+      await prisma.automationExecution.update({
+        where: { id: execution.id },
+        data: {
+          status: 'completed',
+          metadata: JSON.stringify({
+            type: 'follow_gate_postback',
+            kind: params.kind,
+            skipped: 'automation_paused',
+          }),
+        },
+      });
+      return;
+    }
+
+    const state = readContactState(contact);
     const follows = await client.isUserFollowBusiness(params.senderId);
+    const businessIgUserId = automation.igAccount.igUserId!;
 
     if (follows === true) {
+      const nudgeKey = `_followNudge:${automation.id}`;
+      if (nudgeKey in state.customData) {
+        delete state.customData[nudgeKey];
+        await saveContactState(contact.id, state);
+      }
       const reward = gate.rewardText || '';
       if (reward) {
         await client.sendMessage(params.senderId, reward);
         await logDm({
           userId: automation.userId,
           igAccountId: automation.igAccountId,
+          contactId: contact.id,
           text: reward,
           messageType: 'follow_gate_reward',
         });
+        await recordOutboundInbox({
+          userId: automation.userId,
+          igAccountId: automation.igAccountId,
+          contactId: contact.id,
+          businessIgUserId,
+          recipientIgUserId: params.senderId,
+          text: reward,
+          messageType: 'follow_gate_reward',
+          dedupeKey: `out:${automation.id}:${params.senderId}:reward:${Date.now()}`,
+          automationId: automation.id,
+          automationName: automation.name,
+        });
       }
     } else {
-      const ask =
-        gate.notFollowingText ||
-        'Me segue e toca em Verificar de novo pra eu liberar o conteúdo.';
+      const nudgeKey = `_followNudge:${automation.id}`;
+      const attempt = Number(state.customData[nudgeKey] || 0);
+      const ask = pickFollowNudgeMessage(attempt, gate.notFollowingText);
+      state.customData[nudgeKey] = attempt + 1;
+      await saveContactState(contact.id, state);
+
+      const recheckLabel =
+        !gate.recheckButtonLabel || gate.recheckButtonLabel === 'Verificar de novo'
+          ? DEFAULT_FOLLOW_RECHECK_LABEL
+          : gate.recheckButtonLabel;
+
       await client.sendMessageWithButtons(params.senderId, ask, [
         {
-          title: gate.recheckButtonLabel || 'Verificar de novo',
+          title: recheckLabel.slice(0, 20),
           payload: followRecheckPayload(automation.id),
         },
       ]);
       await logDm({
         userId: automation.userId,
         igAccountId: automation.igAccountId,
+        contactId: contact.id,
         text: ask,
         messageType: 'follow_gate_ask',
+      });
+      await recordOutboundInbox({
+        userId: automation.userId,
+        igAccountId: automation.igAccountId,
+        contactId: contact.id,
+        businessIgUserId,
+        recipientIgUserId: params.senderId,
+        text: ask,
+        messageType: 'follow_gate_ask',
+        dedupeKey: `out:${automation.id}:${params.senderId}:ask:${Date.now()}`,
+        automationId: automation.id,
+        automationName: automation.name,
+        buttons: [{ title: recheckLabel.slice(0, 20) }],
       });
     }
 
@@ -695,27 +803,54 @@ export async function executeButtonPostback(params: {
     igUserId: params.senderId,
     client,
   });
+
+  if (contact.automationPaused) return;
+
   const state = readContactState(contact);
+  const businessIgUserId = automation.igAccount.igUserId!;
 
   if (button.requireFollow) {
     const follows = await client.isUserFollowBusiness(params.senderId);
     if (follows !== true) {
-      const ask =
-        button.notFollowingText ||
-        'Me segue e toca em Verificar de novo pra eu liberar.';
+      const nudgeKey = `_followNudgeBtn:${automation.id}:${params.index}`;
+      const attempt = Number(state.customData[nudgeKey] || 0);
+      const ask = pickFollowNudgeMessage(attempt, button.notFollowingText);
+      state.customData[nudgeKey] = attempt + 1;
+      await saveContactState(contact.id, state);
+
       await client.sendMessageWithButtons(params.senderId, ask, [
         {
-          title: 'Verificar de novo',
+          title: DEFAULT_FOLLOW_RECHECK_LABEL,
           payload: buttonPayload(automation.id, params.index),
         },
       ]);
       await logDm({
         userId: automation.userId,
         igAccountId: automation.igAccountId,
+        contactId: contact.id,
         text: ask,
         messageType: 'button_follow_ask',
       });
+      await recordOutboundInbox({
+        userId: automation.userId,
+        igAccountId: automation.igAccountId,
+        contactId: contact.id,
+        businessIgUserId,
+        recipientIgUserId: params.senderId,
+        text: ask,
+        messageType: 'button_follow_ask',
+        dedupeKey: `out:${automation.id}:${params.senderId}:btnask:${params.index}:${Date.now()}`,
+        automationId: automation.id,
+        automationName: automation.name,
+        buttons: [{ title: DEFAULT_FOLLOW_RECHECK_LABEL }],
+      });
       return;
+    }
+
+    const nudgeKey = `_followNudgeBtn:${automation.id}:${params.index}`;
+    if (nudgeKey in state.customData) {
+      delete state.customData[nudgeKey];
+      await saveContactState(contact.id, state);
     }
   }
 
@@ -729,8 +864,21 @@ export async function executeButtonPostback(params: {
     await logDm({
       userId: automation.userId,
       igAccountId: automation.igAccountId,
+      contactId: contact.id,
       text: button.responseText,
       messageType: 'button_response',
+    });
+    await recordOutboundInbox({
+      userId: automation.userId,
+      igAccountId: automation.igAccountId,
+      contactId: contact.id,
+      businessIgUserId,
+      recipientIgUserId: params.senderId,
+      text: button.responseText,
+      messageType: 'button_response',
+      dedupeKey: `out:${automation.id}:${params.senderId}:btn:${params.index}:${Date.now()}`,
+      automationId: automation.id,
+      automationName: automation.name,
     });
   }
 }

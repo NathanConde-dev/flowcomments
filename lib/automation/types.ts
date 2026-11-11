@@ -71,6 +71,25 @@ export const FOLLOW_RECHECK_PREFIX = 'fc:follow_recheck:';
 export const BUTTON_PREFIX = 'fc:btn:';
 export const ICE_PREFIX = 'fc:ice:';
 
+/** Default recheck CTA when the person says they already follow. */
+export const DEFAULT_FOLLOW_RECHECK_LABEL = 'Já segui';
+
+/** Rotating nudges when follow check still fails (sounds human, not a bot loop). */
+export const DEFAULT_FOLLOW_NUDGE_MESSAGES = [
+  'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
+  'Ainda não te achei nos seguidores 👀 Me segue e toca em Já segui.',
+  'Hmm, ainda não seguiu. Segue aí e aperta Já segui que eu libero pra você.',
+  'Quase! Me segue primeiro e toca em Já segui — aí eu te mando o link.',
+] as const;
+
+export function pickFollowNudgeMessage(attempt: number, custom?: string | null): string {
+  const messages: string[] = [...DEFAULT_FOLLOW_NUDGE_MESSAGES];
+  const trimmed = custom?.trim();
+  if (trimmed) messages[0] = trimmed;
+  const index = ((attempt % messages.length) + messages.length) % messages.length;
+  return messages[index];
+}
+
 export function followCheckPayload(automationId: string) {
   return `${FOLLOW_CHECK_PREFIX}${automationId}`;
 }

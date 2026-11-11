@@ -138,7 +138,7 @@ export const defaultAutomationDraft = (): AutomationDraft => ({
   gatePrompt: '',
   gateButtonLabel: 'Já sigo',
   dmIfNotFollowing: '',
-  recheckButtonLabel: 'Verificar de novo',
+  recheckButtonLabel: 'Já segui',
   delayEnabled: false,
   delaySeconds: 3,
   conditionEnabled: false,
@@ -181,8 +181,8 @@ export function applyAutomationTemplate(
       gateButtonLabel: 'Já sigo',
       dmEnabled: true,
       sendDm: 'Aqui está o link: https://seu-link.com',
-      dmIfNotFollowing: 'Me segue e toca em Verificar de novo pra eu liberar o link.',
-      recheckButtonLabel: 'Verificar de novo',
+      dmIfNotFollowing: 'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
+      recheckButtonLabel: 'Já segui',
       nodePositions: { ...DEFAULT_NODE_POSITIONS },
     };
   }

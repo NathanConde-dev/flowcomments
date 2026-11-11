@@ -617,10 +617,10 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
           draft.gatePrompt.trim() ||
           'Toque abaixo pra receber o conteúdo — precisa estar me seguindo.',
         gateButtonLabel: draft.gateButtonLabel.trim() || 'Já sigo',
-        recheckButtonLabel: draft.recheckButtonLabel.trim() || 'Verificar de novo',
+        recheckButtonLabel: draft.recheckButtonLabel.trim() || 'Já segui',
         dmIfNotFollowing:
           draft.dmIfNotFollowing.trim() ||
-          'Me segue e toca em Verificar de novo pra eu liberar o conteúdo.',
+          'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
         nodePositions: {
           ...basePositions,
           followCheck: nextPos,
@@ -891,7 +891,7 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
             {draft.dmIfNotFollowing.trim() || 'Peça pra pessoa te seguir'}
           </p>
           <p className="text-[11px] font-medium text-primary-600">
-            {draft.recheckButtonLabel.trim() || 'Verificar de novo'}
+            {draft.recheckButtonLabel.trim() || 'Já segui'}
           </p>
         </div>
       );

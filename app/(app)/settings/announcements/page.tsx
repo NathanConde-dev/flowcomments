@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Bell, ExternalLink, LoaderCircle, RefreshCw } from 'lucide-react';
+import { Bell, ExternalLink, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AnnouncementsPageSkeleton } from '@/components/ui/skeletons';
 import { toast } from '@/lib/ui/toast';
 import { markAnnouncementsSeen } from '@/components/settings/AnnouncementBadge';
 
@@ -54,6 +55,10 @@ export default function AnnouncementsSettingsPage() {
     load();
   }, [load]);
 
+  if (loading && !data) {
+    return <AnnouncementsPageSkeleton />;
+  }
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <Card>
@@ -80,11 +85,6 @@ export default function AnnouncementsSettingsPage() {
           ) : data.error ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
               {data.error}
-            </div>
-          ) : loading && !data.announcements?.length ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-              {t('loading')}
             </div>
           ) : data.announcements.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t('empty')}</p>

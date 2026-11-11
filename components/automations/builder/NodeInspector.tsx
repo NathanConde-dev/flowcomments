@@ -428,7 +428,7 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                             addTag: '',
                             requireFollow: true,
                             notFollowingText:
-                              'Me segue e toca em Verificar de novo pra eu liberar.',
+                              'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
                           },
                         ],
                       })
@@ -468,7 +468,7 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                           requireFollow,
                           notFollowingText:
                             button.notFollowingText ||
-                            'Me segue e toca em Verificar de novo pra eu liberar.',
+                            'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
                         };
                         onChange({ ...draft, dmButtons });
                       }}
@@ -528,8 +528,12 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                 className="flex min-h-[140px] w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 value={draft.dmIfNotFollowing}
                 onChange={(e) => onChange({ ...draft, dmIfNotFollowing: e.target.value })}
-                placeholder="Me segue e toca em Verificar de novo pra eu liberar o link."
+                placeholder="Hum, olhei aqui e ainda não seguiu. Segue que te mando o link."
               />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Se a pessoa tocar em Já segui e ainda não seguir, a gente troca entre algumas
+                mensagens pra não parecer robô.
+              </p>
             </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-foreground">
@@ -538,7 +542,7 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
               <Input
                 value={draft.recheckButtonLabel}
                 onChange={(e) => onChange({ ...draft, recheckButtonLabel: e.target.value })}
-                placeholder="Verificar de novo"
+                placeholder="Já segui"
                 maxLength={20}
               />
             </div>

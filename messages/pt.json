@@ -97,5 +97,24 @@
     "description": "Inglês é o padrão. Visitantes do Brasil abrem em português automaticamente; você pode trocar a qualquer momento.",
     "auto": "Automático (Brasil → português, demais → inglês)",
     "saved": "Idioma atualizado"
+  },
+  "inbox": {
+    "title": "Inbox",
+    "search": "Pesquisar conversas",
+    "empty": "Nenhuma conversa",
+    "select": "Selecione uma conversa",
+    "selectHint": "Acompanhe DMs, automações e responda direto pelo Instagram",
+    "reply": "Responder",
+    "note": "Observação",
+    "replyPlaceholder": "Responda aqui",
+    "notePlaceholder": "Deixe uma mensagem para seus colegas de equipe ou lembrete para você mesmo",
+    "sendToInstagram": "Enviar para o Instagram",
+    "addNote": "Adicionar observação",
+    "open": "Abertas",
+    "closed": "Fechadas",
+    "unread": "Não lidas",
+    "reminders": "Lembretes",
+    "favorites": "Favoritos",
+    "all": "Todas"
   }
 }

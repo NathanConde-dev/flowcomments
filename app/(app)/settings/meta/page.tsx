@@ -158,6 +158,8 @@ export default function MetaAppSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [resubscribing, setResubscribing] = useState(false);
+  const [hasActiveIgAccount, setHasActiveIgAccount] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const hydratedRef = useRef(false);
   const skipAutosaveRef = useRef(false);
@@ -186,6 +188,14 @@ export default function MetaAppSettingsPage() {
 
   useEffect(() => {
     fetchConfig();
+    void fetch('/api/instagram/accounts')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        const accounts = data.accounts || [];
+        setHasActiveIgAccount(accounts.some((a: { isActive?: boolean }) => a.isActive !== false));
+      })
+      .catch(() => {});
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('needConfig') === '1') {
@@ -370,6 +380,24 @@ export default function MetaAppSettingsPage() {
     }
   };
 
+  const handleResubscribeWebhooks = async () => {
+    setResubscribing(true);
+    try {
+      const res = await fetch('/api/instagram/resubscribe-webhooks', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || 'Falha ao reativar webhooks');
+        return;
+      }
+      toast.success('Webhooks reativados — comente de novo no post pra testar');
+    } catch (error) {
+      console.error('Error resubscribing webhooks:', error);
+      toast.error('Erro ao reativar webhooks');
+    } finally {
+      setResubscribing(false);
+    }
+  };
+
   const openMeta = (field: MetaField) => {
     window.open(getMetaFieldUrl(field, appId), '_blank', 'noopener,noreferrer');
   };
@@ -497,6 +525,23 @@ export default function MetaAppSettingsPage() {
             onOpenMeta={() => openMeta('webhookToken')}
             hint="Tem que ser exatamente igual no Flowcomments e no campo Verify Token da Meta."
           />
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 bg-muted/30 p-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Assinatura da conta</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Reativa comments/messages nas contas Instagram já conectadas.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleResubscribeWebhooks}
+              disabled={resubscribing || !hasActiveIgAccount}
+            >
+              {resubscribing ? 'Reativando...' : 'Reativar webhooks'}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

@@ -97,5 +97,24 @@
     "description": "English is the default. Brazilian visitors get Portuguese automatically; you can override anytime.",
     "auto": "Automatic (Brazil → Portuguese, otherwise English)",
     "saved": "Language updated"
+  },
+  "inbox": {
+    "title": "Inbox",
+    "search": "Search conversations",
+    "empty": "No conversations",
+    "select": "Select a conversation",
+    "selectHint": "Track DMs, automations, and reply on Instagram",
+    "reply": "Reply",
+    "note": "Note",
+    "replyPlaceholder": "Reply here",
+    "notePlaceholder": "Leave a note for your team or a reminder for yourself",
+    "sendToInstagram": "Send to Instagram",
+    "addNote": "Add note",
+    "open": "Open",
+    "closed": "Closed",
+    "unread": "Unread",
+    "reminders": "Reminders",
+    "favorites": "Favorites",
+    "all": "All"
   }
 }

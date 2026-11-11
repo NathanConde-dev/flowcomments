@@ -104,20 +104,21 @@ model AutomationExecution {
 }
 
 model Contact {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  igAccountId String
-  igAccount   InstagramAccount @relation(fields: [igAccountId], references: [id], onDelete: Cascade)
-  igUserId    String
-  igUsername  String
-  fullName    String?
-  profilePic  String?
-  tags        String?
-  customData  String?  @db.Text
-  lastSeenAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  igAccountId      String
+  igAccount        InstagramAccount @relation(fields: [igAccountId], references: [id], onDelete: Cascade)
+  igUserId         String
+  igUsername       String
+  fullName         String?
+  profilePic       String?
+  tags             String?
+  customData       String?  @db.Text
+  automationPaused Boolean  @default(false)
+  lastSeenAt       DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   conversations Conversation[]
   dmLogs        DmLog[]
@@ -139,6 +140,8 @@ model Conversation {
   lastMessageAt  DateTime?
   unreadCount    Int      @default(0)
   status         String   @default("open")
+  reminderAt     DateTime?
+  isFavorite     Boolean  @default(false)
   metadata       String?  @db.Text
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -149,24 +152,30 @@ model Conversation {
   @@index([igAccountId])
   @@index([contactId])
   @@index([status])
+  @@index([reminderAt])
 }
 
 model Message {
-  id             String   @id @default(cuid())
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  igMessageId    String   @unique
-  fromIgUserId   String
-  toIgUserId     String
-  messageType    String
-  text           String?  @db.Text
-  attachments    String?  @db.Text
-  isFromPage     Boolean  @default(false)
-  sentAt         DateTime
-  createdAt      DateTime @default(now())
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  igMessageId     String   @unique
+  fromIgUserId    String
+  toIgUserId      String
+  messageType     String
+  text            String?  @db.Text
+  attachments     String?  @db.Text
+  automationId    String?
+  automationName  String?
+  buttonsJson     String?  @db.Text
+  isNote          Boolean  @default(false)
+  isFromPage      Boolean  @default(false)
+  sentAt          DateTime
+  createdAt       DateTime @default(now())
 
   @@index([conversationId])
   @@index([sentAt])
+  @@index([automationId])
 }
 
 model DmLog {

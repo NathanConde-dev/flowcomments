@@ -211,6 +211,77 @@ export class InstagramClient {
     );
   }
 
+  /**
+   * Upload a reusable messaging attachment (image/audio/video/file) to Meta.
+   * Returns attachment_id for sendAttachment().
+   */
+  async uploadMessageAttachment(params: {
+    type: 'image' | 'audio' | 'video' | 'file';
+    buffer: Buffer;
+    filename: string;
+    mimeType: string;
+  }): Promise<{ attachment_id: string }> {
+    const igUserId = this.requireIgUserId();
+    const form = new FormData();
+    form.append(
+      'message',
+      JSON.stringify({
+        attachment: {
+          type: params.type,
+          payload: { is_reusable: true },
+        },
+      })
+    );
+    form.append(
+      'filedata',
+      new Blob([new Uint8Array(params.buffer)], { type: params.mimeType }),
+      params.filename
+    );
+
+    const url = `${this.messagingBaseUrl()}/${igUserId}/message_attachments`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`,
+      },
+      body: form,
+    });
+    const data = await response.json();
+    if (!response.ok || !data.attachment_id) {
+      throw new InstagramAPIError(
+        data.error?.message || 'Falha ao enviar anexo',
+        data.error?.code,
+        data.error?.error_subcode,
+        data
+      );
+    }
+    return { attachment_id: String(data.attachment_id) };
+  }
+
+  async sendMediaAttachment(
+    recipientId: string,
+    type: 'image' | 'audio' | 'video' | 'file',
+    attachmentId: string
+  ): Promise<{ id: string }> {
+    return this.request<{ id: string }>(
+      this.messagesPath(),
+      {
+        method: 'POST',
+        headers: this.messagingHeaders(),
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: {
+            attachment: {
+              type,
+              payload: { attachment_id: attachmentId },
+            },
+          },
+        }),
+      },
+      this.messagingBaseUrl()
+    );
+  }
+
   async sendPrivateReply(
     commentId: string,
     message: string

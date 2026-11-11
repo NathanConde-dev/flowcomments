@@ -16,7 +16,6 @@ import {
 import { Instagram } from 'lucide-react';
 import { AccountRowSkeleton } from '@/components/ui/skeletons';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { IceBreakersPanel } from '@/components/settings/IceBreakersPanel';
 import { toast } from '@/lib/ui/toast';
 
 interface IGAccount {
@@ -32,7 +31,6 @@ export default function InstagramSettingsPage() {
   const [igAccounts, setIgAccounts] = useState<IGAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
-  const [resubscribing, setResubscribing] = useState(false);
   const [metaConfigured, setMetaConfigured] = useState(false);
   const [expiryInfoAccount, setExpiryInfoAccount] = useState<IGAccount | null>(null);
 
@@ -88,24 +86,6 @@ export default function InstagramSettingsPage() {
     window.location.href = '/api/instagram/connect?returnUrl=/settings/instagram';
   };
 
-  const handleResubscribeWebhooks = async () => {
-    setResubscribing(true);
-    try {
-      const res = await fetch('/api/instagram/resubscribe-webhooks', { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        toast.error(data.error || 'Falha ao reativar webhooks');
-        return;
-      }
-      toast.success('Webhooks reativados — comente de novo no post pra testar');
-    } catch (error) {
-      console.error('Error resubscribing webhooks:', error);
-      toast.error('Erro ao reativar webhooks');
-    } finally {
-      setResubscribing(false);
-    }
-  };
-
   const handleDisconnect = async (accountId: string, username: string) => {
     if (!confirm(`Desconectar @${username}?`)) return;
 
@@ -135,17 +115,6 @@ export default function InstagramSettingsPage() {
   const connectButton = (
     <Button onClick={handleConnect} disabled={connecting || !metaConfigured}>
       {connecting ? 'Conectando...' : '+ Conectar Instagram'}
-    </Button>
-  );
-
-  const resubscribeButton = (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={handleResubscribeWebhooks}
-      disabled={resubscribing || igAccounts.length === 0}
-    >
-      {resubscribing ? 'Reativando...' : 'Reativar webhooks'}
     </Button>
   );
 
@@ -192,9 +161,6 @@ export default function InstagramSettingsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                {resubscribeButton}
-              </div>
               {igAccounts.map((account) => (
                 <div
                   key={account.id}
@@ -269,11 +235,6 @@ export default function InstagramSettingsPage() {
           )}
         </CardContent>
       </Card>
-
-      {!loading &&
-        igAccounts
-          .filter((account) => account.isActive !== false)
-          .map((account) => <IceBreakersPanel key={`ice-${account.id}`} accountId={account.id} />)}
 
       <Dialog
         open={Boolean(expiryInfoAccount)}

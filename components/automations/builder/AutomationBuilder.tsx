@@ -134,7 +134,10 @@ function draftFromAutomation(automation: {
       gatePrompt: followGate?.prompt || '',
       gateButtonLabel: followGate?.buttonLabel || 'Já sigo',
       dmIfNotFollowing: followGate?.notFollowingText || '',
-      recheckButtonLabel: followGate?.recheckButtonLabel || 'Verificar de novo',
+      recheckButtonLabel:
+        !followGate?.recheckButtonLabel || followGate.recheckButtonLabel === 'Verificar de novo'
+          ? 'Já segui'
+          : followGate.recheckButtonLabel,
       delayEnabled: Boolean(delay),
       delaySeconds: typeof delay?.delay === 'number' ? delay.delay : 3,
       conditionEnabled: Boolean(condition),
@@ -204,7 +207,7 @@ function buildActions(draft: AutomationDraft): ActionConfig[] {
       buttonLabel: draft.gateButtonLabel.trim().slice(0, 20),
       rewardText: draft.sendDm.trim(),
       notFollowingText: draft.dmIfNotFollowing.trim(),
-      recheckButtonLabel: (draft.recheckButtonLabel.trim() || 'Verificar de novo').slice(0, 20),
+      recheckButtonLabel: (draft.recheckButtonLabel.trim() || 'Já segui').slice(0, 20),
     });
   } else if (draft.dmEnabled && draft.sendDm.trim()) {
     deliveryActions.push({
@@ -220,7 +223,7 @@ function buildActions(draft: AutomationDraft): ActionConfig[] {
           requireFollow: b.requireFollow || undefined,
           notFollowingText: b.requireFollow
             ? b.notFollowingText.trim() ||
-              'Me segue e toca em Verificar de novo pra eu liberar.'
+              'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.'
             : undefined,
         })),
     });
