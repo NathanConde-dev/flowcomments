@@ -55,11 +55,7 @@ export function GeneralSettings() {
     };
   }, []);
 
-  const saveTimezone = async (next: string) => {
-    if (!isAccountTimezone(next)) {
-      toast.error('Fuso horário inválido');
-      return;
-    }
+  const saveTimezone = async (next: AccountTimezone) => {
     setTimezone(next);
     setSavingTz(true);
     try {
@@ -131,7 +127,11 @@ export function GeneralSettings() {
           <select
             value={timezone}
             disabled={loading || savingTz}
-            onChange={(e) => void saveTimezone(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (!isAccountTimezone(value)) return;
+              void saveTimezone(value);
+            }}
             className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none focus:border-foreground disabled:opacity-60"
           >
             {ACCOUNT_TIMEZONES.map((tz) => (
