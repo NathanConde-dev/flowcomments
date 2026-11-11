@@ -8,6 +8,14 @@
 > **Licença:** Flowcomments Sustainable Use License (source-available / fair-code, não é OSI open source).  
 > Veja [LICENSE](./LICENSE) e [/licenca](https://seu-dominio.com/licenca) para detalhes completos.
 
+## ❤️ Apoie o projeto (doação)
+
+Self-host é **gratuito** na sua infra. Se o Flowcomments te ajuda, uma doação pontual via Stripe sustenta docs, updates e o core público:
+
+**[Doar no site oficial →](https://flowcomments.com/self-host#donate)**
+
+Valores sugeridos: $5 · $15 · $50 (Checkout Stripe). Cloud hospedado é separado: [$67/mês](https://flowcomments.com/signup).
+
 ## 📋 O que é o Flowcomments?
 
 Flowcomments é uma plataforma self-hosted para automatizar interações no Instagram:
@@ -266,7 +274,7 @@ Flowcomments é licenciado sob a **Flowcomments Sustainable Use License** © 202
 - White-label (remover nossa marca)
 - Remover logo "Flowcomments" e "Powered by Flowcomments"
 
-Para licenciamento comercial ou versão hospedada oficial: **contato@nathanconde.com**
+Para licenciamento comercial ou Cloud oficial ($67/mês): [flowcomments.com](https://flowcomments.com/signup) · **contato@nathanconde.com**
 
 ## 🤝 Contribuições
 
