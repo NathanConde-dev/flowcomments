@@ -422,7 +422,14 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                         ...draft,
                         dmButtons: [
                           ...draft.dmButtons,
-                          { title: 'Opção', responseText: '', addTag: '' },
+                          {
+                            title: 'Receber link',
+                            responseText: '',
+                            addTag: '',
+                            requireFollow: true,
+                            notFollowingText:
+                              'Me segue e toca em Verificar de novo pra eu liberar.',
+                          },
                         ],
                       })
                     }
@@ -450,8 +457,38 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                         dmButtons[index] = { ...button, responseText: e.target.value };
                         onChange({ ...draft, dmButtons });
                       }}
-                      placeholder="Resposta ao tocar"
+                      placeholder="Resposta liberada ao tocar"
                     />
+                    <ToggleSwitch
+                      checked={Boolean(button.requireFollow)}
+                      onCheckedChange={(requireFollow) => {
+                        const dmButtons = [...draft.dmButtons];
+                        dmButtons[index] = {
+                          ...button,
+                          requireFollow,
+                          notFollowingText:
+                            button.notFollowingText ||
+                            'Me segue e toca em Verificar de novo pra eu liberar.',
+                        };
+                        onChange({ ...draft, dmButtons });
+                      }}
+                      label="Só libera se seguir"
+                    />
+                    {button.requireFollow && (
+                      <textarea
+                        className="flex min-h-[72px] w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        value={button.notFollowingText || ''}
+                        onChange={(e) => {
+                          const dmButtons = [...draft.dmButtons];
+                          dmButtons[index] = {
+                            ...button,
+                            notFollowingText: e.target.value,
+                          };
+                          onChange({ ...draft, dmButtons });
+                        }}
+                        placeholder="Mensagem se ainda não segue"
+                      />
+                    )}
                     <Input
                       value={button.addTag}
                       onChange={(e) => {
@@ -459,7 +496,7 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                         dmButtons[index] = { ...button, addTag: e.target.value };
                         onChange({ ...draft, dmButtons });
                       }}
-                      placeholder="Tag opcional ao tocar"
+                      placeholder="Tag opcional ao liberar"
                     />
                     <Button
                       type="button"

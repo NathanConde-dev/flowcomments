@@ -43,7 +43,13 @@ type ActionConfig = {
   notFollowingText?: string;
   recheckButtonLabel?: string;
   tag?: string;
-  buttons?: Array<{ title: string; responseText?: string; addTag?: string }>;
+  buttons?: Array<{
+    title: string;
+    responseText?: string;
+    addTag?: string;
+    requireFollow?: boolean;
+    notFollowingText?: string;
+  }>;
   rule?: string;
   field?: string;
   value?: string;
@@ -121,6 +127,8 @@ function draftFromAutomation(automation: {
         title: b.title || '',
         responseText: b.responseText || '',
         addTag: b.addTag || '',
+        requireFollow: Boolean(b.requireFollow),
+        notFollowingText: b.notFollowingText || '',
       })),
       followCheckEnabled,
       gatePrompt: followGate?.prompt || '',
@@ -209,6 +217,11 @@ function buildActions(draft: AutomationDraft): ActionConfig[] {
           title: b.title.trim().slice(0, 20),
           responseText: b.responseText.trim() || undefined,
           addTag: b.addTag.trim() || undefined,
+          requireFollow: b.requireFollow || undefined,
+          notFollowingText: b.requireFollow
+            ? b.notFollowingText.trim() ||
+              'Me segue e toca em Verificar de novo pra eu liberar.'
+            : undefined,
         })),
     });
   }

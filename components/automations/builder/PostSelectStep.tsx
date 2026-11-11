@@ -335,17 +335,11 @@ export function PostSelectStep({ draft, accounts, onChange, onNext }: PostSelect
         </aside>
 
         <section className="fc-canvas-dot hidden flex-1 items-center justify-center bg-canvas p-6 lg:flex lg:p-8">
-          <div>
-            <p className="mb-5 text-center text-sm font-medium text-muted-foreground">
-              Visualização
-              {account ? ` · @${account.igUsername}` : ''}
-            </p>
-            <PhonePreview
-              post={previewPost}
-              username={account?.igUsername}
-              profilePictureUrl={account?.profilePictureUrl}
-            />
-          </div>
+          <PhonePreview
+            post={previewPost}
+            username={account?.igUsername}
+            profilePictureUrl={account?.profilePictureUrl}
+          />
         </section>
       </div>
 

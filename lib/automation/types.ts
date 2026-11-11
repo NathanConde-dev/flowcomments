@@ -24,6 +24,10 @@ export interface MessageButton {
   responseText?: string;
   /** Optional tag applied on tap. */
   addTag?: string;
+  /** Only send responseText if the user follows the business. */
+  requireFollow?: boolean;
+  /** Sent (with recheck button) when requireFollow fails. */
+  notFollowingText?: string;
 }
 
 export interface ActionConfig {

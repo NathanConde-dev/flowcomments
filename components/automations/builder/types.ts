@@ -57,6 +57,8 @@ export interface DmButtonDraft {
   title: string;
   responseText: string;
   addTag: string;
+  requireFollow: boolean;
+  notFollowingText: string;
 }
 
 export interface AutomationDraft {
@@ -195,7 +197,13 @@ export function applyAutomationTemplate(
       dmEnabled: true,
       sendDm: 'Oi! Aqui está o que você pediu: https://seu-link.com',
       dmButtons: [
-        { title: 'Quero mais', responseText: 'Perfeito — me conta o que precisa.', addTag: 'interessado' },
+        {
+          title: 'Quero mais',
+          responseText: 'Perfeito — me conta o que precisa.',
+          addTag: 'interessado',
+          requireFollow: false,
+          notFollowingText: '',
+        },
       ],
       nodePositions: {
         ...DEFAULT_NODE_POSITIONS,

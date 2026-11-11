@@ -507,6 +507,28 @@ export async function executeButtonPostback(params: {
   });
   const state = readContactState(contact);
 
+  if (button.requireFollow) {
+    const follows = await client.isUserFollowBusiness(params.senderId);
+    if (follows !== true) {
+      const ask =
+        button.notFollowingText ||
+        'Me segue e toca em Verificar de novo pra eu liberar.';
+      await client.sendMessageWithButtons(params.senderId, ask, [
+        {
+          title: 'Verificar de novo',
+          payload: buttonPayload(automation.id, params.index),
+        },
+      ]);
+      await logDm({
+        userId: automation.userId,
+        igAccountId: automation.igAccountId,
+        text: ask,
+        messageType: 'button_follow_ask',
+      });
+      return;
+    }
+  }
+
   if (button.addTag && !state.tags.includes(button.addTag)) {
     state.tags.push(button.addTag);
     await saveContactState(contact.id, state);
