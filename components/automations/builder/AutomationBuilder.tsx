@@ -16,16 +16,77 @@ import {
   type BuilderStep,
   type FlowNodeId,
   type IGAccountOption,
+  type InstagramMediaPost,
+  type MatchType,
+  type MediaScope,
 } from './types';
 import { toast } from '@/lib/ui/toast';
 
-export function AutomationBuilder() {
+type AutomationBuilderProps = {
+  automationId?: string;
+};
+
+function draftFromAutomation(automation: {
+  name: string;
+  igAccountId: string;
+  triggerConfig: {
+    trigger?: {
+      keywords?: string[];
+      matchType?: MatchType;
+      caseSensitive?: boolean;
+      mediaScope?: MediaScope;
+      mediaIds?: string[];
+    };
+  };
+  actionsConfig: {
+    actions?: Array<{ type: string; text?: string; delay?: number }>;
+  };
+}): { draft: AutomationDraft; mediaIds: string[] } {
+  const trigger = automation.triggerConfig?.trigger || {};
+  const actions = automation.actionsConfig?.actions || [];
+  const reply = actions.find((a) => a.type === 'reply_comment');
+  const dm = actions.find((a) => a.type === 'send_dm');
+  const mediaIds = trigger.mediaIds || [];
+  const mediaScope: MediaScope =
+    trigger.mediaScope || (mediaIds.length > 0 ? 'specific' : 'any');
+
+  return {
+    mediaIds,
+    draft: {
+      name: automation.name || '',
+      igAccountId: automation.igAccountId || '',
+      mediaScope,
+      selectedPosts: mediaIds.map((id) => ({
+        id,
+        caption: '',
+        mediaType: 'IMAGE',
+        mediaUrl: null,
+        thumbnailUrl: null,
+        permalink: '',
+        timestamp: '',
+        isReel: false,
+      })),
+      keywords: trigger.keywords?.length ? trigger.keywords : [''],
+      matchType: trigger.matchType || 'contains',
+      caseSensitive: Boolean(trigger.caseSensitive),
+      replyEnabled: Boolean(reply),
+      replyComment: reply?.text || '',
+      dmEnabled: Boolean(dm),
+      sendDm: dm?.text || '',
+      dmDelay: typeof dm?.delay === 'number' ? dm.delay : 1,
+    },
+  };
+}
+
+export function AutomationBuilder({ automationId }: AutomationBuilderProps) {
   const router = useRouter();
+  const isEdit = Boolean(automationId);
   const [accounts, setAccounts] = useState<IGAccountOption[]>([]);
   const [draft, setDraft] = useState<AutomationDraft>(defaultAutomationDraft);
   const [step, setStep] = useState<BuilderStep>('post');
   const [selected, setSelected] = useState<FlowNodeId>('trigger');
   const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [loadingAutomation, setLoadingAutomation] = useState(isEdit);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -36,7 +97,7 @@ export function AutomationBuilder() {
           const data = await res.json();
           const list: IGAccountOption[] = data.accounts || [];
           setAccounts(list);
-          if (list.length === 1) {
+          if (!isEdit && list.length === 1) {
             setDraft((prev) => ({ ...prev, igAccountId: list[0].id }));
           }
         }
@@ -47,7 +108,65 @@ export function AutomationBuilder() {
       }
     };
     load();
-  }, []);
+  }, [isEdit]);
+
+  useEffect(() => {
+    if (!automationId) return;
+
+    const load = async () => {
+      setLoadingAutomation(true);
+      try {
+        const res = await fetch(`/api/automations/${automationId}`);
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Automação não encontrada');
+        }
+
+        const { draft: nextDraft, mediaIds } = draftFromAutomation(data.automation);
+        let selectedPosts = nextDraft.selectedPosts;
+
+        if (nextDraft.mediaScope === 'specific' && mediaIds.length > 0 && nextDraft.igAccountId) {
+          try {
+            const mediaRes = await fetch(
+              `/api/instagram/media?accountId=${nextDraft.igAccountId}&limit=50`
+            );
+            if (mediaRes.ok) {
+              const mediaData = await mediaRes.json();
+              const byId = new Map<string, InstagramMediaPost>(
+                (mediaData.posts || []).map((post: InstagramMediaPost) => [post.id, post])
+              );
+              selectedPosts = mediaIds.map(
+                (id) =>
+                  byId.get(id) || {
+                    id,
+                    caption: 'Publicação salva',
+                    mediaType: 'IMAGE',
+                    mediaUrl: null,
+                    thumbnailUrl: null,
+                    permalink: '',
+                    timestamp: '',
+                    isReel: false,
+                  }
+              );
+            }
+          } catch (err) {
+            console.error('Error hydrating selected posts:', err);
+          }
+        }
+
+        setDraft({ ...nextDraft, selectedPosts });
+        setStep('flow');
+        setSelected('trigger');
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Erro ao carregar automação');
+        router.replace('/automations');
+      } finally {
+        setLoadingAutomation(false);
+      }
+    };
+
+    load();
+  }, [automationId, router]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -90,32 +209,33 @@ export function AutomationBuilder() {
       }
 
       const mediaIds = draft.selectedPosts.map((p) => p.id);
-
-      const res = await fetch('/api/automations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: draft.name.trim(),
-          igAccountId: draft.igAccountId,
-          triggerConfig: {
-            trigger: {
-              keywords: validKeywords,
-              matchType: draft.matchType,
-              caseSensitive: draft.caseSensitive,
-              mediaScope: draft.mediaScope,
-              mediaIds: draft.mediaScope === 'specific' ? mediaIds : [],
-            },
+      const payload = {
+        name: draft.name.trim(),
+        igAccountId: draft.igAccountId,
+        triggerConfig: {
+          trigger: {
+            keywords: validKeywords,
+            matchType: draft.matchType,
+            caseSensitive: draft.caseSensitive,
+            mediaScope: draft.mediaScope,
+            mediaIds: draft.mediaScope === 'specific' ? mediaIds : [],
           },
-          actionsConfig: { actions },
-        }),
+        },
+        actionsConfig: { actions },
+      };
+
+      const res = await fetch(isEdit ? `/api/automations/${automationId}` : '/api/automations', {
+        method: isEdit ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Erro ao criar automação');
+        throw new Error(data.error || (isEdit ? 'Erro ao atualizar automação' : 'Erro ao criar automação'));
       }
 
-      toast.success('Automação criada');
+      toast.success(isEdit ? 'Automação atualizada' : 'Automação criada');
       router.push('/automations');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro desconhecido');
@@ -124,7 +244,7 @@ export function AutomationBuilder() {
     }
   };
 
-  if (loadingAccounts) {
+  if (loadingAccounts || loadingAutomation) {
     return <AutomationBuilderSkeleton />;
   }
 
