@@ -14,7 +14,7 @@ Self-host é **gratuito** na sua infra. Se o Flowcomments te ajuda, uma doação
 
 **[Doar no site oficial →](https://flowcomments.com/self-host#donate)**
 
-Valores sugeridos: $5 · $15 · $50 (Checkout Stripe). Cloud hospedado é separado: [$67/mês](https://flowcomments.com/signup).
+Valores sugeridos: $5 · $15 · $50 (Checkout Stripe). Cloud hospedado: [R$ 197/mês](https://flowcomments.com/signup) (BR) · $67/mo (intl).
 
 ## 📋 O que é o Flowcomments?
 
@@ -274,7 +274,7 @@ Flowcomments é licenciado sob a **Flowcomments Sustainable Use License** © 202
 - White-label (remover nossa marca)
 - Remover logo "Flowcomments" e "Powered by Flowcomments"
 
-Para licenciamento comercial ou Cloud oficial ($67/mês): [flowcomments.com](https://flowcomments.com/signup) · **contato@nathanconde.com**
+Para licenciamento comercial ou Cloud oficial (R$ 197/mês · $67/mo): [flowcomments.com](https://flowcomments.com/signup) · **contato@nathanconde.com**
 
 ## 🤝 Contribuições
 
