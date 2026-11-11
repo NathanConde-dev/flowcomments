@@ -2,16 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { MOBILE_TAB_NAV, isImmersiveAppRoute } from './nav';
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const tNav = useTranslations('nav');
 
   if (isImmersiveAppRoute(pathname)) return null;
 
   return (
     <nav
-      aria-label="Navegação principal"
+      aria-label={tNav('settings')}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-white/95 backdrop-blur-xl lg:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
@@ -19,6 +21,7 @@ export function MobileBottomNav() {
         {MOBILE_TAB_NAV.map((item) => {
           const active = item.match(pathname || '');
           const Icon = item.icon;
+          const label = tNav(item.shortKey);
 
           return (
             <li key={item.href} className="min-w-0">
@@ -36,7 +39,7 @@ export function MobileBottomNav() {
                 >
                   <Icon className="h-[18px] w-[18px]" aria-hidden />
                 </span>
-                <span className="truncate">{item.shortName}</span>
+                <span className="truncate">{label}</span>
               </Link>
             </li>
           );

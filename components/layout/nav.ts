@@ -5,8 +5,9 @@ import type { ComponentType, SVGProps } from 'react';
 type NavIcon = LucideIcon | ComponentType<SVGProps<SVGSVGElement>>;
 
 export type AppNavItem = {
-  name: string;
-  shortName: string;
+  /** i18n key under `nav.*` */
+  labelKey: 'dashboard' | 'contacts' | 'automations' | 'inbox' | 'settings';
+  shortKey: 'dashboardShort' | 'contactsShort' | 'automationsShort' | 'inboxShort' | 'settingsShort';
   href: string;
   icon: NavIcon;
   match: (pathname: string) => boolean;
@@ -14,36 +15,36 @@ export type AppNavItem = {
 
 export const APP_NAV: AppNavItem[] = [
   {
-    name: 'Dashboard',
-    shortName: 'Início',
+    labelKey: 'dashboard',
+    shortKey: 'dashboardShort',
     href: '/dashboard',
     icon: Home,
     match: (pathname) => pathname === '/dashboard' || pathname.startsWith('/dashboard/'),
   },
   {
-    name: 'Contatos',
-    shortName: 'Contatos',
+    labelKey: 'contacts',
+    shortKey: 'contactsShort',
     href: '/contacts',
     icon: Users,
     match: (pathname) => pathname.startsWith('/contacts'),
   },
   {
-    name: 'Automações',
-    shortName: 'Autos',
+    labelKey: 'automations',
+    shortKey: 'automationsShort',
     href: '/automations',
     icon: Zap,
     match: (pathname) => pathname.startsWith('/automations'),
   },
   {
-    name: 'Inbox',
-    shortName: 'Inbox',
+    labelKey: 'inbox',
+    shortKey: 'inboxShort',
     href: '/inbox',
     icon: InstagramDirectIcon,
     match: (pathname) => pathname.startsWith('/inbox'),
   },
   {
-    name: 'Configurações',
-    shortName: 'Ajustes',
+    labelKey: 'settings',
+    shortKey: 'settingsShort',
     href: '/settings/instagram',
     icon: Settings,
     match: (pathname) => pathname.startsWith('/settings'),

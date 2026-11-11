@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
@@ -12,6 +13,8 @@ import { toast } from '@/lib/ui/toast';
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useTranslations('auth');
+  const tCommon = useTranslations('common');
   const [loading, setLoading] = useState(false);
   const [credentials, setCredentials] = useState({
     username: '',
@@ -31,13 +34,13 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Erro ao fazer login');
+        throw new Error(data.error || tCommon('error'));
       }
 
-      toast.success('Login realizado');
+      toast.success(t('loginSuccess'));
       router.push('/dashboard');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro desconhecido');
+      toast.error(err instanceof Error ? err.message : tCommon('error'));
     } finally {
       setLoading(false);
     }
@@ -60,7 +63,7 @@ export default function LoginPage() {
         className="absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-border bg-white/80 px-3 py-2 text-sm font-medium text-muted-foreground shadow-soft backdrop-blur-sm transition-colors hover:bg-white hover:text-foreground sm:left-6 sm:top-6"
       >
         <ArrowLeft className="h-4 w-4" />
-        Voltar
+        {t('backHome')}
       </Link>
 
       <Card className="relative z-10 w-full max-w-md">
@@ -68,23 +71,23 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <BrandLogo className="text-3xl tracking-normal" />
           </div>
-          <CardDescription>Entre com suas credenciais</CardDescription>
+          <CardDescription>{t('loginSubtitle')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">E-mail ou usuário</label>
+              <label className="mb-2 block text-sm font-medium">{t('username')}</label>
               <Input
                 type="text"
                 value={credentials.username}
                 onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-                placeholder="seu@email.com ou usuario"
+                placeholder="you@email.com"
                 required
                 autoComplete="username"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Senha</label>
+              <label className="mb-2 block text-sm font-medium">{t('password')}</label>
               <Input
                 type="password"
                 value={credentials.password}
@@ -95,7 +98,7 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar'}
+              {loading ? t('signingIn') : t('signIn')}
             </Button>
           </form>
         </CardContent>

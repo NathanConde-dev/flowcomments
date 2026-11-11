@@ -1,14 +1,17 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { getLocale } from 'next-intl/server';
 import { LogOut, UserRound } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { readSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
 
-function formatDate(value: Date) {
-  return new Intl.DateTimeFormat('pt-BR', {
+async function formatDate(value: Date) {
+  const locale = await getLocale();
+  return new Intl.DateTimeFormat(locale === 'pt' ? 'pt-BR' : 'en-US', {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
@@ -43,8 +46,22 @@ export default async function AccountSettingsPage() {
 
   const initial = user.username[0]?.toUpperCase() || 'U';
 
+  const memberSince = await formatDate(user.createdAt);
+
   return (
     <div className="w-full space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Language / Idioma</CardTitle>
+          <CardDescription>
+            English is primary. Brazil opens in Portuguese automatically.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LanguageSwitcher />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -112,7 +129,7 @@ export default async function AccountSettingsPage() {
                 Conta criada em
               </dt>
               <dd className="mt-1.5 text-sm font-semibold text-foreground">
-                {formatDate(user.createdAt)}
+                {memberSince}
               </dd>
             </div>
             <div className="rounded-xl border border-border/70 bg-white p-4">

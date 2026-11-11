@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { Nunito_Sans } from 'next/font/google';
+import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import { Toaster } from '@/components/ui/toaster';
+import { LocaleProvider } from '@/components/i18n/LocaleProvider';
+import { LocaleBootstrap } from '@/components/i18n/LocaleBootstrap';
 import './globals.css';
 
 const nunitoSans = Nunito_Sans({
@@ -10,15 +13,18 @@ const nunitoSans = Nunito_Sans({
   weight: ['400', '500', '600', '700', '800'],
 });
 
-export const metadata: Metadata = {
-  title: 'Flowcomments - Automação de Comentários Instagram',
-  description: 'Automatize respostas e DMs no Instagram com Flowcomments',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Flowcomments',
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('meta');
+  return {
+    title: t('title'),
+    description: t('description'),
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: 'Flowcomments',
+    },
+  };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -27,13 +33,16 @@ export const viewport: Viewport = {
   themeColor: '#F7F7F7',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="pt-BR">
+    <html lang={locale === 'pt' ? 'pt-BR' : 'en'}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -43,8 +52,11 @@ export default function RootLayout({
         />
       </head>
       <body className={`${nunitoSans.variable} font-sans antialiased`}>
-        {children}
-        <Toaster />
+        <LocaleProvider locale={locale} messages={messages}>
+          <LocaleBootstrap />
+          {children}
+          <Toaster />
+        </LocaleProvider>
       </body>
     </html>
   );

@@ -9,6 +9,7 @@ import {
   PanelLeftOpen,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { ConnectedBadge } from '@/components/ui/status-badge';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { APP_NAV, isImmersiveAppRoute } from './nav';
@@ -29,6 +30,7 @@ const STORAGE_KEY = 'fc-sidebar-collapsed';
 
 export function AppShell({ username, email, igAccount, children }: AppShellProps) {
   const pathname = usePathname();
+  const tNav = useTranslations('nav');
   const [collapsed, setCollapsed] = useState(false);
   const immersive = isImmersiveAppRoute(pathname);
 
@@ -93,12 +95,13 @@ export function AppShell({ username, email, igAccount, children }: AppShellProps
             {APP_NAV.map((item) => {
               const isActive = item.match(pathname || '');
               const Icon = item.icon;
+              const label = tNav(item.labelKey);
 
               return (
                 <Link
-                  key={item.name}
+                  key={item.labelKey}
                   href={item.href}
-                  title={item.name}
+                  title={label}
                   className={`
                     flex cursor-pointer items-center rounded-xl text-sm font-medium
                     transition-[background-color,color,transform,box-shadow,gap,padding] duration-200 ease-out
@@ -116,7 +119,7 @@ export function AppShell({ username, email, igAccount, children }: AppShellProps
                       collapsed ? 'max-w-0 opacity-0' : 'max-w-[140px] opacity-100'
                     }`}
                   >
-                    {item.name}
+                    {label}
                   </span>
                 </Link>
               );

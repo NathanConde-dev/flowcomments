@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, ExternalLink, LoaderCircle, RefreshCw } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/lib/ui/toast';
@@ -28,6 +29,8 @@ type Payload = {
 };
 
 export default function AnnouncementsSettingsPage() {
+  const t = useTranslations('announcements');
+  const tCommon = useTranslations('common');
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -36,16 +39,16 @@ export default function AnnouncementsSettingsPage() {
     try {
       const res = await fetch('/api/settings/announcements', { cache: 'no-store' });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Falha ao carregar comunicados');
+      if (!res.ok) throw new Error(json.error || tCommon('error'));
       setData(json);
       const ids = (json.announcements || []).map((a: Announcement) => a.id);
       markAnnouncementsSeen(ids);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao carregar comunicados');
+      toast.error(err instanceof Error ? err.message : tCommon('error'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tCommon]);
 
   useEffect(() => {
     load();
@@ -59,26 +62,20 @@ export default function AnnouncementsSettingsPage() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="h-5 w-5" />
-                Comunicados
+                {t('title')}
               </CardTitle>
-              <CardDescription className="mt-1">
-                Mensagens oficiais do Flowcomments (novidades, vídeos, avisos) via control plane.
-              </CardDescription>
+              <CardDescription className="mt-1">{t('description')}</CardDescription>
             </div>
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-              Atualizar
+              {t('refresh')}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           {!data?.controlPlaneConfigured ? (
             <div className="rounded-2xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-              Control plane não configurado. Defina{' '}
-              <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">
-                FLOWCOMMENTS_CONTROL_PLANE_URL
-              </code>{' '}
-              no `.env` apontando para a URL do Flowcomments Cloud (Railway oficial).
+              {t('notConfigured')}
             </div>
           ) : data.error ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -87,10 +84,10 @@ export default function AnnouncementsSettingsPage() {
           ) : loading && !data.announcements?.length ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <LoaderCircle className="h-4 w-4 animate-spin" />
-              Buscando comunicados...
+              {t('loading')}
             </div>
           ) : data.announcements.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum comunicado no momento.</p>
+            <p className="text-sm text-muted-foreground">{t('empty')}</p>
           ) : (
             <ul className="space-y-5">
               {data.announcements.map((item) => (
@@ -98,7 +95,7 @@ export default function AnnouncementsSettingsPage() {
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <h3 className="text-base font-semibold tracking-tight">{item.title}</h3>
                     <time className="text-xs text-muted-foreground">
-                      {new Date(item.publishedAt).toLocaleString('pt-BR')}
+                      {new Date(item.publishedAt).toLocaleString()}
                     </time>
                   </div>
                   <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{item.body}</p>
@@ -107,13 +104,13 @@ export default function AnnouncementsSettingsPage() {
                       <a href={item.mediaUrl} target="_blank" rel="noreferrer">
                         <Button variant="outline" size="sm">
                           <ExternalLink className="mr-2 h-4 w-4" />
-                          {item.mediaType === 'video' ? 'Ver vídeo' : 'Abrir mídia'}
+                          {item.mediaType === 'video' ? t('watchVideo') : t('openMedia')}
                         </Button>
                       </a>
                     )}
                     {item.ctaUrl && (
                       <a href={item.ctaUrl} target="_blank" rel="noreferrer">
-                        <Button size="sm">{item.ctaLabel || 'Abrir'}</Button>
+                        <Button size="sm">{item.ctaLabel || tCommon('open')}</Button>
                       </a>
                     )}
                   </div>

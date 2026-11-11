@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { detectLocale } from '@/i18n/detect';
+import { localeCookieName } from '@/i18n/config';
 
-// Paths that don't require authentication
-// Use exact match for root-level paths, prefix match only for actual prefixes
 const publicPathsExact = [
   '/',
   '/login',
@@ -18,50 +18,51 @@ const publicPathsPrefixes = [
   '/api/setup/',
   '/api/health',
   '/api/webhook',
-  '/api/instagram/callback', // Meta OAuth callback
-  '/api/mcp', // Uses Bearer token auth, not session
+  '/api/instagram/callback',
+  '/api/mcp',
+  '/api/locale',
   '/_next/',
   '/public/',
 ];
 
+function withLocale(request: NextRequest, response: NextResponse) {
+  // Cookie is only an explicit user override (set via /api/locale).
+  // Auto-detect stays request-scoped so Brazil bootstrap can still refine.
+  const locale = detectLocale(request);
+  response.headers.set('x-locale', locale);
+  return response;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Check exact matches
   if (publicPathsExact.includes(pathname)) {
-    return NextResponse.next();
+    return withLocale(request, NextResponse.next());
   }
 
-  // Check prefix matches
-  if (publicPathsPrefixes.some(prefix => pathname.startsWith(prefix))) {
-    return NextResponse.next();
+  if (publicPathsPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+    return withLocale(request, NextResponse.next());
   }
 
-  // Check if session cookie exists (basic check only)
-  // Real session validation happens server-side in layout/requireAuth
   const sessionCookie = request.cookies.get('flowcomments_session');
-  
+
   if (!sessionCookie) {
-    // No session cookie at all - redirect to login
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     const url = new URL('/login', request.url);
     url.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(url);
+    return withLocale(request, NextResponse.redirect(url));
   }
 
-  // Add no-cache headers for authenticated pages
   const response = NextResponse.next();
   response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   response.headers.set('Pragma', 'no-cache');
   response.headers.set('Expires', '0');
-  return response;
+  return withLocale(request, response);
 }
 
 export const config = {
-  matcher: [
-    '/((?!_next/static|_next/image).*)',
-  ],
+  matcher: ['/((?!_next/static|_next/image).*)'],
 };

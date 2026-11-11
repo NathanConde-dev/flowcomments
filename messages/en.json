@@ -1,0 +1,89 @@
+{
+  "meta": {
+    "title": "Flowcomments - Instagram Comment Automation",
+    "description": "Automate Instagram replies and DMs with Flowcomments"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "back": "Back",
+    "copy": "Copy",
+    "copied": "Copied",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "open": "Open",
+    "language": "Language",
+    "english": "English",
+    "portuguese": "Portuguese"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "dashboardShort": "Home",
+    "contacts": "Contacts",
+    "contactsShort": "Contacts",
+    "automations": "Automations",
+    "automationsShort": "Autos",
+    "inbox": "Inbox",
+    "inboxShort": "Inbox",
+    "settings": "Settings",
+    "settingsShort": "Settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "instagram": "Instagram",
+    "metaApp": "Meta App",
+    "mcp": "MCP / AI",
+    "announcements": "Announcements",
+    "updates": "Updates",
+    "account": "Account"
+  },
+  "auth": {
+    "loginTitle": "Sign in",
+    "loginSubtitle": "Access your Flowcomments workspace",
+    "username": "Username",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in...",
+    "loginSuccess": "Signed in",
+    "backHome": "Back"
+  },
+  "announcements": {
+    "title": "Announcements",
+    "description": "Official Flowcomments messages (news, videos, notices) from the control plane.",
+    "refresh": "Refresh",
+    "empty": "No announcements right now.",
+    "notConfigured": "Control plane is not configured. Set FLOWCOMMENTS_CONTROL_PLANE_URL in your .env to your Flowcomments Cloud URL.",
+    "watchVideo": "Watch video",
+    "openMedia": "Open media",
+    "loading": "Fetching announcements..."
+  },
+  "updates": {
+    "title": "Updates",
+    "description": "Self-hosted opt-in — nothing updates automatically. Your data and automations stay intact until you confirm.",
+    "check": "Check",
+    "current": "Current version",
+    "latest": "Latest available",
+    "available": "An update is available",
+    "upToDate": "You are on the latest known version.",
+    "githubUnavailable": "(GitHub unavailable — using local changelog.)",
+    "updateNow": "Update now",
+    "updating": "Updating...",
+    "oneClickOff": "One-click disabled",
+    "viewRelease": "View release on GitHub",
+    "howTo": "How to update on this server",
+    "howToHint": "Without one-click, use the commands for your install method. .env, Postgres, and Redis are not deleted.",
+    "whatsNew": "What's new",
+    "whatsNewHint": "What shipped in each version.",
+    "copyCommands": "Copy commands",
+    "noNotes": "No detailed notes for this version."
+  },
+  "language": {
+    "title": "Language",
+    "description": "English is the default. Brazilian visitors get Portuguese automatically; you can override anytime.",
+    "auto": "Automatic (Brazil → Portuguese, otherwise English)",
+    "saved": "Language updated"
+  }
+}

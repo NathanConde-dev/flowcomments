@@ -1,0 +1,89 @@
+{
+  "meta": {
+    "title": "Flowcomments - Automação de Comentários Instagram",
+    "description": "Automatize respostas e DMs no Instagram com Flowcomments"
+  },
+  "common": {
+    "loading": "Carregando...",
+    "save": "Salvar",
+    "saving": "Salvando...",
+    "cancel": "Cancelar",
+    "continue": "Continuar",
+    "back": "Voltar",
+    "copy": "Copiar",
+    "copied": "Copiado",
+    "error": "Algo deu errado",
+    "retry": "Tentar de novo",
+    "open": "Abrir",
+    "language": "Idioma",
+    "english": "Inglês",
+    "portuguese": "Português"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "dashboardShort": "Início",
+    "contacts": "Contatos",
+    "contactsShort": "Contatos",
+    "automations": "Automações",
+    "automationsShort": "Autos",
+    "inbox": "Inbox",
+    "inboxShort": "Inbox",
+    "settings": "Configurações",
+    "settingsShort": "Ajustes"
+  },
+  "settings": {
+    "title": "Configurações",
+    "instagram": "Instagram",
+    "metaApp": "Meta App",
+    "mcp": "MCP / IA",
+    "announcements": "Comunicados",
+    "updates": "Atualizações",
+    "account": "Conta"
+  },
+  "auth": {
+    "loginTitle": "Entrar",
+    "loginSubtitle": "Acesse seu workspace Flowcomments",
+    "username": "Usuário",
+    "password": "Senha",
+    "signIn": "Entrar",
+    "signingIn": "Entrando...",
+    "loginSuccess": "Login realizado",
+    "backHome": "Voltar"
+  },
+  "announcements": {
+    "title": "Comunicados",
+    "description": "Mensagens oficiais do Flowcomments (novidades, vídeos, avisos) via control plane.",
+    "refresh": "Atualizar",
+    "empty": "Nenhum comunicado no momento.",
+    "notConfigured": "Control plane não configurado. Defina FLOWCOMMENTS_CONTROL_PLANE_URL no .env apontando para a URL do Flowcomments Cloud.",
+    "watchVideo": "Ver vídeo",
+    "openMedia": "Abrir mídia",
+    "loading": "Buscando comunicados..."
+  },
+  "updates": {
+    "title": "Atualizações",
+    "description": "Self-hosted opt-in — nada atualiza sozinho. Seus dados e automações permanecem intactos até você confirmar.",
+    "check": "Verificar",
+    "current": "Versão atual",
+    "latest": "Última disponível",
+    "available": "Há uma atualização disponível",
+    "upToDate": "Você está na versão mais recente conhecida.",
+    "githubUnavailable": "(GitHub indisponível — usando changelog local.)",
+    "updateNow": "Atualizar agora",
+    "updating": "Atualizando...",
+    "oneClickOff": "One-click desativado",
+    "viewRelease": "Ver release no GitHub",
+    "howTo": "Como atualizar neste servidor",
+    "howToHint": "Sem one-click, use os comandos do seu método de instalação. .env, Postgres e Redis não são apagados.",
+    "whatsNew": "Novidades",
+    "whatsNewHint": "O que entrou em cada versão.",
+    "copyCommands": "Copiar comandos",
+    "noNotes": "Sem notas detalhadas nesta versão."
+  },
+  "language": {
+    "title": "Idioma",
+    "description": "Inglês é o padrão. Visitantes do Brasil abrem em português automaticamente; você pode trocar a qualquer momento.",
+    "auto": "Automático (Brasil → português, demais → inglês)",
+    "saved": "Idioma atualizado"
+  }
+}
