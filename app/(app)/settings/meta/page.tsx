@@ -189,7 +189,11 @@ export default function MetaAppSettingsPage() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('needConfig') === '1') {
-        toast.warning('Configure o Meta App antes de conectar o Instagram.');
+        toast.warning(
+          params.get('missing') === 'configId'
+            ? 'Preencha o Meta Config ID (Facebook Login for Business) antes de conectar o Instagram.'
+            : 'Configure o Meta App antes de conectar o Instagram.'
+        );
       }
     }
   }, []);

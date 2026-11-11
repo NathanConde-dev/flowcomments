@@ -11,10 +11,13 @@ export async function GET(request: Request) {
     const returnUrl = searchParams.get('returnUrl') || '/settings/instagram';
 
     const config = await getMetaConfig();
-    if (!config) {
-      const base = process.env.NEXT_PUBLIC_URL || new URL(request.url).origin;
+    const base = process.env.NEXT_PUBLIC_URL || new URL(request.url).origin;
+    if (!config?.appId) {
+      return NextResponse.redirect(new URL('/settings/meta?needConfig=1', base));
+    }
+    if (!config.configId) {
       return NextResponse.redirect(
-        new URL('/settings/meta?needConfig=1', base)
+        new URL('/settings/meta?needConfig=1&missing=configId', base)
       );
     }
 
@@ -33,7 +36,7 @@ export async function GET(request: Request) {
       },
     });
 
-    const oauthUrl = buildOAuthURL(redirectUri, state, config.appId);
+    const oauthUrl = buildOAuthURL(redirectUri, state, config.appId, config.configId);
 
     return NextResponse.redirect(oauthUrl);
   } catch (error) {

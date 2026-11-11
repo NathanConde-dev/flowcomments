@@ -14,22 +14,28 @@ describe('Instagram OAuth', () => {
 
   describe('buildOAuthURL', () => {
     it('should build correct OAuth URL with config_id', () => {
-      const url = buildOAuthURL('https://example.com/callback', 'state123', '123456');
-      
+      const url = buildOAuthURL(
+        'https://example.com/callback',
+        'state123',
+        'app_111',
+        'config_222'
+      );
+
       expect(url).toContain('https://www.facebook.com/v21.0/dialog/oauth');
-      expect(url).toContain('client_id=');
+      expect(url).toContain('client_id=app_111');
       expect(url).toContain('redirect_uri=https%3A%2F%2Fexample.com%2Fcallback');
       expect(url).toContain('state=state123');
-      expect(url).toContain('config_id=123456');
+      expect(url).toContain('config_id=config_222');
       expect(url).toContain('scope=instagram_basic');
       expect(url).toContain('instagram_manage_comments');
       expect(url).toContain('instagram_manage_messages');
     });
 
     it('should build OAuth URL without config_id', () => {
-      const url = buildOAuthURL('https://example.com/callback', 'state123');
-      
+      const url = buildOAuthURL('https://example.com/callback', 'state123', 'app_111');
+
       expect(url).toContain('https://www.facebook.com/v21.0/dialog/oauth');
+      expect(url).toContain('client_id=app_111');
       expect(url).toContain('state=state123');
       expect(url).not.toContain('config_id=');
     });

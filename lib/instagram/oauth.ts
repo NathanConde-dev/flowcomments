@@ -38,11 +38,16 @@ export async function getMetaConfig(): Promise<MetaConfig | null> {
   }
 }
 
-export function buildOAuthURL(redirectUri: string, state: string, configId?: string): string {
+export function buildOAuthURL(
+  redirectUri: string,
+  state: string,
+  appId: string,
+  configId?: string
+): string {
   const baseUrl = 'https://www.facebook.com/v21.0/dialog/oauth';
-  
+
   const params = new URLSearchParams({
-    client_id: configId || '',
+    client_id: appId,
     redirect_uri: redirectUri,
     state,
     scope: [
@@ -56,8 +61,9 @@ export function buildOAuthURL(redirectUri: string, state: string, configId?: str
     response_type: 'code',
   });
 
+  // Facebook Login for Business requires the Login Configuration ID (not the App ID).
   if (configId) {
-    params.append('config_id', configId);
+    params.set('config_id', configId);
   }
 
   return `${baseUrl}?${params.toString()}`;
