@@ -44,10 +44,25 @@ export class InstagramAPIError extends Error {
 }
 
 export class InstagramClient {
-  constructor(
-    private accessToken: string,
-    private igUserId?: string
-  ) {}
+  private accessToken: string;
+
+  constructor(accessToken: string, private igUserId?: string) {
+    this.accessToken = accessToken.trim();
+  }
+
+  /** Instagram Login tokens start with IG*; Facebook Login / Page tokens usually EAA*. */
+  private isInstagramLoginToken() {
+    return this.accessToken.startsWith('IG');
+  }
+
+  /**
+   * Instagram Login → graph.instagram.com
+   * Facebook Login / Page token → graph.facebook.com
+   * Mixing hosts causes Meta "Cannot parse access token".
+   */
+  private messagingBaseUrl() {
+    return this.isInstagramLoginToken() ? IG_GRAPH_API_BASE : GRAPH_API_BASE;
+  }
 
   private async request<T>(
     endpoint: string,
@@ -99,11 +114,26 @@ export class InstagramClient {
   }
 
   private messagesPath() {
-    return `/${this.requireIgUserId()}/messages?access_token=${encodeURIComponent(this.accessToken)}`;
+    // Instagram Login: /{ig-user-id}/messages on graph.instagram.com
+    // Facebook Login / Page token: /me/messages on graph.facebook.com (Page context)
+    if (this.isInstagramLoginToken()) {
+      return `/${this.requireIgUserId()}/messages`;
+    }
+    return `/me/messages`;
+  }
+
+  private messagingHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${this.accessToken}`,
+    };
   }
 
   private messengerProfilePath() {
-    return `/${this.requireIgUserId()}/messenger_profile?platform=instagram&access_token=${encodeURIComponent(this.accessToken)}`;
+    if (this.isInstagramLoginToken()) {
+      return `/${this.requireIgUserId()}/messenger_profile?platform=instagram`;
+    }
+    return `/me/messenger_profile?platform=instagram`;
   }
 
   async getProfile(userId: string): Promise<InstagramProfile> {
@@ -177,15 +207,13 @@ export class InstagramClient {
       this.messagesPath(),
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.messagingHeaders(),
         body: JSON.stringify({
           recipient: { id: recipientId },
           message: { text: message },
         }),
       },
-      IG_GRAPH_API_BASE
+      this.messagingBaseUrl()
     );
   }
 
@@ -197,15 +225,13 @@ export class InstagramClient {
       this.messagesPath(),
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.messagingHeaders(),
         body: JSON.stringify({
           recipient: { comment_id: commentId },
           message: { text: message },
         }),
       },
-      IG_GRAPH_API_BASE
+      this.messagingBaseUrl()
     );
   }
 
@@ -218,9 +244,7 @@ export class InstagramClient {
       this.messagesPath(),
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.messagingHeaders(),
         body: JSON.stringify({
           recipient: { comment_id: commentId },
           message: {
@@ -239,7 +263,7 @@ export class InstagramClient {
           },
         }),
       },
-      IG_GRAPH_API_BASE
+      this.messagingBaseUrl()
     );
   }
 
@@ -252,9 +276,7 @@ export class InstagramClient {
       this.messagesPath(),
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.messagingHeaders(),
         body: JSON.stringify({
           recipient: { id: recipientId },
           message: {
@@ -273,7 +295,7 @@ export class InstagramClient {
           },
         }),
       },
-      IG_GRAPH_API_BASE
+      this.messagingBaseUrl()
     );
   }
 
@@ -286,9 +308,7 @@ export class InstagramClient {
       this.messagesPath(),
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.messagingHeaders(),
         body: JSON.stringify({
           recipient: { id: recipientId },
           message: {
@@ -301,7 +321,7 @@ export class InstagramClient {
           },
         }),
       },
-      IG_GRAPH_API_BASE
+      this.messagingBaseUrl()
     );
   }
 
@@ -312,7 +332,7 @@ export class InstagramClient {
       this.messengerProfilePath(),
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.messagingHeaders(),
         body: JSON.stringify({
           platform: 'instagram',
           ice_breakers: [
@@ -326,7 +346,7 @@ export class InstagramClient {
           ],
         }),
       },
-      IG_GRAPH_API_BASE
+      this.messagingBaseUrl()
     );
   }
 
@@ -335,13 +355,13 @@ export class InstagramClient {
       this.messengerProfilePath(),
       {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.messagingHeaders(),
         body: JSON.stringify({
           platform: 'instagram',
           fields: ['ice_breakers'],
         }),
       },
-      IG_GRAPH_API_BASE
+      this.messagingBaseUrl()
     );
   }
 
