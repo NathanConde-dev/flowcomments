@@ -856,8 +856,9 @@ export async function queueOrExecuteAutomation(
   const { createQueue, QUEUE_NAMES } = await import('@/lib/queue/client');
   const queue = createQueue(QUEUE_NAMES.AUTOMATION);
   if (queue) {
+    // BullMQ: custom jobId cannot contain ":"
     const jobId = context.commentId
-      ? `auto:${automationId}:c:${context.commentId}`
+      ? `auto_${automationId}_c_${context.commentId}`
       : undefined;
     await queue.add(
       'execute-automation',
