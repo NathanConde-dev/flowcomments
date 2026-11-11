@@ -92,7 +92,7 @@ async function recordOutboundInbox(params: {
   dedupeKey: string;
   automationId?: string;
   automationName?: string;
-  buttons?: Array<{ title: string }>;
+  buttons?: Array<{ title: string; type?: 'postback' | 'web_url' | 'quick_reply'; url?: string }>;
   attachments?: string | null;
   isNote?: boolean;
 }) {
@@ -356,7 +356,7 @@ async function runActions(params: {
     text: string,
     messageType: string,
     suffix: string,
-    buttons?: Array<{ title: string }>
+    buttons?: Array<{ title: string; type?: 'postback' | 'web_url' | 'quick_reply' }>
   ) => {
     await logDm({
       userId: automation.userId,
@@ -440,10 +440,17 @@ async function runActions(params: {
           }
           await trackOutbound(
             action.text,
-            action.buttons?.length ? 'buttons' : 'text',
+            action.buttons?.length
+              ? 'buttons'
+              : action.quickReplies?.length
+                ? 'quick_replies'
+                : 'text',
             `dm:${action.text.slice(0, 24)}`,
-            action.buttons?.map((b) => ({ title: b.title })) ||
-              action.quickReplies?.map((b) => ({ title: b.title }))
+            action.buttons?.map((b) => ({ title: b.title, type: 'postback' as const })) ||
+              action.quickReplies?.map((b) => ({
+                title: b.title,
+                type: 'quick_reply' as const,
+              }))
           );
         }
         await markDone(key);
@@ -467,7 +474,7 @@ async function runActions(params: {
             gateButton,
           ]);
           await trackOutbound(action.prompt, 'follow_gate', 'follow_gate', [
-            { title: gateButton.title },
+            { title: gateButton.title, type: 'postback' },
           ]);
         }
         await markDone(key);
@@ -577,7 +584,15 @@ export async function executeAutomation(
       });
       contactId = contact.id;
       state = readContactState(contact);
-      automationPaused = Boolean(contact.automationPaused);
+      const { isAutomationTemporarilyPaused, clearInboxAutomationSuspend } = await import(
+        '@/lib/inbox/settings'
+      );
+      if (contact.automationPaused && !isAutomationTemporarilyPaused(contact)) {
+        await clearInboxAutomationSuspend(contact.id);
+        automationPaused = false;
+      } else {
+        automationPaused = isAutomationTemporarilyPaused(contact);
+      }
     }
 
     if (automationPaused) {
@@ -670,7 +685,12 @@ export async function executeFollowGatePostback(params: {
       client,
     });
 
-    if (contact.automationPaused) {
+    const { isAutomationTemporarilyPaused, clearInboxAutomationSuspend } = await import(
+      '@/lib/inbox/settings'
+    );
+    if (contact.automationPaused && !isAutomationTemporarilyPaused(contact)) {
+      await clearInboxAutomationSuspend(contact.id);
+    } else if (isAutomationTemporarilyPaused(contact)) {
       await prisma.automationExecution.update({
         where: { id: execution.id },
         data: {
@@ -754,7 +774,7 @@ export async function executeFollowGatePostback(params: {
         dedupeKey: `out:${automation.id}:${params.senderId}:ask:${Date.now()}`,
         automationId: automation.id,
         automationName: automation.name,
-        buttons: [{ title: recheckLabel.slice(0, 20) }],
+        buttons: [{ title: recheckLabel.slice(0, 20), type: 'postback' }],
       });
     }
 
@@ -804,7 +824,16 @@ export async function executeButtonPostback(params: {
     client,
   });
 
-  if (contact.automationPaused) return;
+  {
+    const { isAutomationTemporarilyPaused, clearInboxAutomationSuspend } = await import(
+      '@/lib/inbox/settings'
+    );
+    if (contact.automationPaused && !isAutomationTemporarilyPaused(contact)) {
+      await clearInboxAutomationSuspend(contact.id);
+    } else if (isAutomationTemporarilyPaused(contact)) {
+      return;
+    }
+  }
 
   const state = readContactState(contact);
   const businessIgUserId = automation.igAccount.igUserId!;
@@ -842,7 +871,7 @@ export async function executeButtonPostback(params: {
         dedupeKey: `out:${automation.id}:${params.senderId}:btnask:${params.index}:${Date.now()}`,
         automationId: automation.id,
         automationName: automation.name,
-        buttons: [{ title: DEFAULT_FOLLOW_RECHECK_LABEL }],
+        buttons: [{ title: DEFAULT_FOLLOW_RECHECK_LABEL, type: 'postback' }],
       });
       return;
     }

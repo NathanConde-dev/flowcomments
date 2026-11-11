@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { InboxMobileBadgeDot } from '@/components/inbox/InboxNotifications';
 import { MOBILE_TAB_NAV, isImmersiveAppRoute } from './nav';
 
 export function MobileBottomNav() {
@@ -28,16 +29,17 @@ export function MobileBottomNav() {
               <Link
                 href={item.href}
                 aria-current={active ? 'page' : undefined}
-                className={`flex h-full flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-semibold tracking-tight transition-colors ${
+                className={`relative flex h-full flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-semibold tracking-tight transition-colors ${
                   active ? 'text-foreground' : 'text-muted-foreground'
                 }`}
               >
                 <span
-                  className={`flex h-8 w-12 items-center justify-center rounded-2xl transition-colors ${
+                  className={`relative flex h-8 w-12 items-center justify-center rounded-2xl transition-colors ${
                     active ? 'bg-zinc-900 text-white' : 'bg-transparent'
                   }`}
                 >
                   <Icon className="h-[18px] w-[18px]" aria-hidden />
+                  {item.labelKey === 'inbox' ? <InboxMobileBadgeDot /> : null}
                 </span>
                 <span className="truncate">{label}</span>
               </Link>

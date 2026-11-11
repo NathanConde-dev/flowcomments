@@ -559,6 +559,35 @@ async function handleMessagingEvent(message: any): Promise<void> {
     });
   }
 
+  const existingConversation = await prisma.conversation.findUnique({
+    where: { igThreadId: `${recipientId}_${senderId}` },
+    select: { id: true, status: true },
+  });
+
+  const { getInboxSettings } = await import('@/lib/inbox/settings');
+  const inboxSettings = await getInboxSettings(igAccount.userId);
+  const manualStart = inboxSettings.conversationStartMode === 'manual';
+
+  let shouldOpen = !manualStart;
+  if (existingConversation?.status === 'open') {
+    shouldOpen = true;
+  } else if (existingConversation?.status === 'closed' && !manualStart) {
+    const humanAgentReply = await prisma.message.findFirst({
+      where: {
+        conversationId: existingConversation.id,
+        isFromPage: true,
+        isNote: false,
+        automationId: null,
+        NOT: { messageType: 'system' },
+      },
+      select: { id: true },
+    });
+    // Closed automated threads stay closed until opened manually.
+    shouldOpen = Boolean(humanAgentReply);
+  } else if (!existingConversation && manualStart) {
+    shouldOpen = false;
+  }
+
   const conversation = await prisma.conversation.upsert({
     where: {
       igThreadId: `${recipientId}_${senderId}`,
@@ -569,13 +598,31 @@ async function handleMessagingEvent(message: any): Promise<void> {
       contactId: contact.id,
       igThreadId: `${recipientId}_${senderId}`,
       lastMessageAt: new Date(message.timestamp),
-      unreadCount: 1,
+      unreadCount: shouldOpen ? 1 : 0,
+      status: shouldOpen ? 'open' : 'closed',
     },
     update: {
       lastMessageAt: new Date(message.timestamp),
-      unreadCount: { increment: 1 },
+      ...(shouldOpen
+        ? {
+            unreadCount: { increment: 1 },
+            status: 'open',
+          }
+        : {}),
     },
   });
+
+  if (existingConversation?.status === 'closed' && shouldOpen) {
+    const { appendInboxSystemEvent, statusMoveText } = await import('@/lib/inbox/events');
+    await appendInboxSystemEvent({
+      conversationId: conversation.id,
+      businessIgUserId: recipientId,
+      contactIgUserId: senderId,
+      kind: 'status_reopened',
+      text: `${statusMoveText('closed', 'open')} (nova mensagem)`,
+      meta: { from: 'closed', to: 'open', reason: 'inbound_message' },
+    });
+  }
 
   if (messageText || postbackPayload) {
     try {

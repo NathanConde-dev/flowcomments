@@ -3,6 +3,12 @@ import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
 import { decrypt } from '@/lib/crypto/encryption';
 import { createInstagramClient } from '@/lib/instagram/client';
+import { appendInboxSystemEvent, statusMoveText } from '@/lib/inbox/events';
+import {
+  applyInboxAutomationSuspend,
+  clearInboxAutomationSuspend,
+  getInboxSettings,
+} from '@/lib/inbox/settings';
 import { serializeMessage } from '@/lib/inbox/serialize';
 
 type Params = { params: Promise<{ id: string }> };
@@ -28,6 +34,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const contentType = request.headers.get('content-type') || '';
     let text = '';
+    let closeAfter = false;
     let mediaType: 'image' | 'audio' | 'video' | 'file' | null = null;
     let mediaBuffer: Buffer | null = null;
     let filename = 'upload.bin';
@@ -36,6 +43,7 @@ export async function POST(request: Request, { params }: Params) {
     if (contentType.includes('multipart/form-data')) {
       const form = await request.formData();
       text = String(form.get('text') || '').trim();
+      closeAfter = String(form.get('closeAfter') || '') === 'true';
       const file = form.get('file');
       if (file && typeof file !== 'string') {
         const blob = file as File;
@@ -49,8 +57,9 @@ export async function POST(request: Request, { params }: Params) {
         else mediaType = 'file';
       }
     } else {
-      const body = (await request.json()) as { text?: string };
+      const body = (await request.json()) as { text?: string; closeAfter?: boolean };
       text = String(body.text || '').trim();
+      closeAfter = Boolean(body.closeAfter);
     }
 
     if (!text && !mediaBuffer) {
@@ -119,14 +128,50 @@ export async function POST(request: Request, { params }: Params) {
       },
     });
 
+    const wasClosed = conversation.status === 'closed';
+    const nextStatus = closeAfter ? 'closed' : 'open';
+
     await prisma.conversation.update({
       where: { id: conversation.id },
       data: {
         lastMessageAt: new Date(),
-        status: 'open',
+        status: nextStatus,
         unreadCount: 0,
       },
     });
+
+    const businessIgUserId = conversation.igAccount.igUserId;
+    const contactIgUserId = recipientId;
+
+    if (wasClosed && nextStatus === 'open') {
+      await appendInboxSystemEvent({
+        conversationId: conversation.id,
+        businessIgUserId,
+        contactIgUserId,
+        kind: 'status_reopened',
+        text: statusMoveText('closed', 'open'),
+        meta: { from: 'closed', to: 'open', reason: 'outbound_reply' },
+      });
+    } else if (!wasClosed && nextStatus === 'closed') {
+      await appendInboxSystemEvent({
+        conversationId: conversation.id,
+        businessIgUserId,
+        contactIgUserId,
+        kind: 'status_closed',
+        text: statusMoveText(conversation.status || 'open', 'closed'),
+        meta: { from: conversation.status, to: 'closed', reason: 'send_and_close' },
+      });
+    }
+
+    const inboxSettings = await getInboxSettings(session.userId);
+    if (nextStatus === 'closed') {
+      await clearInboxAutomationSuspend(conversation.contactId);
+    } else {
+      await applyInboxAutomationSuspend({
+        contactId: conversation.contactId,
+        mode: inboxSettings.suspendAutomationsFor,
+      });
+    }
 
     await prisma.dmLog.create({
       data: {

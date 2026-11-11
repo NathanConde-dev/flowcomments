@@ -36,6 +36,32 @@
 
   * {
     border-color: hsl(var(--border));
+    scrollbar-width: thin;
+    scrollbar-color: rgba(24, 24, 27, 0.22) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: rgba(24, 24, 27, 0.18);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(24, 24, 27, 0.32);
+  }
+
+  *::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   html {
@@ -125,34 +151,10 @@
     background-size: 10px 10px;
   }
 
-  /* Minimal scrollbar for canvases / dense panels */
+  /* Alias kept for existing call sites; same as global scrollbar */
   .fc-scrollbar-minimal {
     scrollbar-width: thin;
     scrollbar-color: rgba(24, 24, 27, 0.22) transparent;
-  }
-
-  .fc-scrollbar-minimal::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-
-  .fc-scrollbar-minimal::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .fc-scrollbar-minimal::-webkit-scrollbar-thumb {
-    background-color: rgba(24, 24, 27, 0.18);
-    border-radius: 999px;
-    border: 2px solid transparent;
-    background-clip: content-box;
-  }
-
-  .fc-scrollbar-minimal::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(24, 24, 27, 0.32);
-  }
-
-  .fc-scrollbar-minimal::-webkit-scrollbar-corner {
-    background: transparent;
   }
 
   .fc-material {
@@ -304,4 +306,19 @@
     opacity: 1;
     transform: scale(1);
   }
+}
+
+@keyframes fc-tooltip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.fc-tooltip-in {
+  animation: fc-tooltip-in 120ms ease-out;
 }

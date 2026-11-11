@@ -1,11 +1,9 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getLocale } from 'next-intl/server';
-import { LogOut, UserRound } from 'lucide-react';
+import { UserRound } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { readSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
 
@@ -45,23 +43,10 @@ export default async function AccountSettingsPage() {
   }
 
   const initial = user.username[0]?.toUpperCase() || 'U';
-
   const memberSince = await formatDate(user.createdAt);
 
   return (
     <div className="w-full space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Language / Idioma</CardTitle>
-          <CardDescription>
-            English is primary. Brazil opens in Portuguese automatically.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <LanguageSwitcher />
-        </CardContent>
-      </Card>
-
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -84,7 +69,7 @@ export default async function AccountSettingsPage() {
                     {user.username}
                   </p>
                   <StatusBadge tone={user.isAdmin ? 'success' : 'expired'} icon={false}>
-                    {user.isAdmin ? 'Administrador' : 'Usuário'}
+                    {user.isAdmin ? 'Administrador' : 'Uuário'}
                   </StatusBadge>
                 </div>
                 <p className="mt-1 truncate text-sm text-muted-foreground">
@@ -92,13 +77,6 @@ export default async function AccountSettingsPage() {
                 </p>
               </div>
             </div>
-
-            <form action="/api/auth/logout" method="POST">
-              <Button type="submit" variant="outline" className="rounded-full">
-                <LogOut className="mr-2 h-4 w-4" />
-                Sair da conta
-              </Button>
-            </form>
           </div>
 
           <dl className="grid gap-3 sm:grid-cols-2">
@@ -121,7 +99,7 @@ export default async function AccountSettingsPage() {
                 Função
               </dt>
               <dd className="mt-1.5 text-sm font-semibold text-foreground">
-                {user.isAdmin ? 'Administrador' : 'Usuário'}
+                {user.isAdmin ? 'Administrador' : 'Uuário'}
               </dd>
             </div>
             <div className="rounded-xl border border-border/70 bg-white p-4">

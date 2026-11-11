@@ -40,6 +40,8 @@
     "mcp": "MCP / AI",
     "announcements": "Announcements",
     "updates": "Updates",
+    "general": "General",
+    "inbox": "Inbox",
     "account": "Account"
   },
   "auth": {

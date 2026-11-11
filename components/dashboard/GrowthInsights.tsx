@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Calendar, ChevronDown } from 'lucide-react';
 import { useSelectedIgAccount } from '@/components/instagram/SelectedIgAccountContext';
+import { GrowthInsightsSkeleton } from '@/components/ui/skeletons';
 import { cn } from '@/lib/utils/cn';
 
 type GrowthResponse = {
@@ -200,7 +201,7 @@ export function GrowthInsights() {
   const [draftFrom, setDraftFrom] = useState(initial.from);
   const [draftTo, setDraftTo] = useState(initial.to);
   const [rangeOpen, setRangeOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [data, setData] = useState<GrowthResponse | null>(null);
   const rangeRef = useRef<HTMLDivElement>(null);
 
@@ -217,11 +218,13 @@ export function GrowthInsights() {
   useEffect(() => {
     if (!selectedAccountId) {
       setData(null);
+      setLoading(false);
       return;
     }
 
     const controller = new AbortController();
     setLoading(true);
+    setData(null);
 
     const params = new URLSearchParams({
       accountId: selectedAccountId,
@@ -234,7 +237,10 @@ export function GrowthInsights() {
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((payload: GrowthResponse | null) => {
-        if (!payload) return;
+        if (!payload) {
+          setData(null);
+          return;
+        }
         setData(payload);
       })
       .catch((error) => {
@@ -266,8 +272,12 @@ export function GrowthInsights() {
     );
   }
 
-  const summary = data?.summary ?? { active: 0, inactive: 0, total: 0 };
-  const series = data?.series ?? [];
+  if (loading || !data) {
+    return <GrowthInsightsSkeleton />;
+  }
+
+  const summary = data.summary;
+  const series = data.series;
 
   return (
     <section className="overflow-hidden rounded-2xl border border-border/70 bg-white shadow-float">
@@ -347,16 +357,12 @@ export function GrowthInsights() {
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_220px]">
         <div className="min-h-[280px] px-2 py-3 sm:px-4 sm:py-4">
-          {loading && !data ? (
-            <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
-              Carregando insights…
-            </div>
-          ) : series.length === 0 ? (
+          {series.length === 0 ? (
             <div className="flex h-[280px] items-center justify-center text-sm text-muted-foreground">
               Sem dados no período
             </div>
           ) : (
-            <div className={cn('h-[280px]', loading && 'opacity-60')}>
+            <div className="h-[280px]">
               <GrowthChart series={series} />
             </div>
           )}

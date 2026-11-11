@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { ArrowLeft, Instagram } from 'lucide-react';
+import { ArrowLeft, Instagram, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { toast } from '@/lib/ui/toast';
 import { Composer } from './Composer';
 import { ConversationToolbar } from './ConversationToolbar';
 import { MessageBubble } from './MessageBubble';
@@ -38,6 +40,24 @@ export function ChatThread({
     );
   }
 
+  const isClosed = conversation.status === 'closed';
+
+  const reopen = async () => {
+    try {
+      const res = await fetch(`/api/inbox/conversations/${conversation.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'open' }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Erro ao reabrir');
+      toast.success('Conversa reaberta');
+      onRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao reabrir');
+    }
+  };
+
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#fafafa]">
       <header className="flex items-center justify-between gap-3 border-b border-border bg-white px-4 py-3">
@@ -70,7 +90,7 @@ export function ChatThread({
           <div className="min-w-0">
             <p className="truncate font-semibold">@{conversation.contact.igUsername}</p>
             <p className="truncate text-xs text-muted-foreground">
-              {conversation.status === 'open' ? 'Aberta' : 'Fechada'}
+              {isClosed ? 'Fechada' : 'Aberta'}
               {conversation.contact.automationPaused ? ' · automação pausada' : ''}
               {conversation.reminderAt ? ' · lembrete ativo' : ''}
             </p>
@@ -95,7 +115,23 @@ export function ChatThread({
         <div ref={bottomRef} />
       </div>
 
-      <Composer conversationId={conversation.id} onSent={onRefresh} />
+      {isClosed && (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/40 px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            Esta conversa está fechada. Reabra para continuar o atendimento ou envie uma resposta.
+          </p>
+          <Button type="button" variant="outline" onClick={() => void reopen()}>
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Reabrir conversa
+          </Button>
+        </div>
+      )}
+
+      <Composer
+        conversationId={conversation.id}
+        conversationStatus={conversation.status}
+        onSent={onRefresh}
+      />
     </div>
   );
 }

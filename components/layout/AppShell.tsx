@@ -3,9 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  BookOpen,
   Check,
   ChevronRight,
+  CircleHelp,
   Instagram,
+  Lightbulb,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -16,6 +19,8 @@ import { useTranslations } from 'next-intl';
 import { ConnectedBadge } from '@/components/ui/status-badge';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { UpdateBadge } from '@/components/settings/UpdateBadge';
+import { InboxNavBadge, InboxNotifier } from '@/components/inbox/InboxNotifications';
+import { WithTooltip } from '@/components/ui/tooltip';
 import {
   SelectedIgAccountProvider,
   useSelectedIgAccount,
@@ -33,6 +38,13 @@ interface AppShellProps {
 }
 
 const STORAGE_KEY = 'fc-sidebar-collapsed';
+const DOCS_URL = 'https://flowcomments.com/docs';
+
+function buildFeedbackUrl(email?: string) {
+  const url = new URL('https://flowcomments.com/feedback');
+  if (email?.trim()) url.searchParams.set('email', email.trim());
+  return url.toString();
+}
 
 function IgAvatar({
   account,
@@ -90,27 +102,28 @@ function IgAccountSwitcher({ collapsed }: { collapsed: boolean }) {
 
   if (accounts.length === 0) {
     return (
-      <Link
-        href="/settings/instagram"
-        title="Conectar Instagram"
-        className={`flex cursor-pointer items-center rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 text-zinc-500 transition-colors hover:border-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 ${
-          collapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2.5'
-        }`}
-      >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#f9ce34]/20 via-[#ee2a7b]/20 to-[#6228d7]/20">
-          <Instagram className="h-4 w-4" />
-        </span>
-        {!collapsed && (
-          <span className="min-w-0 flex-1 text-left">
-            <span className="block text-xs font-semibold text-foreground">
-              Conectar Instagram
-            </span>
-            <span className="mt-0.5 block text-[11px] text-muted-foreground">
-              Vincular conta para automações
-            </span>
+      <WithTooltip label="Conectar Instagram" disabled={!collapsed} side="right">
+        <Link
+          href="/settings/general"
+          className={`flex cursor-pointer items-center rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 text-zinc-500 transition-colors hover:border-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 ${
+            collapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2.5'
+          }`}
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#f9ce34]/20 via-[#ee2a7b]/20 to-[#6228d7]/20">
+            <Instagram className="h-4 w-4" />
           </span>
-        )}
-      </Link>
+          {!collapsed && (
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block text-xs font-semibold text-foreground">
+                Conectar Instagram
+              </span>
+              <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                Vincular conta para automações
+              </span>
+            </span>
+          )}
+        </Link>
+      </WithTooltip>
     );
   }
 
@@ -123,9 +136,10 @@ function IgAccountSwitcher({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div className="relative" ref={rootRef}>
+      <WithTooltip label={title} side="right" disabled={!collapsed}>
       <button
         type="button"
-        title={title}
+        aria-label={title}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
@@ -174,6 +188,7 @@ function IgAccountSwitcher({ collapsed }: { collapsed: boolean }) {
           </>
         )}
       </button>
+      </WithTooltip>
 
       {open && (
         <div
@@ -215,7 +230,7 @@ function IgAccountSwitcher({ collapsed }: { collapsed: boolean }) {
           </div>
           <div className="mt-1 border-t border-border/70 pt-1">
             <Link
-              href="/settings/instagram"
+              href="/settings/general"
               role="menuitem"
               onClick={() => setOpen(false)}
               className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -224,6 +239,104 @@ function IgAccountSwitcher({ collapsed }: { collapsed: boolean }) {
               Gerenciar contas
             </Link>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HelpMenu({
+  collapsed,
+  email,
+}: {
+  collapsed: boolean;
+  email: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={rootRef}>
+      <WithTooltip label="Ajuda" side="right" disabled={!collapsed || open}>
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className={`
+            flex w-full cursor-pointer items-center rounded-xl text-sm font-medium
+            transition-[background-color,color,transform,box-shadow,gap,padding] duration-200 ease-out
+            ${collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'}
+            ${
+              open
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            }
+          `}
+        >
+          <CircleHelp className="h-4 w-4 shrink-0" />
+          <span
+            className={`overflow-hidden whitespace-nowrap transition-all duration-200 ${
+              collapsed ? 'max-w-0 opacity-0' : 'max-w-[140px] opacity-100'
+            }`}
+          >
+            Ajuda
+          </span>
+        </button>
+      </WithTooltip>
+
+      {open && (
+        <div
+          role="menu"
+          className={`absolute z-50 w-64 rounded-xl border border-border bg-white p-1.5 shadow-float ${
+            collapsed
+              ? 'bottom-0 left-[calc(100%+8px)]'
+              : 'bottom-[calc(100%+8px)] left-0 right-0 w-auto'
+          }`}
+        >
+          <a
+            href={buildFeedbackUrl(email)}
+            target="_blank"
+            rel="noopener noreferrer"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+          >
+            <Lightbulb className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0">
+              <span className="block font-medium">Enviar sugestão</span>
+              <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                Ideias e melhorias para o produto
+              </span>
+            </span>
+          </a>
+          <a
+            href={DOCS_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+          >
+            <BookOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="font-medium">Documentação</span>
+          </a>
         </div>
       )}
     </div>
@@ -267,6 +380,7 @@ function AppShellFrame({
 
   return (
     <div className="flex h-[100dvh] overflow-hidden bg-background">
+      <InboxNotifier />
       <aside
         className={`
           relative z-40 hidden h-full shrink-0 border-r border-border bg-white
@@ -286,55 +400,80 @@ function AppShellFrame({
                 className="truncate text-[24px] leading-none text-foreground"
               />
             )}
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              title={collapsed ? 'Expandir menu' : 'Recolher menu'}
-              aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
-              className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              {collapsed ? (
-                <PanelLeftOpen className="h-4 w-4" />
-              ) : (
-                <PanelLeftClose className="h-4 w-4" />
-              )}
-            </button>
+            <WithTooltip label={collapsed ? 'Expandir menu' : 'Recolher menu'}>
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
+                className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                {collapsed ? (
+                  <PanelLeftOpen className="h-4 w-4" />
+                ) : (
+                  <PanelLeftClose className="h-4 w-4" />
+                )}
+              </button>
+            </WithTooltip>
           </div>
 
-          <nav className={`flex-1 space-y-1 py-4 ${collapsed ? 'px-2' : 'px-3'}`}>
-            {APP_NAV.map((item) => {
-              const isActive = item.match(pathname || '');
-              const Icon = item.icon;
-              const label = tNav(item.labelKey);
+          <nav
+            className={`flex flex-1 flex-col py-4 ${collapsed ? 'px-2' : 'px-3'}`}
+          >
+            <div className="space-y-1">
+              {APP_NAV.map((item) => {
+                const isActive = item.match(pathname || '');
+                const Icon = item.icon;
+                const label = tNav(item.labelKey);
 
-              return (
-                <Link
-                  key={item.labelKey}
-                  href={item.href}
-                  title={label}
-                  className={`
-                    flex cursor-pointer items-center rounded-xl text-sm font-medium
-                    transition-[background-color,color,transform,box-shadow,gap,padding] duration-200 ease-out
-                    ${collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'}
-                    ${
-                      isActive
-                        ? 'bg-black text-white shadow-sm'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    }
-                  `}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span
-                    className={`overflow-hidden whitespace-nowrap transition-all duration-200 ${
-                      collapsed ? 'max-w-0 opacity-0' : 'max-w-[140px] opacity-100'
-                    }`}
+                return (
+                  <WithTooltip
+                    key={item.labelKey}
+                    label={label}
+                    side="right"
+                    disabled={!collapsed}
                   >
-                    {label}
-                  </span>
-                  {!collapsed && item.badge === 'updates' ? <UpdateBadge /> : null}
-                </Link>
-              );
-            })}
+                    <Link
+                      href={item.href}
+                      className={`
+                      flex cursor-pointer items-center rounded-xl text-sm font-medium
+                      transition-[background-color,color,transform,box-shadow,gap,padding] duration-200 ease-out
+                      ${collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'}
+                      ${
+                        isActive
+                          ? 'bg-black text-white shadow-sm'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      }
+                    `}
+                    >
+                      <span className="relative shrink-0">
+                        <Icon className="h-4 w-4" />
+                        {collapsed && item.labelKey === 'inbox' ? (
+                          <InboxNavBadge
+                            active={isActive}
+                            className="absolute -right-2 -top-2 h-4 min-w-4 px-1"
+                          />
+                        ) : null}
+                      </span>
+                      <span
+                        className={`overflow-hidden whitespace-nowrap transition-all duration-200 ${
+                          collapsed ? 'max-w-0 opacity-0' : 'max-w-[140px] opacity-100'
+                        }`}
+                      >
+                        {label}
+                      </span>
+                      {!collapsed && item.labelKey === 'inbox' ? (
+                        <InboxNavBadge active={isActive} className="ml-auto" />
+                      ) : null}
+                      {!collapsed && item.badge === 'updates' ? <UpdateBadge /> : null}
+                    </Link>
+                  </WithTooltip>
+                );
+              })}
+            </div>
+
+            <div className="mt-auto space-y-1 pt-3">
+              <HelpMenu collapsed={collapsed} email={email} />
+            </div>
           </nav>
 
           <div
@@ -342,11 +481,11 @@ function AppShellFrame({
           >
             <IgAccountSwitcher collapsed={collapsed} />
 
+            <WithTooltip label={username} side="right" disabled={!collapsed}>
             <div
               className={`flex items-center rounded-xl ${
                 collapsed ? 'justify-center p-1' : 'gap-2.5 px-2.5 py-2'
               }`}
-              title={username}
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-sm font-bold text-zinc-700">
                 {(username || 'U')[0].toUpperCase()}
@@ -364,18 +503,21 @@ function AppShellFrame({
                 </div>
               )}
             </div>
+            </WithTooltip>
 
             <form action="/api/auth/logout" method="POST">
-              <button
-                type="submit"
-                title="Sair"
-                className={`flex w-full cursor-pointer items-center rounded-xl text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${
-                  collapsed ? 'justify-center p-2.5' : 'gap-2 px-2.5 py-2'
-                }`}
-              >
-                <LogOut className="h-4 w-4 shrink-0" />
-                {!collapsed && <span>Sair</span>}
-              </button>
+              <WithTooltip label="Sair" side="right" disabled={!collapsed}>
+                <button
+                  type="submit"
+                  aria-label="Sair"
+                  className={`flex w-full cursor-pointer items-center rounded-xl text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${
+                    collapsed ? 'justify-center p-2.5' : 'gap-2 px-2.5 py-2'
+                  }`}
+                >
+                  <LogOut className="h-4 w-4 shrink-0" />
+                  {!collapsed && <span>Sair</span>}
+                </button>
+              </WithTooltip>
             </form>
           </div>
         </div>

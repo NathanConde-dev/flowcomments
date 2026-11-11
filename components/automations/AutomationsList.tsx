@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Stagger } from '@/components/ui/motion';
+import { WithTooltip } from '@/components/ui/tooltip';
 import { toast } from '@/lib/ui/toast';
 import { cn } from '@/lib/utils/cn';
 import type { InstagramMediaPost } from '@/components/automations/builder/types';
@@ -255,25 +256,27 @@ export function AutomationsList({ initialItems }: AutomationsListProps) {
                   onClick={(event) => event.stopPropagation()}
                   onKeyDown={(event) => event.stopPropagation()}
                 >
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={item.isActive}
-                    disabled={pendingToggle === item.id}
-                    onClick={() => toggleActive(item)}
-                    className={cn(
-                      'relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:opacity-60',
-                      item.isActive ? 'bg-emerald-500' : 'bg-zinc-300'
-                    )}
-                    title={item.isActive ? 'Desativar' : 'Ativar'}
-                  >
-                    <span
+                  <WithTooltip label={item.isActive ? 'Desativar' : 'Ativar'}>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={item.isActive}
+                      aria-label={item.isActive ? 'Desativar' : 'Ativar'}
+                      disabled={pendingToggle === item.id}
+                      onClick={() => toggleActive(item)}
                       className={cn(
-                        'inline-block h-5 w-5 rounded-full bg-white shadow transition-transform',
-                        item.isActive ? 'translate-x-6' : 'translate-x-1'
+                        'relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:opacity-60',
+                        item.isActive ? 'bg-emerald-500' : 'bg-zinc-300'
                       )}
-                    />
-                  </button>
+                    >
+                      <span
+                        className={cn(
+                          'inline-block h-5 w-5 rounded-full bg-white shadow transition-transform',
+                          item.isActive ? 'translate-x-6' : 'translate-x-1'
+                        )}
+                      />
+                    </button>
+                  </WithTooltip>
 
                   <Link href={`/automations/${item.id}`}>
                     <Button type="button" variant="outline" size="sm">

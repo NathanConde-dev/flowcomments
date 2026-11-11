@@ -63,7 +63,7 @@ export const APP_NAV: AppNavItem[] = [
   {
     labelKey: 'settings',
     shortKey: 'settingsShort',
-    href: '/settings/instagram',
+    href: '/settings/general',
     icon: Settings,
     match: (pathname) => pathname.startsWith('/settings'),
   },
@@ -71,7 +71,7 @@ export const APP_NAV: AppNavItem[] = [
 
 /** Mobile bottom tabs — settings on top avatar; what's-new is desktop sidebar */
 export const MOBILE_TAB_NAV = APP_NAV.filter(
-  (item) => item.href !== '/settings/instagram' && !item.desktopOnly
+  (item) => item.href !== '/settings/general' && !item.desktopOnly
 );
 
 /** Full-screen flows: hide mobile chrome (top/bottom bars) */

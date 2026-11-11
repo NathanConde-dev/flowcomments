@@ -2,6 +2,7 @@
 
 import { Search, Star } from 'lucide-react';
 import { InstagramDirectIcon } from '@/components/icons/InstagramDirectIcon';
+import { InboxListRowsSkeleton } from '@/components/ui/skeletons';
 import { formatRelativePt } from './relative-time';
 import type { InboxFilter, InboxListItem } from './types';
 
@@ -34,7 +35,7 @@ export function ConversationList({
   onQueryChange: (query: string) => void;
 }) {
   return (
-    <div className="flex h-full min-h-0 w-full flex-col border-r border-border bg-white md:w-[340px] lg:w-[380px]">
+    <div className="flex h-full min-h-0 w-full flex-col border-r border-border bg-white">
       <div className="space-y-3 border-b border-border p-3">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -65,11 +66,7 @@ export function ConversationList({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {loading && items.length === 0 ? (
-          <div className="space-y-2 p-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />
-            ))}
-          </div>
+          <InboxListRowsSkeleton rows={8} />
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
             <InstagramDirectIcon className="h-8 w-8 text-muted-foreground" />

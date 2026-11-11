@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PageShell, Stagger } from '@/components/ui/motion';
 import { GrowthInsights } from '@/components/dashboard/GrowthInsights';
+import { GrowthInsightsSkeleton } from '@/components/ui/skeletons';
 import { toast } from '@/lib/ui/toast';
 import {
   Check,
@@ -155,9 +156,11 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {setupComplete ? (
+      {status == null ? (
+        <GrowthInsightsSkeleton />
+      ) : setupComplete ? (
         <GrowthInsights />
-      ) : status != null ? (
+      ) : (
         <section className="overflow-hidden rounded-2xl border border-border/70 bg-white shadow-float">
           <div className="flex items-start justify-between gap-3 px-4 pb-4 pt-5 sm:gap-4 sm:px-6 sm:pt-6">
             <div>
@@ -209,7 +212,7 @@ export default function DashboardPage() {
             ))}
           </Stagger>
         </section>
-      ) : null}
+      )}
 
       <div>
         <div className="mb-4 flex items-center justify-between">

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Nunito_Sans } from 'next/font/google';
 import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { LocaleProvider } from '@/components/i18n/LocaleProvider';
 import { LocaleBootstrap } from '@/components/i18n/LocaleBootstrap';
 import './globals.css';
@@ -72,9 +73,11 @@ export default async function RootLayout({
       </head>
       <body className={`${nunitoSans.variable} font-sans antialiased`}>
         <LocaleProvider locale={locale} messages={messages}>
-          <LocaleBootstrap />
-          {children}
-          <Toaster />
+          <TooltipProvider>
+            <LocaleBootstrap />
+            {children}
+            <Toaster />
+          </TooltipProvider>
         </LocaleProvider>
       </body>
     </html>

@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Pause, Play, X } from 'lucide-react';
+import { Instagram, Pause, Play, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { InboxLogsSkeleton } from '@/components/ui/skeletons';
+import { WithTooltip } from '@/components/ui/tooltip';
 import { formatBrasiliaDateTime } from '@/lib/utils/datetime';
 import { toast } from '@/lib/ui/toast';
+import { cn } from '@/lib/utils/cn';
 import type { InboxConversationDetail } from './types';
 
 type LogsPayload = {
@@ -30,16 +33,19 @@ export function ContactSidebar({
   conversation,
   onClose,
   onRefresh,
+  className,
 }: {
   conversation: InboxConversationDetail;
   onClose: () => void;
   onRefresh: () => void;
+  className?: string;
 }) {
   const [logs, setLogs] = useState<LogsPayload | null>(null);
   const [newTag, setNewTag] = useState('');
 
   useEffect(() => {
     let cancelled = false;
+    setLogs(null);
     (async () => {
       try {
         const res = await fetch(`/api/inbox/conversations/${conversation.id}/logs`);
@@ -58,7 +64,7 @@ export function ContactSidebar({
     const res = await fetch(`/api/inbox/contacts/${conversation.contact.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, conversationId: conversation.id }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Erro');
@@ -70,26 +76,15 @@ export function ContactSidebar({
   );
 
   return (
-    <aside className="flex h-full w-full min-w-0 flex-col border-l border-border bg-white md:w-[320px] lg:w-[360px]">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div>
-          <p className="font-semibold">@{conversation.contact.igUsername}</p>
-          {conversation.contact.fullName && (
-            <p className="text-xs text-muted-foreground">{conversation.contact.fullName}</p>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-20 w-20 overflow-hidden rounded-full bg-muted">
+    <aside
+      className={cn(
+        'flex h-full min-h-0 w-full flex-col border-l border-border bg-white shadow-float xl:shadow-none',
+        className
+      )}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-muted">
             {conversation.contact.profilePic ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -99,20 +94,43 @@ export function ContactSidebar({
                 referrerPolicy="no-referrer"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-2xl font-semibold text-muted-foreground">
+              <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-muted-foreground">
                 {conversation.contact.igUsername[0]?.toUpperCase()}
               </div>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Via Instagram · @{conversation.igAccount.igUsername}
-          </p>
-        </div>
-
-        <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Automações</h3>
+          <div className="min-w-0">
+            <p className="truncate font-semibold tracking-tight">
+              @{conversation.contact.igUsername}
+            </p>
+            {conversation.contact.fullName && (
+              <p className="truncate text-xs text-muted-foreground">
+                {conversation.contact.fullName}
+              </p>
+            )}
+            <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">
+              <Instagram className="h-3 w-3 shrink-0" />
+              @{conversation.igAccount.igUsername}
+            </p>
           </div>
+        </div>
+        <WithTooltip label="Fechar">
+          <button
+            type="button"
+            aria-label="Fechar"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </WithTooltip>
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4">
+        <section className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Automações
+          </h3>
           <Button
             type="button"
             variant="outline"
@@ -144,26 +162,35 @@ export function ContactSidebar({
               </>
             )}
           </Button>
+          {conversation.contact.automationPaused && (
+            <p className="text-xs text-amber-700">
+              Automações pausadas para este contato.
+            </p>
+          )}
         </section>
 
         <section className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Tags do contato</h3>
-          </div>
-          <div className="flex flex-wrap gap-1">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Tags do contato
+          </h3>
+          <div className="flex flex-wrap gap-1.5">
+            {conversation.contact.tags.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nenhuma tag</p>
+            )}
             {conversation.contact.tags.map((tag) => (
-              <button
-                key={tag}
-                type="button"
-                className="rounded-full bg-muted px-2 py-0.5 text-xs hover:bg-red-50"
-                onClick={() => {
-                  void patchContact({ removeTag: tag }).catch((err) =>
-                    toast.error(err instanceof Error ? err.message : 'Erro')
-                  );
-                }}
-              >
-                {tag} ×
-              </button>
+              <WithTooltip key={tag} label="Remover tag">
+                <button
+                  type="button"
+                  className="rounded-full bg-muted px-2.5 py-1 text-xs hover:bg-red-50 hover:text-red-700"
+                  onClick={() => {
+                    void patchContact({ removeTag: tag }).catch((err) =>
+                      toast.error(err instanceof Error ? err.message : 'Erro')
+                    );
+                  }}
+                >
+                  {tag} ×
+                </button>
+              </WithTooltip>
             ))}
           </div>
           <div className="flex gap-2">
@@ -171,12 +198,20 @@ export function ContactSidebar({
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
               placeholder="Adicionar tag"
-              className="h-8 flex-1 rounded-lg border border-border px-2 text-xs outline-none focus:ring-2 focus:ring-ring"
+              className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-white px-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' || !newTag.trim()) return;
+                e.preventDefault();
+                void patchContact({ addTag: newTag.trim() })
+                  .then(() => setNewTag(''))
+                  .catch((err) => toast.error(err instanceof Error ? err.message : 'Erro'));
+              }}
             />
             <Button
               type="button"
               size="sm"
               variant="outline"
+              className="h-9 shrink-0"
               onClick={() => {
                 if (!newTag.trim()) return;
                 void patchContact({ addTag: newTag.trim() })
@@ -190,45 +225,64 @@ export function ContactSidebar({
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-sm font-semibold">Campos personalizados</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Campos personalizados
+          </h3>
           {customEntries.length === 0 ? (
             <p className="text-xs text-muted-foreground">Nenhum campo ainda</p>
           ) : (
-            <ul className="space-y-1 text-xs">
+            <ul className="space-y-1.5 text-sm">
               {customEntries.map(([key, value]) => (
-                <li key={key} className="rounded-lg border border-border px-2 py-1.5">
-                  <span className="font-medium">{key}:</span>{' '}
-                  <span className="text-muted-foreground">{String(value ?? '—')}</span>
+                <li
+                  key={key}
+                  className="rounded-xl border border-border bg-muted/30 px-3 py-2"
+                >
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {key}
+                  </p>
+                  <p className="mt-0.5 break-words text-foreground">
+                    {String(value ?? '—')}
+                  </p>
                 </li>
               ))}
             </ul>
           )}
         </section>
 
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold">Logs importantes</h3>
+        <section className="space-y-2 pb-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Logs importantes
+          </h3>
           {!logs ? (
-            <p className="text-xs text-muted-foreground">Carregando…</p>
+            <InboxLogsSkeleton />
           ) : (
             <ul className="space-y-2">
               {logs.executions.slice(0, 8).map((exec) => (
-                <li key={exec.id} className="rounded-lg border border-border px-2 py-1.5 text-xs">
-                  <p className="font-medium">{exec.automation.name}</p>
-                  <p className="text-muted-foreground">
+                <li
+                  key={exec.id}
+                  className="rounded-xl border border-border bg-muted/20 px-3 py-2 text-xs"
+                >
+                  <p className="font-medium text-foreground">{exec.automation.name}</p>
+                  <p className="mt-0.5 text-muted-foreground">
                     {exec.status}
                     {exec.error ? ` · ${exec.error}` : ''}
                   </p>
-                  <p className="text-muted-foreground">{formatBrasiliaDateTime(exec.createdAt)}</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {formatBrasiliaDateTime(exec.createdAt)}
+                  </p>
                 </li>
               ))}
               {logs.dmLogs.slice(0, 6).map((log) => (
-                <li key={log.id} className="rounded-lg border border-border px-2 py-1.5 text-xs">
-                  <p className="font-medium">{log.messageType}</p>
-                  <p className="text-muted-foreground">
+                <li
+                  key={log.id}
+                  className="rounded-xl border border-border bg-muted/20 px-3 py-2 text-xs"
+                >
+                  <p className="font-medium text-foreground">{log.messageType}</p>
+                  <p className="mt-0.5 text-muted-foreground">
                     {log.status}
                     {log.error ? ` · ${log.error}` : ''}
                   </p>
-                  <p className="text-muted-foreground">
+                  <p className="mt-1 text-[11px] text-muted-foreground">
                     {formatBrasiliaDateTime(log.sentAt || log.createdAt)}
                   </p>
                 </li>

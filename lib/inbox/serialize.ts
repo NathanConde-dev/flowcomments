@@ -1,4 +1,8 @@
-export type InboxMessageButton = { title: string };
+export type InboxMessageButton = {
+  title: string;
+  type?: 'postback' | 'web_url' | 'quick_reply';
+  url?: string;
+};
 
 export function parseTags(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -22,14 +26,49 @@ export function parseCustomData(raw: string | null | undefined): Record<string, 
   }
 }
 
+function normalizeButton(item: unknown): InboxMessageButton | null {
+  if (typeof item === 'string') {
+    const title = item.trim();
+    return title ? { title } : null;
+  }
+  if (!item || typeof item !== 'object') return null;
+  const raw = item as {
+    title?: unknown;
+    type?: unknown;
+    url?: unknown;
+    payload?: unknown;
+  };
+  const title = String(raw.title || '').trim();
+  if (!title) return null;
+  const typeRaw = String(raw.type || '').trim().toLowerCase();
+  const type =
+    typeRaw === 'web_url' || typeRaw === 'quick_reply' || typeRaw === 'postback'
+      ? (typeRaw as InboxMessageButton['type'])
+      : raw.url
+        ? 'web_url'
+        : undefined;
+  return {
+    title,
+    type,
+    url: typeof raw.url === 'string' ? raw.url : undefined,
+  };
+}
+
 export function parseButtons(raw: string | null | undefined): InboxMessageButton[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map((item) => ({ title: String((item as { title?: string })?.title || '').trim() }))
-      .filter((item) => item.title);
+    if (Array.isArray(parsed)) {
+      return parsed.map(normalizeButton).filter((b): b is InboxMessageButton => Boolean(b));
+    }
+    if (parsed && typeof parsed === 'object') {
+      const items = (parsed as { items?: unknown; buttons?: unknown }).items
+        ?? (parsed as { buttons?: unknown }).buttons;
+      if (Array.isArray(items)) {
+        return items.map(normalizeButton).filter((b): b is InboxMessageButton => Boolean(b));
+      }
+    }
+    return [];
   } catch {
     return [];
   }

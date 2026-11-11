@@ -10,6 +10,7 @@ import {
   Play,
   Tag,
 } from 'lucide-react';
+import { WithTooltip } from '@/components/ui/tooltip';
 import { toast } from '@/lib/ui/toast';
 import type { InboxConversationDetail } from './types';
 
@@ -62,7 +63,7 @@ export function ConversationToolbar({
     const res = await fetch(`/api/inbox/contacts/${conversation.contact.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, conversationId: conversation.id }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Erro');
@@ -92,15 +93,15 @@ export function ConversationToolbar({
                 <span className="text-xs text-muted-foreground">Nenhuma tag</span>
               )}
               {conversation.contact.tags.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  className="rounded-full bg-muted px-2 py-0.5 text-xs hover:bg-red-50 hover:text-red-700"
-                  title="Remover"
-                  onClick={() => void run(() => patchContact({ removeTag: tag }))}
-                >
-                  {tag} ×
-                </button>
+                <WithTooltip key={tag} label="Remover tag">
+                  <button
+                    type="button"
+                    className="rounded-full bg-muted px-2 py-0.5 text-xs hover:bg-red-50 hover:text-red-700"
+                    onClick={() => void run(() => patchContact({ removeTag: tag }))}
+                  >
+                    {tag} ×
+                  </button>
+                </WithTooltip>
               ))}
             </div>
             <div className="flex gap-2">
@@ -239,15 +240,17 @@ function IconBtn({
   active?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      className={`inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${
-        active ? 'bg-muted text-foreground' : ''
-      }`}
-    >
-      {children}
-    </button>
+    <WithTooltip label={title}>
+      <button
+        type="button"
+        aria-label={title}
+        onClick={onClick}
+        className={`inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${
+          active ? 'bg-muted text-foreground' : ''
+        }`}
+      >
+        {children}
+      </button>
+    </WithTooltip>
   );
 }

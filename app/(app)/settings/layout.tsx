@@ -2,19 +2,21 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, Instagram, KeyRound, Sparkles, UserRound } from 'lucide-react';
+import { Bell, Inbox, Instagram, KeyRound, Settings2, Sparkles, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { AnnouncementBadge } from '@/components/settings/AnnouncementBadge';
 
 type SettingsTab = {
-  key: 'instagram' | 'metaApp' | 'mcp' | 'announcements' | 'account';
+  key: 'general' | 'inbox' | 'instagram' | 'metaApp' | 'mcp' | 'announcements' | 'account';
   href: string;
   icon: LucideIcon;
   badge?: 'announcements';
 };
 
 const settingsTabs: SettingsTab[] = [
+  { key: 'general', href: '/settings/general', icon: Settings2 },
+  { key: 'inbox', href: '/settings/inbox', icon: Inbox },
   { key: 'instagram', href: '/settings/instagram', icon: Instagram },
   { key: 'metaApp', href: '/settings/meta', icon: KeyRound },
   { key: 'mcp', href: '/settings/mcp', icon: Sparkles },

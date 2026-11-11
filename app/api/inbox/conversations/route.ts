@@ -47,7 +47,10 @@ export async function GET(request: Request) {
           select: { id: true, igUsername: true },
         },
         messages: {
-          where: { isNote: false },
+          where: {
+            isNote: false,
+            NOT: { messageType: 'system' },
+          },
           orderBy: { sentAt: 'desc' },
           take: 1,
           select: { text: true, messageType: true, isFromPage: true, sentAt: true },

@@ -25,7 +25,11 @@ export type InboxMessage = {
   attachments: string | null;
   automationId: string | null;
   automationName: string | null;
-  buttons: Array<{ title: string }>;
+  buttons: Array<{
+    title: string;
+    type?: 'postback' | 'web_url' | 'quick_reply';
+    url?: string;
+  }>;
   isNote: boolean;
   isFromPage: boolean;
   sentAt: string;

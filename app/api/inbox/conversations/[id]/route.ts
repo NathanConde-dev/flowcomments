@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
+import {
+  appendInboxSystemEvent,
+  statusEventKind,
+  statusMoveText,
+} from '@/lib/inbox/events';
+import { clearInboxAutomationSuspend } from '@/lib/inbox/settings';
 import { parseCustomData, parseTags, serializeMessage } from '@/lib/inbox/serialize';
 
 type Params = { params: Promise<{ id: string }> };
@@ -114,6 +120,66 @@ export async function PATCH(request: Request, { params }: Params) {
       where: { id: conversation.id },
       data,
     });
+
+    const businessIgUserId = conversation.igAccount.igUserId || 'page';
+    const contactIgUserId = conversation.contact.igUserId;
+
+    if (data.status && data.status !== conversation.status) {
+      const to = data.status as 'open' | 'closed';
+      await appendInboxSystemEvent({
+        conversationId: conversation.id,
+        businessIgUserId,
+        contactIgUserId,
+        kind: statusEventKind(conversation.status, to),
+        text: statusMoveText(conversation.status, to),
+        meta: { from: conversation.status, to },
+      });
+      if (to === 'closed') {
+        await clearInboxAutomationSuspend(conversation.contactId);
+      }
+    }
+
+    if (
+      typeof data.isFavorite === 'boolean' &&
+      data.isFavorite !== conversation.isFavorite
+    ) {
+      await appendInboxSystemEvent({
+        conversationId: conversation.id,
+        businessIgUserId,
+        contactIgUserId,
+        kind: data.isFavorite ? 'favorite_on' : 'favorite_off',
+      });
+    }
+
+    if ('reminderAt' in data) {
+      const had = Boolean(conversation.reminderAt);
+      const has = Boolean(data.reminderAt);
+      if (has && !had) {
+        await appendInboxSystemEvent({
+          conversationId: conversation.id,
+          businessIgUserId,
+          contactIgUserId,
+          kind: 'reminder_set',
+          meta: { reminderAt: data.reminderAt?.toISOString() },
+        });
+      } else if (!has && had) {
+        await appendInboxSystemEvent({
+          conversationId: conversation.id,
+          businessIgUserId,
+          contactIgUserId,
+          kind: 'reminder_cleared',
+        });
+      }
+    }
+
+    if (body.markUnread) {
+      await appendInboxSystemEvent({
+        conversationId: conversation.id,
+        businessIgUserId,
+        contactIgUserId,
+        kind: 'marked_unread',
+      });
+    }
 
     return NextResponse.json({
       conversation: {
