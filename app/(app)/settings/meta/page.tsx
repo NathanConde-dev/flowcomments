@@ -89,14 +89,22 @@ export default function MetaAppSettingsPage() {
         body: JSON.stringify(config),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
         setMessage({ type: 'success', text: 'Configurações salvas com sucesso!' });
+        if (data.config) setConfig((prev) => ({ ...prev, ...data.config }));
       } else {
-        setMessage({ type: 'error', text: data.error || 'Erro ao salvar configurações' });
+        setMessage({
+          type: 'error',
+          text:
+            data.error ||
+            (res.status === 404
+              ? 'API de configuração indisponível. Faça redeploy da versão mais recente.'
+              : 'Erro ao salvar configurações'),
+        });
       }
-    } catch (error) {
+    } catch {
       setMessage({ type: 'error', text: 'Erro ao salvar configurações' });
     } finally {
       setSaving(false);
