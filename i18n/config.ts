@@ -15,14 +15,14 @@ export const localeLabels: Record<AppLocale, string> = {
   es: 'Español',
 };
 
-/** Unicode regional flags (Apple Color Emoji / system emoji). */
-export const localeFlags: Record<AppLocale, string> = {
-  pt: '🇧🇷',
-  en: '🇺🇸',
-  fr: '🇫🇷',
-  it: '🇮🇹',
-  de: '🇩🇪',
-  es: '🇪🇸',
+/** ISO 3166-1 alpha-2 codes for flagcdn (emoji flags break on Windows). */
+export const localeFlagCodes: Record<AppLocale, string> = {
+  pt: 'br',
+  en: 'us',
+  fr: 'fr',
+  it: 'it',
+  de: 'de',
+  es: 'es',
 };
 
 export function isAppLocale(value: string | undefined | null): value is AppLocale {
