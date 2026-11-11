@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { ConnectedBadge } from '@/components/ui/status-badge';
 import { BrandLogo } from '@/components/brand/BrandLogo';
+import { UpdateBadge } from '@/components/settings/UpdateBadge';
 import { APP_NAV, isImmersiveAppRoute } from './nav';
 import { MobileBottomNav } from './MobileBottomNav';
 import { MobileTopBar } from './MobileTopBar';
@@ -121,6 +122,7 @@ export function AppShell({ username, email, igAccount, children }: AppShellProps
                   >
                     {label}
                   </span>
+                  {!collapsed && item.badge === 'updates' ? <UpdateBadge /> : null}
                 </Link>
               );
             })}

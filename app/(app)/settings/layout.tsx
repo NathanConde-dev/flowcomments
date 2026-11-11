@@ -2,17 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ArrowUpCircle, Bell, Instagram, KeyRound, Sparkles, UserRound } from 'lucide-react';
+import { Bell, Instagram, KeyRound, Sparkles, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { AnnouncementBadge } from '@/components/settings/AnnouncementBadge';
-import { UpdateBadge } from '@/components/settings/UpdateBadge';
 
 type SettingsTab = {
-  key: 'instagram' | 'metaApp' | 'mcp' | 'announcements' | 'updates' | 'account';
+  key: 'instagram' | 'metaApp' | 'mcp' | 'announcements' | 'account';
   href: string;
   icon: LucideIcon;
-  badge?: 'updates' | 'announcements';
+  badge?: 'announcements';
 };
 
 const settingsTabs: SettingsTab[] = [
@@ -20,7 +19,6 @@ const settingsTabs: SettingsTab[] = [
   { key: 'metaApp', href: '/settings/meta', icon: KeyRound },
   { key: 'mcp', href: '/settings/mcp', icon: Sparkles },
   { key: 'announcements', href: '/settings/announcements', icon: Bell, badge: 'announcements' },
-  { key: 'updates', href: '/settings/updates', icon: ArrowUpCircle, badge: 'updates' },
   { key: 'account', href: '/settings/account', icon: UserRound },
 ];
 
@@ -58,7 +56,6 @@ export default function SettingsLayout({
                     }`}
                   />
                   {t(tab.key)}
-                  {tab.badge === 'updates' ? <UpdateBadge /> : null}
                   {tab.badge === 'announcements' ? <AnnouncementBadge /> : null}
                 </Link>
               );

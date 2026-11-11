@@ -151,12 +151,15 @@ Durante o setup wizard ou depois nas configurações:
 
 ## 🔄 Atualizações e comunicados (self-hosted)
 
-Instalações locais/VPS em **Configurações**:
+Este repo é **só a plataforma** (sem landing de marketing). A landing oficial fica no Cloud privado.
 
-- **Atualizações** — release nova no GitHub, changelog, update opt-in ([docs/UPDATES.md](./docs/UPDATES.md))
-- **Comunicados** — avisos/vídeos oficiais via control plane (`FLOWCOMMENTS_CONTROL_PLANE_URL`)
+No painel, item de sidebar **Novidades / What's new**:
 
-O SaaS hospedado e o admin de comunicados ficam no repositório **privado** [`flowcomments-cloud`](https://github.com/NathanConde-dev/flowcomments-cloud). Este repo é só o core self-host. Detalhes: [docs/CLOUD_VS_SELFHOST.md](./docs/CLOUD_VS_SELFHOST.md).
+- Changelog das releases do GitHub
+- Update **opt-in** e seguro (não apaga `.env`/dados) — [docs/UPDATES.md](./docs/UPDATES.md)
+- Comunicados oficiais via `FLOWCOMMENTS_CONTROL_PLANE_URL`
+
+SaaS + landing + admin de comunicados: [`flowcomments-cloud`](https://github.com/NathanConde-dev/flowcomments-cloud). Detalhes: [docs/CLOUD_VS_SELFHOST.md](./docs/CLOUD_VS_SELFHOST.md).
 
 > Self-host para uso próprio: permitido. Revender como SaaS/assinatura concorrente: **proibido** pela [LICENSE](./LICENSE) (Sustainable Use).
 
