@@ -33,7 +33,10 @@ export async function GET() {
 
         if (!profilePictureUrl) {
           try {
-            const client = createInstagramClient(decrypt(account.accessToken));
+            const client = createInstagramClient(
+              decrypt(account.accessToken),
+              account.igUserId
+            );
             const profile = await client.getProfile(account.igUserId);
             profilePictureUrl = profile.profile_picture_url || null;
             if (profilePictureUrl) {

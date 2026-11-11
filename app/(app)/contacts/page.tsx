@@ -74,7 +74,13 @@ export default async function ContactsPage() {
                         <>
                           {' '}
                           • Última interação:{' '}
-                          {new Date(contact.lastSeenAt).toLocaleDateString('pt-BR')}
+                          {new Date(contact.lastSeenAt).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
                         </>
                       )}
                     </p>

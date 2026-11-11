@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     }
 
     const accessToken = decrypt(account.accessToken);
-    const client = createInstagramClient(accessToken);
+    const client = createInstagramClient(accessToken, account.igUserId);
     const result = await client.getMedia(account.igUserId, limit);
 
     const posts = (result.data || []).map((post) => ({

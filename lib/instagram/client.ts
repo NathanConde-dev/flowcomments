@@ -1,5 +1,7 @@
 const GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION || 'v21.0';
 const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
+/** Instagram Login user tokens must hit graph.instagram.com for messaging. */
+const IG_GRAPH_API_BASE = `https://graph.instagram.com/${GRAPH_API_VERSION}`;
 
 export interface InstagramProfile {
   id: string;
@@ -42,11 +44,18 @@ export class InstagramAPIError extends Error {
 }
 
 export class InstagramClient {
-  constructor(private accessToken: string) {}
+  constructor(
+    private accessToken: string,
+    private igUserId?: string
+  ) {}
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${GRAPH_API_BASE}${endpoint}`;
-    
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    baseUrl: string = GRAPH_API_BASE
+  ): Promise<T> {
+    const url = `${baseUrl}${endpoint}`;
+
     try {
       const response = await fetch(url, {
         ...options,
@@ -80,6 +89,15 @@ export class InstagramClient {
     }
   }
 
+  private messagesPath() {
+    return this.igUserId ? `/${this.igUserId}/messages` : '/me/messages';
+  }
+
+  private messengerProfilePath() {
+    const id = this.igUserId || 'me';
+    return `/${id}/messenger_profile?platform=instagram&access_token=${this.accessToken}`;
+  }
+
   async getProfile(userId: string): Promise<InstagramProfile> {
     return this.request<InstagramProfile>(
       `/${userId}?fields=id,username,name,profile_picture_url&access_token=${this.accessToken}`
@@ -100,34 +118,42 @@ export class InstagramClient {
   }
 
   async sendMessage(recipientId: string, message: string): Promise<{ id: string }> {
-    return this.request<{ id: string }>('/me/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    return this.request<{ id: string }>(
+      this.messagesPath(),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: { text: message },
+          access_token: this.accessToken,
+        }),
       },
-      body: JSON.stringify({
-        recipient: { id: recipientId },
-        message: { text: message },
-        access_token: this.accessToken,
-      }),
-    });
+      IG_GRAPH_API_BASE
+    );
   }
 
   async sendPrivateReply(
     commentId: string,
     message: string
   ): Promise<{ id: string }> {
-    return this.request<{ id: string }>('/me/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    return this.request<{ id: string }>(
+      this.messagesPath(),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipient: { comment_id: commentId },
+          message: { text: message },
+          access_token: this.accessToken,
+        }),
       },
-      body: JSON.stringify({
-        recipient: { comment_id: commentId },
-        message: { text: message },
-        access_token: this.accessToken,
-      }),
-    });
+      IG_GRAPH_API_BASE
+    );
   }
 
   async sendPrivateReplyWithButtons(
@@ -135,30 +161,34 @@ export class InstagramClient {
     text: string,
     buttons: Array<{ title: string; payload: string }>
   ): Promise<{ id: string }> {
-    return this.request<{ id: string }>('/me/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        recipient: { comment_id: commentId },
-        message: {
-          attachment: {
-            type: 'template',
-            payload: {
-              template_type: 'button',
-              text,
-              buttons: buttons.slice(0, 3).map((button) => ({
-                type: 'postback',
-                title: button.title.slice(0, 20),
-                payload: button.payload,
-              })),
+    return this.request<{ id: string }>(
+      this.messagesPath(),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipient: { comment_id: commentId },
+          message: {
+            attachment: {
+              type: 'template',
+              payload: {
+                template_type: 'button',
+                text,
+                buttons: buttons.slice(0, 3).map((button) => ({
+                  type: 'postback',
+                  title: button.title.slice(0, 20),
+                  payload: button.payload,
+                })),
+              },
             },
           },
-        },
-        access_token: this.accessToken,
-      }),
-    });
+          access_token: this.accessToken,
+        }),
+      },
+      IG_GRAPH_API_BASE
+    );
   }
 
   async sendMessageWithButtons(
@@ -166,30 +196,34 @@ export class InstagramClient {
     text: string,
     buttons: Array<{ title: string; payload: string }>
   ): Promise<{ id: string }> {
-    return this.request<{ id: string }>('/me/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        recipient: { id: recipientId },
-        message: {
-          attachment: {
-            type: 'template',
-            payload: {
-              template_type: 'button',
-              text,
-              buttons: buttons.slice(0, 3).map((button) => ({
-                type: 'postback',
-                title: button.title.slice(0, 20),
-                payload: button.payload,
-              })),
+    return this.request<{ id: string }>(
+      this.messagesPath(),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: {
+            attachment: {
+              type: 'template',
+              payload: {
+                template_type: 'button',
+                text,
+                buttons: buttons.slice(0, 3).map((button) => ({
+                  type: 'postback',
+                  title: button.title.slice(0, 20),
+                  payload: button.payload,
+                })),
+              },
             },
           },
-        },
-        access_token: this.accessToken,
-      }),
-    });
+          access_token: this.accessToken,
+        }),
+      },
+      IG_GRAPH_API_BASE
+    );
   }
 
   async sendMessageWithQuickReplies(
@@ -197,31 +231,35 @@ export class InstagramClient {
     text: string,
     quickReplies: Array<{ title: string; payload: string }>
   ): Promise<{ id: string }> {
-    return this.request<{ id: string }>('/me/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        recipient: { id: recipientId },
-        message: {
-          text,
-          quick_replies: quickReplies.slice(0, 13).map((item) => ({
-            content_type: 'text',
-            title: item.title.slice(0, 20),
-            payload: item.payload,
-          })),
+    return this.request<{ id: string }>(
+      this.messagesPath(),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        access_token: this.accessToken,
-      }),
-    });
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: {
+            text,
+            quick_replies: quickReplies.slice(0, 13).map((item) => ({
+              content_type: 'text',
+              title: item.title.slice(0, 20),
+              payload: item.payload,
+            })),
+          },
+          access_token: this.accessToken,
+        }),
+      },
+      IG_GRAPH_API_BASE
+    );
   }
 
   async setIceBreakers(
     items: Array<{ question: string; payload: string }>
   ): Promise<{ success?: boolean }> {
     return this.request<{ success?: boolean }>(
-      `/me/messenger_profile?platform=instagram&access_token=${this.accessToken}`,
+      this.messengerProfilePath(),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -237,13 +275,14 @@ export class InstagramClient {
             },
           ],
         }),
-      }
+      },
+      IG_GRAPH_API_BASE
     );
   }
 
   async clearIceBreakers(): Promise<{ success?: boolean }> {
     return this.request<{ success?: boolean }>(
-      `/me/messenger_profile?platform=instagram&access_token=${this.accessToken}`,
+      this.messengerProfilePath(),
       {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -251,7 +290,8 @@ export class InstagramClient {
           platform: 'instagram',
           fields: ['ice_breakers'],
         }),
-      }
+      },
+      IG_GRAPH_API_BASE
     );
   }
 
@@ -302,6 +342,9 @@ export class InstagramClient {
   }
 }
 
-export function createInstagramClient(accessToken: string): InstagramClient {
-  return new InstagramClient(accessToken);
+export function createInstagramClient(
+  accessToken: string,
+  igUserId?: string
+): InstagramClient {
+  return new InstagramClient(accessToken, igUserId);
 }

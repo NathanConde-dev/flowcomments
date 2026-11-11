@@ -42,7 +42,10 @@ export async function AppShellServer({ children }: { children: React.ReactNode }
       }
 
       try {
-        const client = createInstagramClient(decrypt(account.accessToken));
+        const client = createInstagramClient(
+          decrypt(account.accessToken),
+          account.igUserId
+        );
         const profile = await client.getProfile(account.igUserId);
         if (profile.profile_picture_url) {
           await prisma.instagramAccount.update({

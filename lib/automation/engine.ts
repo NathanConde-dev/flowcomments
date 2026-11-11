@@ -351,7 +351,7 @@ export async function executeAutomation(
   try {
     const actions = parseActions(automation.actionsConfig);
     const accessToken = decrypt(automation.igAccount.accessToken);
-    const client = createInstagramClient(accessToken);
+    const client = createInstagramClient(accessToken, automation.igAccount.igUserId);
 
     let contactId = '';
     let state: ContactState = { tags: [], customData: {} };
@@ -429,7 +429,7 @@ export async function executeFollowGatePostback(params: {
 
   try {
     const accessToken = decrypt(automation.igAccount.accessToken);
-    const client = createInstagramClient(accessToken);
+    const client = createInstagramClient(accessToken, automation.igAccount.igUserId);
     const follows = await client.isUserFollowBusiness(params.senderId);
 
     if (follows === true) {
@@ -499,7 +499,7 @@ export async function executeButtonPostback(params: {
   if (!button) return;
 
   const accessToken = decrypt(automation.igAccount.accessToken);
-  const client = createInstagramClient(accessToken);
+  const client = createInstagramClient(accessToken, automation.igAccount.igUserId);
   const contact = await getOrCreateContact({
     userId: automation.userId,
     igAccountId: automation.igAccountId,
@@ -569,15 +569,12 @@ export async function handlePendingInputReply(params: {
   }
 
   const value = params.text.trim();
+  const account = await prisma.instagramAccount.findUniqueOrThrow({
+    where: { id: params.igAccountId },
+  });
+
   if (pending.fieldType === 'email' && !value.includes('@')) {
-    const accessToken = decrypt(
-      (
-        await prisma.instagramAccount.findUniqueOrThrow({
-          where: { id: params.igAccountId },
-        })
-      ).accessToken
-    );
-    const client = createInstagramClient(accessToken);
+    const client = createInstagramClient(decrypt(account.accessToken), account.igUserId);
     await client.sendMessage(params.senderId, 'Envie um e-mail válido, por favor.');
     return true;
   }
@@ -586,14 +583,7 @@ export async function handlePendingInputReply(params: {
   delete state.customData._pendingInput;
   await saveContactState(contact.id, state);
 
-  const accessToken = decrypt(
-    (
-      await prisma.instagramAccount.findUniqueOrThrow({
-        where: { id: params.igAccountId },
-      })
-    ).accessToken
-  );
-  const client = createInstagramClient(accessToken);
+  const client = createInstagramClient(decrypt(account.accessToken), account.igUserId);
   await client.sendMessage(params.senderId, 'Recebido, obrigado!');
   return true;
 }
