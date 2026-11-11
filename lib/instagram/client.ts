@@ -89,13 +89,21 @@ export class InstagramClient {
     }
   }
 
+  private requireIgUserId(): string {
+    if (!this.igUserId) {
+      throw new InstagramAPIError(
+        'IG user id ausente — reconecte a conta Instagram para enviar DMs/private replies'
+      );
+    }
+    return this.igUserId;
+  }
+
   private messagesPath() {
-    return this.igUserId ? `/${this.igUserId}/messages` : '/me/messages';
+    return `/${this.requireIgUserId()}/messages?access_token=${encodeURIComponent(this.accessToken)}`;
   }
 
   private messengerProfilePath() {
-    const id = this.igUserId || 'me';
-    return `/${id}/messenger_profile?platform=instagram&access_token=${this.accessToken}`;
+    return `/${this.requireIgUserId()}/messenger_profile?platform=instagram&access_token=${encodeURIComponent(this.accessToken)}`;
   }
 
   async getProfile(userId: string): Promise<InstagramProfile> {
@@ -144,16 +152,24 @@ export class InstagramClient {
   }
 
   async replyToComment(commentId: string, message: string): Promise<{ id: string }> {
-    return this.request<{ id: string }>(`/${commentId}/replies`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message,
-        access_token: this.accessToken,
-      }),
-    });
+    // Instagram Login tokens: prefer IG graph; fall back to Facebook graph for Page tokens.
+    const body = JSON.stringify({ message });
+    const headers = { 'Content-Type': 'application/json' };
+    if (this.igUserId) {
+      try {
+        return await this.request<{ id: string }>(
+          `/${commentId}/replies?access_token=${encodeURIComponent(this.accessToken)}`,
+          { method: 'POST', headers, body },
+          IG_GRAPH_API_BASE
+        );
+      } catch (error) {
+        if (!(error instanceof InstagramAPIError)) throw error;
+      }
+    }
+    return this.request<{ id: string }>(
+      `/${commentId}/replies?access_token=${encodeURIComponent(this.accessToken)}`,
+      { method: 'POST', headers, body }
+    );
   }
 
   async sendMessage(recipientId: string, message: string): Promise<{ id: string }> {
@@ -167,7 +183,6 @@ export class InstagramClient {
         body: JSON.stringify({
           recipient: { id: recipientId },
           message: { text: message },
-          access_token: this.accessToken,
         }),
       },
       IG_GRAPH_API_BASE
@@ -188,7 +203,6 @@ export class InstagramClient {
         body: JSON.stringify({
           recipient: { comment_id: commentId },
           message: { text: message },
-          access_token: this.accessToken,
         }),
       },
       IG_GRAPH_API_BASE
@@ -223,7 +237,6 @@ export class InstagramClient {
               },
             },
           },
-          access_token: this.accessToken,
         }),
       },
       IG_GRAPH_API_BASE
@@ -258,7 +271,6 @@ export class InstagramClient {
               },
             },
           },
-          access_token: this.accessToken,
         }),
       },
       IG_GRAPH_API_BASE
@@ -287,7 +299,6 @@ export class InstagramClient {
               payload: item.payload,
             })),
           },
-          access_token: this.accessToken,
         }),
       },
       IG_GRAPH_API_BASE

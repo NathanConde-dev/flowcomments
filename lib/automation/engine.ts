@@ -273,6 +273,53 @@ async function evaluateCondition(
   }
 }
 
+function actionKey(action: ActionConfig, index: number) {
+  return `${index}:${action.type}`;
+}
+
+async function loadCompletedActions(automationId: string, triggeredBy: string | null) {
+  const done = new Set<string>();
+  if (!triggeredBy) return done;
+  const priors = await prisma.automationExecution.findMany({
+    where: { automationId, triggeredBy },
+    orderBy: { createdAt: 'desc' },
+    take: 8,
+    select: { metadata: true },
+  });
+  for (const prior of priors) {
+    try {
+      const meta = JSON.parse(prior.metadata || '{}') as { completedActions?: string[] };
+      for (const key of meta.completedActions || []) done.add(key);
+    } catch {
+      // ignore
+    }
+  }
+  return done;
+}
+
+async function persistCompletedAction(
+  executionId: string,
+  completedActions: Set<string>,
+  key: string
+) {
+  completedActions.add(key);
+  const execution = await prisma.automationExecution.findUnique({
+    where: { id: executionId },
+    select: { metadata: true },
+  });
+  let meta: Record<string, unknown> = {};
+  try {
+    meta = execution?.metadata ? JSON.parse(execution.metadata) : {};
+  } catch {
+    meta = {};
+  }
+  meta.completedActions = Array.from(completedActions);
+  await prisma.automationExecution.update({
+    where: { id: executionId },
+    data: { metadata: JSON.stringify(meta) },
+  });
+}
+
 async function runActions(params: {
   actions: ActionConfig[];
   automation: {
@@ -285,9 +332,12 @@ async function runActions(params: {
   context: AutomationContext;
   contactId: string;
   state: ContactState;
+  executionId?: string;
+  completedActions?: Set<string>;
 }): Promise<'ok' | 'waiting_input'> {
   const { actions, automation, client, context } = params;
   let { state } = params;
+  const completedActions = params.completedActions || new Set<string>();
 
   const trackOutbound = async (text: string, messageType: string, suffix: string) => {
     await logDm({
@@ -311,13 +361,28 @@ async function runActions(params: {
     }
   };
 
-  for (const action of actions) {
+  const markDone = async (key: string) => {
+    if (!params.executionId) {
+      completedActions.add(key);
+      return;
+    }
+    await persistCompletedAction(params.executionId, completedActions, key);
+  };
+
+  for (let index = 0; index < actions.length; index++) {
+    const action = actions[index];
+    const key = actionKey(action, index);
+    if (completedActions.has(key)) {
+      continue;
+    }
+
     switch (action.type) {
       case 'delay': {
         const seconds = Math.max(0, action.delay || 0);
         if (seconds > 0) {
           await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
         }
+        await markDone(key);
         break;
       }
 
@@ -325,6 +390,7 @@ async function runActions(params: {
         if (context.commentId && action.text) {
           await client.replyToComment(context.commentId, action.text);
         }
+        await markDone(key);
         break;
 
       case 'send_dm':
@@ -332,20 +398,32 @@ async function runActions(params: {
           await new Promise((resolve) => setTimeout(resolve, action.delay! * 1000));
         }
         if (action.text && (context.userId || context.commentId)) {
-          await sendOutboundDm({
-            client,
-            context,
-            text: action.text,
-            buttons: action.buttons,
-            quickReplies: action.quickReplies,
-            automationId: automation.id,
-          });
+          try {
+            await sendOutboundDm({
+              client,
+              context,
+              text: action.text,
+              buttons: action.buttons,
+              quickReplies: action.quickReplies,
+              automationId: automation.id,
+            });
+          } catch (error) {
+            console.error('send_dm/private_reply failed', {
+              automationId: automation.id,
+              commentId: context.commentId,
+              userId: context.userId,
+              error: error instanceof Error ? error.message : error,
+              details: error instanceof Error ? (error as { details?: unknown }).details : undefined,
+            });
+            throw error;
+          }
           await trackOutbound(
             action.text,
             action.buttons?.length ? 'buttons' : 'text',
             `dm:${action.text.slice(0, 24)}`
           );
         }
+        await markDone(key);
         break;
 
       case 'add_tag':
@@ -353,6 +431,7 @@ async function runActions(params: {
           state.tags.push(action.tag);
           await saveContactState(params.contactId, state);
         }
+        await markDone(key);
         break;
 
       case 'follow_gate':
@@ -365,6 +444,7 @@ async function runActions(params: {
           ]);
           await trackOutbound(action.prompt, 'follow_gate', 'follow_gate');
         }
+        await markDone(key);
         break;
 
       case 'condition': {
@@ -374,8 +454,10 @@ async function runActions(params: {
           ...params,
           actions: branch,
           state,
+          completedActions,
         });
         state = params.state;
+        await markDone(key);
         if (result === 'waiting_input') return 'waiting_input';
         break;
       }
@@ -391,6 +473,7 @@ async function runActions(params: {
           expiresAt: Date.now() + 1000 * 60 * 60 * 24,
         };
         await saveContactState(params.contactId, state);
+        await markDone(key);
         return 'waiting_input';
       }
     }
@@ -432,12 +515,21 @@ export async function executeAutomation(
     }
   }
 
+  if (!automation.igAccount.igUserId) {
+    throw new Error('Conta Instagram sem igUserId — reconecte a conta');
+  }
+
+  const completedActions = await loadCompletedActions(automation.id, triggeredBy);
+
   const execution = await prisma.automationExecution.create({
     data: {
       automationId: automation.id,
       triggeredBy,
       status: 'processing',
-      metadata: JSON.stringify(context),
+      metadata: JSON.stringify({
+        ...context,
+        completedActions: Array.from(completedActions),
+      }),
     },
   });
 
@@ -475,6 +567,8 @@ export async function executeAutomation(
       },
       contactId,
       state,
+      executionId: execution.id,
+      completedActions,
     });
 
     await prisma.automationExecution.update({
