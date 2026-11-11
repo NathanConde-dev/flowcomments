@@ -10,6 +10,9 @@ const publicPathsExact = [
   '/licenca',
   '/setup-com-ia.md',
   '/favicon.ico',
+  '/icon.png',
+  '/apple-touch-icon.png',
+  '/icon-mark.png',
   '/robots.txt',
 ];
 

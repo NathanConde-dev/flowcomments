@@ -29,6 +29,14 @@ export async function generateMetadata(): Promise<Metadata> {
         noimageindex: true,
       },
     },
+    icons: {
+      icon: [
+        { url: '/favicon.ico', sizes: 'any' },
+        { url: '/icon.png', type: 'image/png', sizes: '512x512' },
+      ],
+      apple: [{ url: '/apple-touch-icon.png', sizes: '180x180' }],
+      shortcut: '/favicon.ico',
+    },
     appleWebApp: {
       capable: true,
       statusBarStyle: 'default',
