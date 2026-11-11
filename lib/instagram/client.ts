@@ -113,6 +113,163 @@ export class InstagramClient {
     });
   }
 
+  async sendPrivateReply(
+    commentId: string,
+    message: string
+  ): Promise<{ id: string }> {
+    return this.request<{ id: string }>('/me/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipient: { comment_id: commentId },
+        message: { text: message },
+        access_token: this.accessToken,
+      }),
+    });
+  }
+
+  async sendPrivateReplyWithButtons(
+    commentId: string,
+    text: string,
+    buttons: Array<{ title: string; payload: string }>
+  ): Promise<{ id: string }> {
+    return this.request<{ id: string }>('/me/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipient: { comment_id: commentId },
+        message: {
+          attachment: {
+            type: 'template',
+            payload: {
+              template_type: 'button',
+              text,
+              buttons: buttons.slice(0, 3).map((button) => ({
+                type: 'postback',
+                title: button.title.slice(0, 20),
+                payload: button.payload,
+              })),
+            },
+          },
+        },
+        access_token: this.accessToken,
+      }),
+    });
+  }
+
+  async sendMessageWithButtons(
+    recipientId: string,
+    text: string,
+    buttons: Array<{ title: string; payload: string }>
+  ): Promise<{ id: string }> {
+    return this.request<{ id: string }>('/me/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: {
+          attachment: {
+            type: 'template',
+            payload: {
+              template_type: 'button',
+              text,
+              buttons: buttons.slice(0, 3).map((button) => ({
+                type: 'postback',
+                title: button.title.slice(0, 20),
+                payload: button.payload,
+              })),
+            },
+          },
+        },
+        access_token: this.accessToken,
+      }),
+    });
+  }
+
+  async sendMessageWithQuickReplies(
+    recipientId: string,
+    text: string,
+    quickReplies: Array<{ title: string; payload: string }>
+  ): Promise<{ id: string }> {
+    return this.request<{ id: string }>('/me/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: {
+          text,
+          quick_replies: quickReplies.slice(0, 13).map((item) => ({
+            content_type: 'text',
+            title: item.title.slice(0, 20),
+            payload: item.payload,
+          })),
+        },
+        access_token: this.accessToken,
+      }),
+    });
+  }
+
+  async setIceBreakers(
+    items: Array<{ question: string; payload: string }>
+  ): Promise<{ success?: boolean }> {
+    return this.request<{ success?: boolean }>(
+      `/me/messenger_profile?platform=instagram&access_token=${this.accessToken}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: 'instagram',
+          ice_breakers: [
+            {
+              locale: 'default',
+              call_to_actions: items.slice(0, 4).map((item) => ({
+                question: item.question.slice(0, 80),
+                payload: item.payload,
+              })),
+            },
+          ],
+        }),
+      }
+    );
+  }
+
+  async clearIceBreakers(): Promise<{ success?: boolean }> {
+    return this.request<{ success?: boolean }>(
+      `/me/messenger_profile?platform=instagram&access_token=${this.accessToken}`,
+      {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform: 'instagram',
+          fields: ['ice_breakers'],
+        }),
+      }
+    );
+  }
+
+  async isUserFollowBusiness(igsId: string): Promise<boolean | null> {
+    try {
+      const data = await this.request<{ is_user_follow_business?: boolean }>(
+        `/${igsId}?fields=is_user_follow_business&access_token=${this.accessToken}`
+      );
+      if (typeof data.is_user_follow_business === 'boolean') {
+        return data.is_user_follow_business;
+      }
+      return null;
+    } catch (error) {
+      console.warn('is_user_follow_business check failed:', error);
+      return null;
+    }
+  }
+
   async getMedia(
     igUserId: string,
     limit = 24

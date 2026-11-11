@@ -1,58 +1,337 @@
 import { prisma } from '@/lib/db/client';
-import { createInstagramClient } from '@/lib/instagram/client';
+import { createInstagramClient, type InstagramClient } from '@/lib/instagram/client';
 import { decrypt } from '@/lib/crypto/encryption';
+import {
+  BUTTON_PREFIX,
+  buttonPayload,
+  evaluateKeywordMatch,
+  followCheckPayload,
+  followRecheckPayload,
+  parseButtonPayload,
+  parseFollowGatePayload,
+  parseIcePayload,
+  type ActionConfig,
+  type ActionsConfigEnvelope,
+  type KeywordTriggerConfig,
+  type TriggerConfigEnvelope,
+  type TriggerKind,
+} from './types';
 
-export interface CommentTriggerConfig {
-  keywords: string[];
-  matchType: 'exact' | 'contains' | 'starts_with' | 'ends_with';
-  caseSensitive: boolean;
-  /** When set, only comments on these media IDs match. Empty/undefined = any post. */
-  mediaIds?: string[];
-  mediaScope?: 'specific' | 'any';
+export type {
+  ActionConfig,
+  KeywordTriggerConfig as CommentTriggerConfig,
+  TriggerKind,
+} from './types';
+
+export {
+  FOLLOW_CHECK_PREFIX,
+  FOLLOW_RECHECK_PREFIX,
+  buttonPayload,
+  followCheckPayload,
+  followRecheckPayload,
+  parseButtonPayload,
+  parseFollowGatePayload,
+  parseIcePayload,
+  icePayload,
+  iceBreakersConfigKey,
+} from './types';
+
+export type AutomationContext = {
+  commentId?: string;
+  commentText?: string;
+  messageText?: string;
+  userId?: string;
+  username?: string;
+  source?: TriggerKind | 'postback' | 'icebreaker';
+};
+
+type ContactState = {
+  tags: string[];
+  customData: Record<string, unknown>;
+};
+
+function parseActions(raw: string): ActionConfig[] {
+  const parsed = JSON.parse(raw) as ActionsConfigEnvelope | ActionConfig[];
+  if (Array.isArray(parsed)) return parsed;
+  return parsed.actions || [];
 }
 
-export interface ActionConfig {
-  type: 'reply_comment' | 'send_dm' | 'add_tag';
-  text?: string;
-  tag?: string;
-  delay?: number;
+function parseTrigger(raw: string): KeywordTriggerConfig {
+  const parsed = JSON.parse(raw) as TriggerConfigEnvelope | KeywordTriggerConfig;
+  if ('trigger' in parsed && parsed.trigger) return parsed.trigger;
+  return parsed as KeywordTriggerConfig;
 }
 
-export interface AutomationConfig {
-  trigger: CommentTriggerConfig;
-  conditions?: any;
-  actions: ActionConfig[];
+async function logDm(params: {
+  userId: string;
+  igAccountId: string;
+  text: string;
+  messageType?: string;
+}) {
+  await prisma.dmLog.create({
+    data: {
+      userId: params.userId,
+      igAccountId: params.igAccountId,
+      status: 'sent',
+      messageType: params.messageType || 'text',
+      payload: JSON.stringify({ text: params.text }),
+      sentAt: new Date(),
+    },
+  });
+}
+
+function readContactState(contact: { tags: string | null; customData: string | null }): ContactState {
+  let tags: string[] = [];
+  let customData: Record<string, unknown> = {};
+  try {
+    tags = contact.tags ? JSON.parse(contact.tags) : [];
+  } catch {
+    tags = [];
+  }
+  try {
+    customData = contact.customData ? JSON.parse(contact.customData) : {};
+  } catch {
+    customData = {};
+  }
+  return { tags: Array.isArray(tags) ? tags : [], customData };
+}
+
+async function getOrCreateContact(params: {
+  userId: string;
+  igAccountId: string;
+  igUserId: string;
+  igUsername?: string;
+}) {
+  const existing = await prisma.contact.findFirst({
+    where: { igAccountId: params.igAccountId, igUserId: params.igUserId },
+  });
+  if (existing) {
+    return prisma.contact.update({
+      where: { id: existing.id },
+      data: {
+        lastSeenAt: new Date(),
+        ...(params.igUsername ? { igUsername: params.igUsername } : {}),
+      },
+    });
+  }
+  return prisma.contact.create({
+    data: {
+      userId: params.userId,
+      igAccountId: params.igAccountId,
+      igUserId: params.igUserId,
+      igUsername: params.igUsername || params.igUserId,
+      lastSeenAt: new Date(),
+    },
+  });
+}
+
+async function saveContactState(
+  contactId: string,
+  state: ContactState
+) {
+  await prisma.contact.update({
+    where: { id: contactId },
+    data: {
+      tags: JSON.stringify(state.tags),
+      customData: JSON.stringify(state.customData),
+      lastSeenAt: new Date(),
+    },
+  });
 }
 
 export async function evaluateCommentTrigger(
   comment: { text: string },
-  config: CommentTriggerConfig
+  config: KeywordTriggerConfig
 ): Promise<boolean> {
-  const text = config.caseSensitive ? comment.text : comment.text.toLowerCase();
-  const keywords = config.caseSensitive ? config.keywords : config.keywords.map(k => k.toLowerCase());
+  return evaluateKeywordMatch(comment.text, config);
+}
 
-  switch (config.matchType) {
-    case 'exact':
-      return keywords.some(keyword => text === keyword);
-    case 'contains':
-      return keywords.some(keyword => text.includes(keyword));
-    case 'starts_with':
-      return keywords.some(keyword => text.startsWith(keyword));
-    case 'ends_with':
-      return keywords.some(keyword => text.endsWith(keyword));
+async function sendOutboundDm(params: {
+  client: InstagramClient;
+  context: AutomationContext;
+  text: string;
+  buttons?: ActionConfig['buttons'];
+  quickReplies?: ActionConfig['quickReplies'];
+  automationId: string;
+}) {
+  const { client, context, text, buttons, quickReplies, automationId } = params;
+
+  if (buttons && buttons.length > 0) {
+    const mapped = buttons.slice(0, 3).map((button, index) => ({
+      title: button.title,
+      payload: buttonPayload(automationId, index),
+    }));
+    if (context.commentId && context.source !== 'dm_keyword' && context.source !== 'default_reply') {
+      await client.sendPrivateReplyWithButtons(context.commentId, text, mapped);
+    } else if (context.userId) {
+      await client.sendMessageWithButtons(context.userId, text, mapped);
+    }
+    return;
+  }
+
+  if (quickReplies && quickReplies.length > 0 && context.userId) {
+    await client.sendMessageWithQuickReplies(
+      context.userId,
+      text,
+      quickReplies.slice(0, 13).map((item, index) => ({
+        title: item.title,
+        payload: buttonPayload(automationId, index),
+      }))
+    );
+    return;
+  }
+
+  if (context.commentId && (context.source === 'comment' || context.source === 'live_comment')) {
+    await client.sendPrivateReply(context.commentId, text);
+  } else if (context.userId) {
+    await client.sendMessage(context.userId, text);
+  }
+}
+
+async function evaluateCondition(
+  action: ActionConfig,
+  params: {
+    client: InstagramClient;
+    context: AutomationContext;
+    state: ContactState;
+  }
+): Promise<boolean> {
+  const { client, context, state } = params;
+  switch (action.rule) {
+    case 'has_tag':
+      return Boolean(action.tag && state.tags.includes(action.tag));
+    case 'field_equals': {
+      if (!action.field) return false;
+      const current = state.customData[action.field];
+      return String(current ?? '') === String(action.value ?? '');
+    }
+    case 'follows': {
+      if (!context.userId) return false;
+      const follows = await client.isUserFollowBusiness(context.userId);
+      return follows === true;
+    }
     default:
       return false;
   }
 }
 
+async function runActions(params: {
+  actions: ActionConfig[];
+  automation: {
+    id: string;
+    userId: string;
+    igAccountId: string;
+  };
+  client: InstagramClient;
+  context: AutomationContext;
+  contactId: string;
+  state: ContactState;
+}): Promise<'ok' | 'waiting_input'> {
+  const { actions, automation, client, context } = params;
+  let { state } = params;
+
+  for (const action of actions) {
+    switch (action.type) {
+      case 'delay': {
+        const seconds = Math.max(0, action.delay || 0);
+        if (seconds > 0) {
+          await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+        }
+        break;
+      }
+
+      case 'reply_comment':
+        if (context.commentId && action.text) {
+          await client.replyToComment(context.commentId, action.text);
+        }
+        break;
+
+      case 'send_dm':
+        if (action.delay && action.delay > 0) {
+          await new Promise((resolve) => setTimeout(resolve, action.delay! * 1000));
+        }
+        if (action.text && (context.userId || context.commentId)) {
+          await sendOutboundDm({
+            client,
+            context,
+            text: action.text,
+            buttons: action.buttons,
+            quickReplies: action.quickReplies,
+            automationId: automation.id,
+          });
+          await logDm({
+            userId: automation.userId,
+            igAccountId: automation.igAccountId,
+            text: action.text,
+            messageType: action.buttons?.length ? 'buttons' : 'text',
+          });
+        }
+        break;
+
+      case 'add_tag':
+        if (action.tag && !state.tags.includes(action.tag)) {
+          state.tags.push(action.tag);
+          await saveContactState(params.contactId, state);
+        }
+        break;
+
+      case 'follow_gate':
+        if (context.commentId && action.prompt) {
+          await client.sendPrivateReplyWithButtons(context.commentId, action.prompt, [
+            {
+              title: action.buttonLabel || 'Já sigo',
+              payload: followCheckPayload(automation.id),
+            },
+          ]);
+          await logDm({
+            userId: automation.userId,
+            igAccountId: automation.igAccountId,
+            text: action.prompt,
+            messageType: 'follow_gate',
+          });
+        }
+        break;
+
+      case 'condition': {
+        const passed = await evaluateCondition(action, { client, context, state });
+        const branch = passed ? action.then || [] : action.else || [];
+        const result = await runActions({
+          ...params,
+          actions: branch,
+          state,
+        });
+        state = params.state;
+        if (result === 'waiting_input') return 'waiting_input';
+        break;
+      }
+
+      case 'ask_input': {
+        if (!context.userId || !action.prompt || !action.saveKey) break;
+        await client.sendMessage(context.userId, action.prompt);
+        await logDm({
+          userId: automation.userId,
+          igAccountId: automation.igAccountId,
+          text: action.prompt,
+          messageType: 'ask_input',
+        });
+        state.customData._pendingInput = {
+          automationId: automation.id,
+          saveKey: action.saveKey,
+          fieldType: action.fieldType || 'text',
+          expiresAt: Date.now() + 1000 * 60 * 60 * 24,
+        };
+        await saveContactState(params.contactId, state);
+        return 'waiting_input';
+      }
+    }
+  }
+
+  return 'ok';
+}
+
 export async function executeAutomation(
   automationId: string,
-  context: {
-    commentId?: string;
-    commentText?: string;
-    userId?: string;
-    username?: string;
-  }
+  context: AutomationContext
 ): Promise<void> {
   const automation = await prisma.automation.findUnique({
     where: { id: automationId },
@@ -63,7 +342,7 @@ export async function executeAutomation(
     throw new Error('Automation not found or inactive');
   }
 
-  const executionId = await prisma.automationExecution.create({
+  const execution = await prisma.automationExecution.create({
     data: {
       automationId: automation.id,
       triggeredBy: context.commentId || context.userId,
@@ -73,68 +352,46 @@ export async function executeAutomation(
   });
 
   try {
-    const config: AutomationConfig = JSON.parse(automation.actionsConfig);
+    const actions = parseActions(automation.actionsConfig);
     const accessToken = decrypt(automation.igAccount.accessToken);
     const client = createInstagramClient(accessToken);
 
-    for (const action of config.actions) {
-      if (action.delay && action.delay > 0) {
-        await new Promise(resolve => setTimeout(resolve, (action.delay || 0) * 1000));
-      }
-
-      switch (action.type) {
-        case 'reply_comment':
-          if (context.commentId && action.text) {
-            await client.replyToComment(context.commentId, action.text);
-          }
-          break;
-        
-        case 'send_dm':
-          if (context.userId && action.text) {
-            await client.sendMessage(context.userId, action.text);
-            await prisma.dmLog.create({
-              data: {
-                userId: automation.userId,
-                igAccountId: automation.igAccountId,
-                status: 'sent',
-                messageType: 'text',
-                payload: JSON.stringify({ text: action.text }),
-                sentAt: new Date(),
-              },
-            });
-          }
-          break;
-
-        case 'add_tag':
-          if (context.userId && action.tag) {
-            const contact = await prisma.contact.findFirst({
-              where: {
-                igAccountId: automation.igAccountId,
-                igUserId: context.userId,
-              },
-            });
-            if (contact) {
-              const tags = contact.tags ? JSON.parse(contact.tags) : [];
-              if (!tags.includes(action.tag)) {
-                tags.push(action.tag);
-                await prisma.contact.update({
-                  where: { id: contact.id },
-                  data: { tags: JSON.stringify(tags) },
-                });
-              }
-            }
-          }
-          break;
-      }
+    let contactId = '';
+    let state: ContactState = { tags: [], customData: {} };
+    if (context.userId) {
+      const contact = await getOrCreateContact({
+        userId: automation.userId,
+        igAccountId: automation.igAccountId,
+        igUserId: context.userId,
+        igUsername: context.username,
+      });
+      contactId = contact.id;
+      state = readContactState(contact);
     }
 
+    await runActions({
+      actions,
+      automation: {
+        id: automation.id,
+        userId: automation.userId,
+        igAccountId: automation.igAccountId,
+      },
+      client,
+      context: {
+        ...context,
+        source: context.source || (automation.triggerType as TriggerKind),
+      },
+      contactId,
+      state,
+    });
+
     await prisma.automationExecution.update({
-      where: { id: executionId.id },
+      where: { id: execution.id },
       data: { status: 'completed' },
     });
   } catch (error) {
     await prisma.automationExecution.update({
-      where: { id: executionId.id },
+      where: { id: execution.id },
       data: {
         status: 'failed',
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -144,15 +401,194 @@ export async function executeAutomation(
   }
 }
 
+export async function executeFollowGatePostback(params: {
+  automationId: string;
+  senderId: string;
+  kind: 'check' | 'recheck';
+}): Promise<void> {
+  const automation = await prisma.automation.findUnique({
+    where: { id: params.automationId },
+    include: { igAccount: true },
+  });
+
+  if (!automation || !automation.isActive) return;
+
+  const actions = parseActions(automation.actionsConfig);
+  const gate = actions.find((action) => action.type === 'follow_gate');
+  if (!gate) return;
+
+  const execution = await prisma.automationExecution.create({
+    data: {
+      automationId: automation.id,
+      triggeredBy: params.senderId,
+      status: 'processing',
+      metadata: JSON.stringify({
+        type: 'follow_gate_postback',
+        kind: params.kind,
+        senderId: params.senderId,
+      }),
+    },
+  });
+
+  try {
+    const accessToken = decrypt(automation.igAccount.accessToken);
+    const client = createInstagramClient(accessToken);
+    const follows = await client.isUserFollowBusiness(params.senderId);
+
+    if (follows === true) {
+      const reward = gate.rewardText || '';
+      if (reward) {
+        await client.sendMessage(params.senderId, reward);
+        await logDm({
+          userId: automation.userId,
+          igAccountId: automation.igAccountId,
+          text: reward,
+          messageType: 'follow_gate_reward',
+        });
+      }
+    } else {
+      const ask =
+        gate.notFollowingText ||
+        'Me segue e toca em Verificar de novo pra eu liberar o conteúdo.';
+      await client.sendMessageWithButtons(params.senderId, ask, [
+        {
+          title: gate.recheckButtonLabel || 'Verificar de novo',
+          payload: followRecheckPayload(automation.id),
+        },
+      ]);
+      await logDm({
+        userId: automation.userId,
+        igAccountId: automation.igAccountId,
+        text: ask,
+        messageType: 'follow_gate_ask',
+      });
+    }
+
+    await prisma.automationExecution.update({
+      where: { id: execution.id },
+      data: { status: 'completed' },
+    });
+  } catch (error) {
+    await prisma.automationExecution.update({
+      where: { id: execution.id },
+      data: {
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+    });
+    throw error;
+  }
+}
+
+export async function executeButtonPostback(params: {
+  automationId: string;
+  senderId: string;
+  index: number;
+}): Promise<void> {
+  const automation = await prisma.automation.findUnique({
+    where: { id: params.automationId },
+    include: { igAccount: true },
+  });
+  if (!automation || !automation.isActive) return;
+
+  const actions = parseActions(automation.actionsConfig);
+  const withButtons = actions.find(
+    (action) =>
+      (action.type === 'send_dm' && (action.buttons?.length || action.quickReplies?.length)) ||
+      false
+  );
+  const button =
+    withButtons?.buttons?.[params.index] || withButtons?.quickReplies?.[params.index];
+  if (!button) return;
+
+  const accessToken = decrypt(automation.igAccount.accessToken);
+  const client = createInstagramClient(accessToken);
+  const contact = await getOrCreateContact({
+    userId: automation.userId,
+    igAccountId: automation.igAccountId,
+    igUserId: params.senderId,
+  });
+  const state = readContactState(contact);
+
+  if (button.addTag && !state.tags.includes(button.addTag)) {
+    state.tags.push(button.addTag);
+    await saveContactState(contact.id, state);
+  }
+
+  if (button.responseText) {
+    await client.sendMessage(params.senderId, button.responseText);
+    await logDm({
+      userId: automation.userId,
+      igAccountId: automation.igAccountId,
+      text: button.responseText,
+      messageType: 'button_response',
+    });
+  }
+}
+
+export async function handlePendingInputReply(params: {
+  igAccountId: string;
+  userId: string;
+  senderId: string;
+  text: string;
+}): Promise<boolean> {
+  const contact = await prisma.contact.findFirst({
+    where: { igAccountId: params.igAccountId, igUserId: params.senderId },
+  });
+  if (!contact) return false;
+
+  const state = readContactState(contact);
+  const pending = state.customData._pendingInput as
+    | { automationId: string; saveKey: string; fieldType?: string; expiresAt?: number }
+    | undefined;
+
+  if (!pending?.saveKey || !pending.automationId) return false;
+  if (pending.expiresAt && pending.expiresAt < Date.now()) {
+    delete state.customData._pendingInput;
+    await saveContactState(contact.id, state);
+    return false;
+  }
+
+  const value = params.text.trim();
+  if (pending.fieldType === 'email' && !value.includes('@')) {
+    const accessToken = decrypt(
+      (
+        await prisma.instagramAccount.findUniqueOrThrow({
+          where: { id: params.igAccountId },
+        })
+      ).accessToken
+    );
+    const client = createInstagramClient(accessToken);
+    await client.sendMessage(params.senderId, 'Envie um e-mail válido, por favor.');
+    return true;
+  }
+
+  state.customData[pending.saveKey] = value;
+  delete state.customData._pendingInput;
+  await saveContactState(contact.id, state);
+
+  const accessToken = decrypt(
+    (
+      await prisma.instagramAccount.findUniqueOrThrow({
+        where: { id: params.igAccountId },
+      })
+    ).accessToken
+  );
+  const client = createInstagramClient(accessToken);
+  await client.sendMessage(params.senderId, 'Recebido, obrigado!');
+  return true;
+}
+
 export async function findMatchingAutomations(
   igAccountId: string,
-  comment: { text: string; mediaId?: string }
+  comment: { text: string; mediaId?: string },
+  triggerType: TriggerKind = 'comment'
 ): Promise<string[]> {
   const automations = await prisma.automation.findMany({
     where: {
       igAccountId,
       isActive: true,
-      triggerType: 'comment',
+      triggerType,
     },
     orderBy: { priority: 'desc' },
   });
@@ -161,19 +597,19 @@ export async function findMatchingAutomations(
 
   for (const automation of automations) {
     try {
-      const config: AutomationConfig = JSON.parse(automation.triggerConfig);
-      const trigger = config.trigger;
+      const trigger = parseTrigger(automation.triggerConfig);
 
-      const scope = trigger.mediaScope || (trigger.mediaIds?.length ? 'specific' : 'any');
-      if (scope === 'specific') {
-        const allowed = trigger.mediaIds || [];
-        if (!comment.mediaId || !allowed.includes(comment.mediaId)) {
-          continue;
+      if (triggerType === 'comment' || triggerType === 'live_comment') {
+        const scope = trigger.mediaScope || (trigger.mediaIds?.length ? 'specific' : 'any');
+        if (scope === 'specific') {
+          const allowed = trigger.mediaIds || [];
+          if (!comment.mediaId || !allowed.includes(comment.mediaId)) {
+            continue;
+          }
         }
       }
 
-      const isMatch = await evaluateCommentTrigger(comment, trigger);
-      if (isMatch) {
+      if (evaluateKeywordMatch(comment.text, trigger)) {
         matched.push(automation.id);
       }
     } catch (error) {
@@ -183,3 +619,49 @@ export async function findMatchingAutomations(
 
   return matched;
 }
+
+export async function findMatchingDmAutomation(
+  igAccountId: string,
+  text: string
+): Promise<{ automationId: string; kind: 'dm_keyword' | 'default_reply' } | null> {
+  const keywordMatches = await findMatchingAutomations(
+    igAccountId,
+    { text },
+    'dm_keyword'
+  );
+  if (keywordMatches[0]) {
+    return { automationId: keywordMatches[0], kind: 'dm_keyword' };
+  }
+
+  const defaults = await prisma.automation.findMany({
+    where: {
+      igAccountId,
+      isActive: true,
+      triggerType: 'default_reply',
+    },
+    orderBy: { priority: 'desc' },
+    take: 1,
+  });
+
+  if (defaults[0]) {
+    return { automationId: defaults[0].id, kind: 'default_reply' };
+  }
+
+  return null;
+}
+
+export async function queueOrExecuteAutomation(
+  automationId: string,
+  context: AutomationContext
+) {
+  const { createQueue, QUEUE_NAMES } = await import('@/lib/queue/client');
+  const queue = createQueue(QUEUE_NAMES.AUTOMATION);
+  if (queue) {
+    await queue.add('execute-automation', { automationId, context });
+  } else {
+    await executeAutomation(automationId, context);
+  }
+}
+
+/** @deprecated alias kept for older imports */
+export const BUTTON_PAYLOAD_PREFIX = BUTTON_PREFIX;

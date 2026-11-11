@@ -8,14 +8,11 @@ export async function GET() {
     const session = await requireAuth();
     const config = await getMetaConfig();
 
-    const [igCount, automationCount, contactCount] = await Promise.all([
+    const [igCount, automationCount] = await Promise.all([
       prisma.instagramAccount.count({
         where: { userId: session.userId, isActive: true },
       }),
       prisma.automation.count({
-        where: { userId: session.userId },
-      }),
-      prisma.contact.count({
         where: { userId: session.userId },
       }),
     ]);
@@ -25,7 +22,6 @@ export async function GET() {
       metaConfigured: Boolean(config?.appId && config?.appSecret && config?.webhookVerifyToken),
       igConnected: igCount > 0,
       hasAutomation: automationCount > 0,
-      hasContacts: contactCount > 0,
     });
   } catch (error) {
     if (error instanceof AuthError) {

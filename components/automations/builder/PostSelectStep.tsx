@@ -74,9 +74,11 @@ function ScopeCard({
 function PhonePreview({
   post,
   username,
+  profilePictureUrl,
 }: {
   post?: InstagramMediaPost;
   username?: string;
+  profilePictureUrl?: string | null;
 }) {
   const preview = post?.thumbnailUrl || post?.mediaUrl;
   const handle = username || 'conta';
@@ -127,8 +129,13 @@ function PhonePreview({
           {/* Author row */}
           <div className="flex shrink-0 items-center gap-2.5 px-3 py-2.5">
             <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] p-[1.5px]">
-              <div className="flex h-full w-full items-center justify-center rounded-full bg-black text-[10px] font-bold uppercase">
-                {handle.slice(0, 1)}
+              <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-black text-[10px] font-bold uppercase">
+                {profilePictureUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profilePictureUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  handle.slice(0, 1)
+                )}
               </div>
             </div>
             <div className="min-w-0 flex-1">
@@ -219,7 +226,7 @@ export function PostSelectStep({ draft, accounts, onChange, onNext }: PostSelect
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-background">
-      <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-white px-3 py-3 sm:px-4">
+      <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-white px-3 sm:px-4">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <Link href="/automations">
             <Button type="button" variant="ghost" size="sm">
@@ -235,90 +242,95 @@ export function PostSelectStep({ draft, accounts, onChange, onNext }: PostSelect
             </p>
           </div>
         </div>
-        <Button type="button" onClick={onNext} disabled={!canContinue} className="shrink-0">
-          Próximo
-        </Button>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <aside className="w-full overflow-y-auto border-b border-border bg-white p-4 sm:p-6 lg:w-[420px] lg:border-b-0 lg:border-r">
-          <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-            Quando alguém faz um comentário
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Defina em quais publicações essa automação deve ouvir comentários.
-          </p>
+        <aside className="flex w-full flex-col border-b border-border bg-white lg:w-[420px] lg:border-b-0 lg:border-r">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+              Quando alguém faz um comentário
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Defina em quais publicações essa automação deve ouvir comentários.
+            </p>
 
-          <div className="mt-6 space-y-3">
-            <label className="block text-sm font-semibold text-foreground">Conta do Instagram</label>
-            <select
-              className="flex h-11 w-full rounded-md border border-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              value={draft.igAccountId}
-              onChange={(e) =>
-                onChange({
-                  ...draft,
-                  igAccountId: e.target.value,
-                  selectedPosts: [],
-                })
-              }
-            >
-              <option value="">Selecione uma conta</option>
-              {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  @{acc.igUsername}
-                </option>
-              ))}
-            </select>
+            <div className="mt-6 space-y-3">
+              <label className="block text-sm font-semibold text-foreground">Conta do Instagram</label>
+              <select
+                className="flex h-11 w-full rounded-md border border-border bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                value={draft.igAccountId}
+                onChange={(e) =>
+                  onChange({
+                    ...draft,
+                    igAccountId: e.target.value,
+                    selectedPosts: [],
+                  })
+                }
+              >
+                <option value="">Selecione uma conta</option>
+                {accounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    @{acc.igUsername}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mt-6 space-y-3 fc-stagger">
+              <ScopeCard
+                active={draft.mediaScope === 'specific'}
+                title="uma publicação ou Reels específico"
+                description="Escolha posts existentes para monitorar"
+                onClick={() => setScope('specific')}
+              >
+                {draft.mediaScope === 'specific' && (
+                  <div className="mt-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+                    {draft.selectedPosts.length > 0 ? (
+                      <div className="grid grid-cols-4 gap-2">
+                        {draft.selectedPosts.slice(0, 4).map((post) => {
+                          const src = post.thumbnailUrl || post.mediaUrl;
+                          return (
+                            <div
+                              key={post.id}
+                              className="relative aspect-square overflow-hidden rounded-lg bg-muted"
+                            >
+                              {src ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={src} alt="" className="h-full w-full object-cover" />
+                              ) : null}
+                              {post.isReel && (
+                                <Clapperboard className="absolute right-1 top-1 h-3 w-3 text-white drop-shadow" />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={!draft.igAccountId}
+                      onClick={() => setModalOpen(true)}
+                      className="cursor-pointer text-sm font-semibold text-foreground hover:underline disabled:opacity-40"
+                    >
+                      {draft.selectedPosts.length > 0 ? 'Mostrar Todos' : 'Selecionar publicações'}
+                    </button>
+                  </div>
+                )}
+              </ScopeCard>
+
+              <ScopeCard
+                active={draft.mediaScope === 'any'}
+                title="qualquer publicação ou Reel"
+                description="Dispara em comentários de qualquer post da conta"
+                onClick={() => setScope('any')}
+              />
+            </div>
           </div>
 
-          <div className="mt-6 space-y-3 fc-stagger">
-            <ScopeCard
-              active={draft.mediaScope === 'specific'}
-              title="uma publicação ou Reels específico"
-              description="Escolha posts existentes para monitorar"
-              onClick={() => setScope('specific')}
-            >
-              {draft.mediaScope === 'specific' && (
-                <div className="mt-4 space-y-3" onClick={(e) => e.stopPropagation()}>
-                  {draft.selectedPosts.length > 0 ? (
-                    <div className="grid grid-cols-4 gap-2">
-                      {draft.selectedPosts.slice(0, 4).map((post) => {
-                        const src = post.thumbnailUrl || post.mediaUrl;
-                        return (
-                          <div
-                            key={post.id}
-                            className="relative aspect-square overflow-hidden rounded-lg bg-muted"
-                          >
-                            {src ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img src={src} alt="" className="h-full w-full object-cover" />
-                            ) : null}
-                            {post.isReel && (
-                              <Clapperboard className="absolute right-1 top-1 h-3 w-3 text-white drop-shadow" />
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={!draft.igAccountId}
-                    onClick={() => setModalOpen(true)}
-                    className="cursor-pointer text-sm font-semibold text-foreground hover:underline disabled:opacity-40"
-                  >
-                    {draft.selectedPosts.length > 0 ? 'Mostrar Todos' : 'Selecionar publicações'}
-                  </button>
-                </div>
-              )}
-            </ScopeCard>
-
-            <ScopeCard
-              active={draft.mediaScope === 'any'}
-              title="qualquer publicação ou Reel"
-              description="Dispara em comentários de qualquer post da conta"
-              onClick={() => setScope('any')}
-            />
+          <div className="sticky bottom-0 border-t border-border bg-white p-4 sm:p-6">
+            <Button type="button" onClick={onNext} disabled={!canContinue} className="w-full">
+              Próximo
+            </Button>
           </div>
         </aside>
 
@@ -328,7 +340,11 @@ export function PostSelectStep({ draft, accounts, onChange, onNext }: PostSelect
               Visualização
               {account ? ` · @${account.igUsername}` : ''}
             </p>
-            <PhonePreview post={previewPost} username={account?.igUsername} />
+            <PhonePreview
+              post={previewPost}
+              username={account?.igUsername}
+              profilePictureUrl={account?.profilePictureUrl}
+            />
           </div>
         </section>
       </div>

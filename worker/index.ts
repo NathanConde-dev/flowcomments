@@ -1,5 +1,9 @@
 import { createWorker, QUEUE_NAMES } from '@/lib/queue/client';
-import { executeAutomation } from '@/lib/automation/engine';
+import {
+  executeAutomation,
+  executeButtonPostback,
+  executeFollowGatePostback,
+} from '@/lib/automation/engine';
 import { processWebhookEvent } from '@/lib/instagram/webhook';
 
 if (!process.env.REDIS_URL) {
@@ -8,6 +12,24 @@ if (!process.env.REDIS_URL) {
 }
 
 const automationWorker = createWorker(QUEUE_NAMES.AUTOMATION, async (job) => {
+  if (job.data?.type === 'follow_gate_postback') {
+    await executeFollowGatePostback({
+      automationId: job.data.automationId,
+      senderId: job.data.senderId,
+      kind: job.data.kind,
+    });
+    return;
+  }
+
+  if (job.data?.type === 'button_postback') {
+    await executeButtonPostback({
+      automationId: job.data.automationId,
+      senderId: job.data.senderId,
+      index: job.data.index,
+    });
+    return;
+  }
+
   const { automationId, context } = job.data;
   await executeAutomation(automationId, context);
 });

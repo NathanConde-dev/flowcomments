@@ -157,6 +157,7 @@ export async function GET(request: Request) {
           userId: session.userId,
           igUserId: account.id,
           igUsername: account.username,
+          profilePictureUrl: account.profile_picture_url || null,
           igBusinessAccountId: account.ig_id?.toString(),
           accessToken: encryptedToken,
           tokenExpiresAt: expiresAt,
@@ -165,6 +166,7 @@ export async function GET(request: Request) {
         },
         update: {
           igUsername: account.username,
+          profilePictureUrl: account.profile_picture_url || undefined,
           accessToken: encryptedToken,
           tokenExpiresAt: expiresAt,
           isActive: true,

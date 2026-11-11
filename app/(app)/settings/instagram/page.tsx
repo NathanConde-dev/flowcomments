@@ -5,14 +5,24 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Instagram } from 'lucide-react';
 import { AccountRowSkeleton } from '@/components/ui/skeletons';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { IceBreakersPanel } from '@/components/settings/IceBreakersPanel';
 import { toast } from '@/lib/ui/toast';
 
 interface IGAccount {
   id: string;
   igUsername: string;
+  profilePictureUrl?: string | null;
   isActive: boolean;
   tokenExpiresAt: string | null;
 }
@@ -23,6 +33,7 @@ export default function InstagramSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [metaConfigured, setMetaConfigured] = useState(false);
+  const [expiryInfoAccount, setExpiryInfoAccount] = useState<IGAccount | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -157,8 +168,21 @@ export default function InstagramSettingsPage() {
                   className="flex items-center justify-between rounded-2xl border border-border p-4"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 font-medium text-white">
-                      {account.igUsername[0].toUpperCase()}
+                    <div className="rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] p-[2px] shadow-sm">
+                      <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white p-[1.5px]">
+                        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-zinc-900 text-sm font-medium text-white">
+                          {account.profilePictureUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={account.profilePictureUrl}
+                              alt={`@${account.igUsername}`}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            account.igUsername[0].toUpperCase()
+                          )}
+                        </div>
+                      </div>
                     </div>
                     <div>
                       <p className="font-medium">@{account.igUsername}</p>
@@ -169,14 +193,20 @@ export default function InstagramSettingsPage() {
                           <StatusBadge tone="expired">Inativa</StatusBadge>
                         )}
                         {account.tokenExpiresAt && (
-                          <StatusBadge tone="pending" icon={false}>
-                            Expira em{' '}
-                            {Math.ceil(
-                              (new Date(account.tokenExpiresAt).getTime() - Date.now()) /
-                                (1000 * 60 * 60 * 24)
-                            )}{' '}
-                            dias
-                          </StatusBadge>
+                          <button
+                            type="button"
+                            onClick={() => setExpiryInfoAccount(account)}
+                            className="cursor-pointer rounded-lg transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            <StatusBadge tone="pending" icon={false}>
+                              Expira em{' '}
+                              {Math.ceil(
+                                (new Date(account.tokenExpiresAt).getTime() - Date.now()) /
+                                  (1000 * 60 * 60 * 24)
+                              )}{' '}
+                              dias
+                            </StatusBadge>
+                          </button>
                         )}
                       </div>
                     </div>
@@ -206,6 +236,77 @@ export default function InstagramSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {!loading &&
+        igAccounts
+          .filter((account) => account.isActive !== false)
+          .map((account) => <IceBreakersPanel key={`ice-${account.id}`} accountId={account.id} />)}
+
+      <Dialog
+        open={Boolean(expiryInfoAccount)}
+        onOpenChange={(open) => !open && setExpiryInfoAccount(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Expiração do token</DialogTitle>
+            <DialogDescription>
+              {expiryInfoAccount
+                ? `Entenda o acesso da conta @${expiryInfoAccount.igUsername}.`
+                : 'Entenda como funciona o acesso do Instagram.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              O Instagram/Meta libera um token de acesso com validade limitada. Quando ele
+              expira, o Flowcomments deixa de conseguir ler comentários e enviar respostas/DMs
+              por aquela conta.
+            </p>
+            <p>
+              O selo mostra quantos dias restam. Antes de zerar, basta{' '}
+              <span className="font-medium text-foreground">reconectar a mesma conta</span> —
+              o token é renovado e as automações continuam normalmente.
+            </p>
+            {expiryInfoAccount?.tokenExpiresAt && (
+              <p className="rounded-xl border border-border bg-muted/50 px-3 py-2 text-foreground">
+                Expira em{' '}
+                <span className="font-semibold">
+                  {Math.max(
+                    0,
+                    Math.ceil(
+                      (new Date(expiryInfoAccount.tokenExpiresAt).getTime() - Date.now()) /
+                        (1000 * 60 * 60 * 24)
+                    )
+                  )}{' '}
+                  dias
+                </span>
+                {' · '}
+                {new Date(expiryInfoAccount.tokenExpiresAt).toLocaleDateString('pt-BR', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setExpiryInfoAccount(null)}>
+              Fechar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setExpiryInfoAccount(null);
+                handleConnect();
+              }}
+              disabled={connecting || !metaConfigured}
+            >
+              {connecting ? 'Conectando...' : 'Reconectar agora'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

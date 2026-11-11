@@ -53,6 +53,7 @@ export async function POST(request: Request) {
         userId: session.userId,
         igUserId: account.id,
         igUsername: account.username,
+        profilePictureUrl: account.profile_picture_url || null,
         igBusinessAccountId: account.ig_id?.toString(),
         accessToken: encryptedToken,
         tokenExpiresAt: expiresAt,
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
       update: {
         // Only reached when existing.userId === session.userId
         igUsername: account.username,
+        profilePictureUrl: account.profile_picture_url || undefined,
         accessToken: encryptedToken,
         tokenExpiresAt: expiresAt,
         isActive: true,

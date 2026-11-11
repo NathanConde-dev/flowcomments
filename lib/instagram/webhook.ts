@@ -1,5 +1,15 @@
 import { prisma } from '@/lib/db/client';
-import { findMatchingAutomations } from '@/lib/automation/engine';
+import {
+  executeButtonPostback,
+  executeFollowGatePostback,
+  findMatchingAutomations,
+  findMatchingDmAutomation,
+  handlePendingInputReply,
+  parseButtonPayload,
+  parseFollowGatePayload,
+  parseIcePayload,
+  queueOrExecuteAutomation,
+} from '@/lib/automation/engine';
 import { createQueue, QUEUE_NAMES } from '@/lib/queue/client';
 import { decrypt } from '@/lib/crypto/encryption';
 import { timingSafeEqualString } from '@/lib/crypto/security';
@@ -18,7 +28,21 @@ export interface WebhookEntry {
     timestamp: number;
     message?: {
       mid: string;
-      text: string;
+      text?: string;
+      is_echo?: boolean;
+      quick_reply?: { payload?: string };
+      reply_to?: {
+        story?: { url?: string; id?: string };
+      };
+      attachments?: Array<{
+        type?: string;
+        payload?: { url?: string; title?: string; story_media_id?: string };
+      }>;
+    };
+    postback?: {
+      mid?: string;
+      title?: string;
+      payload?: string;
     };
   }>;
 }
@@ -96,7 +120,9 @@ export async function processWebhookEvent(payload: WebhookPayload): Promise<void
     if (entry.changes) {
       for (const change of entry.changes) {
         if (change.field === 'comments') {
-          await handleCommentEvent(change.value);
+          await handleCommentEvent(change.value, 'comment');
+        } else if (change.field === 'live_comments') {
+          await handleCommentEvent(change.value, 'live_comment');
         } else if (change.field === 'mentions') {
           await handleMentionEvent(change.value);
         }
@@ -111,7 +137,10 @@ export async function processWebhookEvent(payload: WebhookPayload): Promise<void
   }
 }
 
-async function handleCommentEvent(value: any): Promise<void> {
+async function handleCommentEvent(
+  value: any,
+  triggerType: 'comment' | 'live_comment'
+): Promise<void> {
   const comment = value;
   const igUserId = comment.from?.id;
   const commentId = comment.id;
@@ -136,47 +165,35 @@ async function handleCommentEvent(value: any): Promise<void> {
     data: {
       userId: igAccount.userId,
       igAccountId: igAccount.id,
-      eventType: 'comment',
+      eventType: triggerType,
       payload: JSON.stringify(value),
       processed: false,
     },
   });
 
   const mediaId = comment.media?.id || value.media?.id || value.media_id;
-  const matchedAutomations = await findMatchingAutomations(igAccount.id, {
-    text: commentText,
-    mediaId,
-  });
+  const matchedAutomations = await findMatchingAutomations(
+    igAccount.id,
+    { text: commentText, mediaId },
+    triggerType
+  );
 
   for (const automationId of matchedAutomations) {
-    const queue = createQueue(QUEUE_NAMES.AUTOMATION);
-    const jobData = {
-      automationId,
-      context: {
-        commentId,
-        commentText,
-        userId: igUserId,
-        username: comment.from?.username,
-      },
-    };
-
-    if (queue) {
-      await queue.add('execute-automation', jobData);
-    } else {
-      const { executeAutomation } = await import('@/lib/automation/engine');
-      await executeAutomation(automationId, jobData.context);
-    }
+    await queueOrExecuteAutomation(automationId, {
+      commentId,
+      commentText,
+      userId: igUserId,
+      username: comment.from?.username,
+      source: triggerType,
+    });
   }
 
-  let contact = await prisma.contact.findFirst({
-    where: {
-      igAccountId: igAccount.id,
-      igUserId,
-    },
+  const existing = await prisma.contact.findFirst({
+    where: { igAccountId: igAccount.id, igUserId },
   });
 
-  if (!contact) {
-    contact = await prisma.contact.create({
+  if (!existing) {
+    await prisma.contact.create({
       data: {
         userId: igAccount.userId,
         igAccountId: igAccount.id,
@@ -187,23 +204,83 @@ async function handleCommentEvent(value: any): Promise<void> {
     });
   } else {
     await prisma.contact.update({
-      where: { id: contact.id },
+      where: { id: existing.id },
       data: { lastSeenAt: new Date() },
     });
   }
 }
 
 async function handleMentionEvent(value: any): Promise<void> {
-  console.log('Mention event received:', value);
+  // Story mention / @mention payloads vary; try common shapes.
+  const igUserId =
+    value.from?.id || value.sender?.id || value.user?.id || value.mentioner?.id;
+  const mediaOwnerId =
+    value.media?.owner?.id || value.owner?.id || value.recipient?.id;
+  const mentionText =
+    value.text || value.comment?.text || value.message || 'story_mention';
+
+  if (!igUserId) {
+    console.log('Mention event missing user id:', value);
+    return;
+  }
+
+  const ownerCandidates = [mediaOwnerId, value.instagram_id, value.id].filter(
+    (id): id is string => typeof id === 'string' && id.length > 0
+  );
+
+  const igAccount = ownerCandidates.length
+    ? await prisma.instagramAccount.findFirst({
+        where: {
+          igUserId: { in: ownerCandidates },
+          isActive: true,
+        },
+      })
+    : null;
+
+  if (!igAccount) {
+    console.log('Mention event: no IG account matched', value);
+    return;
+  }
+
+  await prisma.webhookEvent.create({
+    data: {
+      userId: igAccount.userId,
+      igAccountId: igAccount.id,
+      eventType: 'story_mention',
+      payload: JSON.stringify(value),
+      processed: true,
+    },
+  });
+
+  const matched = await findMatchingAutomations(
+    igAccount.id,
+    { text: String(mentionText) },
+    'story_mention'
+  );
+
+  for (const automationId of matched) {
+    await queueOrExecuteAutomation(automationId, {
+      userId: igUserId,
+      username: value.from?.username,
+      messageText: String(mentionText),
+      source: 'story_mention',
+    });
+  }
 }
 
 async function handleMessagingEvent(message: any): Promise<void> {
+  if (message.message?.is_echo) return;
+
   const senderId = message.sender?.id;
   const recipientId = message.recipient?.id;
-  const messageText = message.message?.text;
-  const messageId = message.message?.mid;
+  const postbackPayload =
+    message.postback?.payload || message.message?.quick_reply?.payload || null;
+  const messageText = message.message?.text || message.postback?.title || '';
+  const messageId =
+    message.message?.mid || message.postback?.mid || `pb_${message.timestamp}`;
+  const isStoryReply = Boolean(message.message?.reply_to?.story);
 
-  if (!senderId || !recipientId || !messageText || !messageId) {
+  if (!senderId || !recipientId) {
     return;
   }
 
@@ -219,7 +296,7 @@ async function handleMessagingEvent(message: any): Promise<void> {
     data: {
       userId: igAccount.userId,
       igAccountId: igAccount.id,
-      eventType: 'message',
+      eventType: postbackPayload ? 'postback' : isStoryReply ? 'story_reply' : 'message',
       payload: JSON.stringify(message),
       processed: true,
     },
@@ -242,6 +319,11 @@ async function handleMessagingEvent(message: any): Promise<void> {
         lastSeenAt: new Date(),
       },
     });
+  } else {
+    await prisma.contact.update({
+      where: { id: contact.id },
+      data: { lastSeenAt: new Date() },
+    });
   }
 
   const conversation = await prisma.conversation.upsert({
@@ -262,16 +344,122 @@ async function handleMessagingEvent(message: any): Promise<void> {
     },
   });
 
-  await prisma.message.create({
-    data: {
-      conversationId: conversation.id,
-      igMessageId: messageId,
-      fromIgUserId: senderId,
-      toIgUserId: recipientId,
-      messageType: 'text',
-      text: messageText,
-      isFromPage: false,
-      sentAt: new Date(message.timestamp),
-    },
+  if (messageText || postbackPayload) {
+    try {
+      await prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          igMessageId: messageId,
+          fromIgUserId: senderId,
+          toIgUserId: recipientId,
+          messageType: postbackPayload ? 'postback' : 'text',
+          text: messageText || postbackPayload || '',
+          isFromPage: false,
+          sentAt: new Date(message.timestamp),
+        },
+      });
+    } catch {
+      // duplicate mid — ignore
+    }
+  }
+
+  if (postbackPayload) {
+    const follow = parseFollowGatePayload(postbackPayload);
+    if (follow) {
+      const automation = await prisma.automation.findFirst({
+        where: {
+          id: follow.automationId,
+          igAccountId: igAccount.id,
+          isActive: true,
+        },
+      });
+      if (!automation) return;
+
+      const queue = createQueue(QUEUE_NAMES.AUTOMATION);
+      const jobData = {
+        type: 'follow_gate_postback',
+        automationId: follow.automationId,
+        senderId,
+        kind: follow.kind,
+      };
+      if (queue) {
+        await queue.add('follow-gate-postback', jobData);
+      } else {
+        await executeFollowGatePostback({
+          automationId: follow.automationId,
+          senderId,
+          kind: follow.kind,
+        });
+      }
+      return;
+    }
+
+    const button = parseButtonPayload(postbackPayload);
+    if (button) {
+      const queue = createQueue(QUEUE_NAMES.AUTOMATION);
+      const jobData = {
+        type: 'button_postback',
+        automationId: button.automationId,
+        senderId,
+        index: button.index,
+      };
+      if (queue) {
+        await queue.add('button-postback', jobData);
+      } else {
+        await executeButtonPostback({
+          automationId: button.automationId,
+          senderId,
+          index: button.index,
+        });
+      }
+      return;
+    }
+
+    const ice = parseIcePayload(postbackPayload);
+    if (ice) {
+      await queueOrExecuteAutomation(ice.automationId, {
+        userId: senderId,
+        messageText: messageText || postbackPayload,
+        source: 'icebreaker',
+      });
+      return;
+    }
+
+    return;
+  }
+
+  if (!messageText) return;
+
+  const handledPending = await handlePendingInputReply({
+    igAccountId: igAccount.id,
+    userId: igAccount.userId,
+    senderId,
+    text: messageText,
+  });
+  if (handledPending) return;
+
+  if (isStoryReply) {
+    const matched = await findMatchingAutomations(
+      igAccount.id,
+      { text: messageText },
+      'story_reply'
+    );
+    for (const automationId of matched) {
+      await queueOrExecuteAutomation(automationId, {
+        userId: senderId,
+        messageText,
+        source: 'story_reply',
+      });
+    }
+    if (matched.length > 0) return;
+  }
+
+  const match = await findMatchingDmAutomation(igAccount.id, messageText);
+  if (!match) return;
+
+  await queueOrExecuteAutomation(match.automationId, {
+    userId: senderId,
+    messageText,
+    source: match.kind,
   });
 }

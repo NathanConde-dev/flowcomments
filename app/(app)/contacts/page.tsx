@@ -79,18 +79,29 @@ export default async function ContactsPage() {
                       )}
                     </p>
                   </div>
-                  {contact.tags && JSON.parse(contact.tags).length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {JSON.parse(contact.tags).map((tag: string, idx: number) => (
-                        <span
-                          key={idx}
-                          className="rounded-full bg-muted px-2 py-1 text-xs text-foreground"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div className="flex max-w-[220px] flex-col items-end gap-1">
+                    {contact.tags && JSON.parse(contact.tags).length > 0 && (
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {JSON.parse(contact.tags).map((tag: string, idx: number) => (
+                          <span
+                            key={idx}
+                            className="rounded-full bg-muted px-2 py-1 text-xs text-foreground"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {contact.customData &&
+                      Object.entries(JSON.parse(contact.customData) as Record<string, unknown>)
+                        .filter(([key]) => !key.startsWith('_'))
+                        .slice(0, 3)
+                        .map(([key, value]) => (
+                          <span key={key} className="truncate text-[11px] text-muted-foreground">
+                            {key}: {String(value)}
+                          </span>
+                        ))}
+                  </div>
                 </div>
               ))}
             </div>

@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   try {
     const session = await requireAuth();
     const body = await request.json();
-    const { name, igAccountId, triggerConfig, actionsConfig } = body;
+    const { name, igAccountId, triggerConfig, actionsConfig, triggerType } = body;
 
     if (!name || !igAccountId || !triggerConfig || !actionsConfig) {
       return NextResponse.json(
@@ -40,6 +40,19 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const allowedTriggers = new Set([
+      'comment',
+      'dm_keyword',
+      'default_reply',
+      'story_reply',
+      'story_mention',
+      'live_comment',
+    ]);
+    const resolvedTriggerType =
+      typeof triggerType === 'string' && allowedTriggers.has(triggerType)
+        ? triggerType
+        : 'comment';
 
     const igAccount = await prisma.instagramAccount.findFirst({
       where: {
@@ -60,7 +73,7 @@ export async function POST(request: Request) {
         userId: session.userId,
         igAccountId,
         name,
-        triggerType: 'comment',
+        triggerType: resolvedTriggerType,
         triggerConfig: JSON.stringify(triggerConfig),
         actionsConfig: JSON.stringify(actionsConfig),
         isActive: true,

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  ChevronRight,
   Instagram,
   LogOut,
   PanelLeftClose,
@@ -17,19 +18,54 @@ import { APP_NAV, isImmersiveAppRoute } from './nav';
 import { MobileBottomNav } from './MobileBottomNav';
 import { MobileTopBar } from './MobileTopBar';
 
+type IgAccountSummary = {
+  username: string;
+  userId: string;
+  profilePictureUrl?: string | null;
+};
+
 interface AppShellProps {
   username: string;
   email: string;
-  igAccount: {
-    username: string;
-    userId: string;
-  } | null;
+  igAccounts: IgAccountSummary[];
   children: React.ReactNode;
 }
 
 const STORAGE_KEY = 'fc-sidebar-collapsed';
 
-export function AppShell({ username, email, igAccount, children }: AppShellProps) {
+function IgAvatar({
+  account,
+  size = 'md',
+  className = '',
+}: {
+  account: IgAccountSummary;
+  size?: 'sm' | 'md';
+  className?: string;
+}) {
+  const dim = size === 'sm' ? 'h-7 w-7' : 'h-9 w-9';
+  return (
+    <div
+      className={`rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] p-[2px] shadow-sm ${className}`}
+    >
+      <div className={`flex ${dim} items-center justify-center overflow-hidden rounded-full bg-white p-[1.5px]`}>
+        <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-zinc-800 text-[11px] font-semibold text-white">
+          {account.profilePictureUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={account.profilePictureUrl}
+              alt={`@${account.username}`}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            account.username[0].toUpperCase()
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function AppShell({ username, email, igAccounts, children }: AppShellProps) {
   const pathname = usePathname();
   const tNav = useTranslations('nav');
   const [collapsed, setCollapsed] = useState(false);
@@ -131,37 +167,71 @@ export function AppShell({ username, email, igAccount, children }: AppShellProps
           <div
             className={`space-y-2 border-t border-border ${collapsed ? 'px-2 py-3' : 'px-3 py-3'}`}
           >
-            {igAccount ? (
+            {igAccounts.length > 0 ? (
               <Link
                 href="/settings/instagram"
-                className={`flex cursor-pointer items-center rounded-xl transition-colors hover:bg-muted ${
-                  collapsed ? 'justify-center p-2' : 'gap-2.5 px-2.5 py-2'
+                title={
+                  igAccounts.length === 1
+                    ? `@${igAccounts[0].username}`
+                    : `${igAccounts.length} contas conectadas`
+                }
+                className={`group flex cursor-pointer items-center overflow-hidden rounded-xl border border-border/70 bg-white transition-colors duration-200 hover:bg-muted ${
+                  collapsed ? 'justify-center p-1.5' : 'gap-2 px-2 py-1.5'
                 }`}
-                title={`@${igAccount.username}`}
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-sm font-semibold text-white">
-                  {igAccount.username[0].toUpperCase()}
-                </div>
-                {!collapsed && (
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <p className="truncate text-sm font-semibold text-foreground">
-                      @{igAccount.username}
-                    </p>
-                    <ConnectedBadge />
+                {igAccounts.length === 1 ? (
+                  <IgAvatar account={igAccounts[0]} size="sm" />
+                ) : (
+                  <div className="flex shrink-0 items-center">
+                    {igAccounts.slice(0, 3).map((account, index) => (
+                      <IgAvatar
+                        key={account.userId}
+                        account={account}
+                        size="sm"
+                        className={index === 0 ? '' : '-ml-2'}
+                      />
+                    ))}
+                    {igAccounts.length > 3 && (
+                      <span className="-ml-2 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-zinc-900 text-[10px] font-bold text-white">
+                        +{igAccounts.length - 3}
+                      </span>
+                    )}
                   </div>
+                )}
+                {!collapsed && (
+                  <>
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <p className="truncate text-xs font-semibold tracking-tight text-foreground">
+                        {igAccounts.length === 1
+                          ? `@${igAccounts[0].username}`
+                          : `${igAccounts.length} contas`}
+                      </p>
+                      <ConnectedBadge className="px-1.5 py-0 text-[10px] leading-4" />
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
+                  </>
                 )}
               </Link>
             ) : (
               <Link
                 href="/settings/instagram"
                 title="Conectar Instagram"
-                className={`flex cursor-pointer items-center rounded-xl border border-dashed border-zinc-300 bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-700 ${
-                  collapsed ? 'justify-center p-2.5' : 'gap-2 px-2.5 py-2'
+                className={`flex cursor-pointer items-center rounded-2xl border border-dashed border-zinc-300 bg-zinc-50 text-zinc-500 transition-colors hover:border-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 ${
+                  collapsed ? 'justify-center p-2.5' : 'gap-2.5 px-3 py-2.5'
                 }`}
               >
-                <Instagram className="h-4 w-4 shrink-0" />
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-[#f9ce34]/20 via-[#ee2a7b]/20 to-[#6228d7]/20">
+                  <Instagram className="h-4 w-4" />
+                </span>
                 {!collapsed && (
-                  <span className="text-xs font-semibold">Conectar Instagram</span>
+                  <span className="min-w-0 flex-1 text-left">
+                    <span className="block text-xs font-semibold text-foreground">
+                      Conectar Instagram
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                      Vincular conta para automações
+                    </span>
+                  </span>
                 )}
               </Link>
             )}

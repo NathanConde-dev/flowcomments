@@ -44,6 +44,7 @@ model InstagramAccount {
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   igUserId             String   @unique
   igUsername           String
+  profilePictureUrl    String?
   igBusinessAccountId  String?
   accessToken          String
   tokenExpiresAt       DateTime?

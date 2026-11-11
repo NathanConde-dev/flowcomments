@@ -1,33 +1,90 @@
 'use client';
 
-import { MessageCircle, MessageSquare, Play, Zap } from 'lucide-react';
+import {
+  CirclePlay,
+  Clock3,
+  Filter,
+  GitBranch,
+  MessageCircleMore,
+  Reply,
+  SendHorizontal,
+  Tag,
+  TextCursorInput,
+  UserRoundCheck,
+  type LucideIcon,
+} from 'lucide-react';
 import type { FlowNodeId } from './types';
 import { cn } from '@/lib/utils/cn';
 import { StatusBadge } from '@/components/ui/status-badge';
 
 const nodeMeta: Record<
   FlowNodeId,
-  { title: string; icon: typeof Zap; accent: string }
+  {
+    title: string;
+    icon: LucideIcon;
+    well: string;
+    iconClass: string;
+  }
 > = {
   start: {
     title: 'Início',
-    icon: Play,
-    accent: 'from-primary-500 to-primary-700',
+    icon: CirclePlay,
+    well: 'bg-zinc-900',
+    iconClass: 'text-white',
   },
   trigger: {
     title: 'Gatilho',
-    icon: Zap,
-    accent: 'from-violet-500 to-primary-600',
+    icon: MessageCircleMore,
+    well: 'bg-amber-500',
+    iconClass: 'text-white',
   },
   reply: {
     title: 'Responder comentário',
-    icon: MessageCircle,
-    accent: 'from-sky-500 to-blue-600',
+    icon: Reply,
+    well: 'bg-sky-500',
+    iconClass: 'text-white',
+  },
+  followCheck: {
+    title: 'Só se seguiu',
+    icon: GitBranch,
+    well: 'bg-violet-500',
+    iconClass: 'text-white',
   },
   dm: {
     title: 'Enviar DM',
-    icon: MessageSquare,
-    accent: 'from-emerald-500 to-teal-600',
+    icon: SendHorizontal,
+    well: 'bg-emerald-500',
+    iconClass: 'text-white',
+  },
+  dmNotFollowing: {
+    title: 'Pedir pra seguir',
+    icon: UserRoundCheck,
+    well: 'bg-rose-500',
+    iconClass: 'text-white',
+  },
+  delay: {
+    title: 'Delay',
+    icon: Clock3,
+    well: 'bg-zinc-500',
+    iconClass: 'text-white',
+  },
+  condition: {
+    title: 'Condição',
+    icon: Filter,
+    well: 'bg-indigo-500',
+    iconClass: 'text-white',
+  },
+  addTag: {
+    title: 'Adicionar tag',
+    icon: Tag,
+    well: 'bg-orange-500',
+    iconClass: 'text-white',
+  },
+  askInput: {
+    title: 'Pedir dado',
+    icon: TextCursorInput,
+    well: 'bg-teal-500',
+    iconClass: 'text-white',
   },
 };
 
@@ -35,47 +92,88 @@ interface FlowNodeProps {
   id: FlowNodeId;
   selected: boolean;
   disabled?: boolean;
+  dragging?: boolean;
   summary: React.ReactNode;
   onSelect: () => void;
+  onContextMenu?: (event: React.MouseEvent) => void;
+  onPointerDown?: (event: React.PointerEvent) => void;
+  className?: string;
+  style?: React.CSSProperties;
+  titleOverride?: string;
 }
 
-export function FlowNode({ id, selected, disabled, summary, onSelect }: FlowNodeProps) {
+export function FlowNode({
+  id,
+  selected,
+  disabled,
+  dragging,
+  summary,
+  onSelect,
+  onContextMenu,
+  onPointerDown,
+  className,
+  style,
+  titleOverride,
+}: FlowNodeProps) {
   const meta = nodeMeta[id];
   const Icon = meta.icon;
 
   return (
     <button
       type="button"
+      data-flow-node
       onClick={onSelect}
+      onContextMenu={onContextMenu}
+      onPointerDown={onPointerDown}
+      style={style}
       className={cn(
-        'w-full max-w-md text-left rounded-2xl border bg-white p-4 shadow-soft cursor-pointer transition-[transform,box-shadow,border-color,opacity] duration-200 ease-out hover:-translate-y-0.5',
+        'w-[280px] touch-none text-left rounded-xl border p-4 cursor-grab active:cursor-grabbing transition-[transform,box-shadow,border-color,opacity,background-color,color,left,top] duration-200 ease-out',
         selected
-          ? 'border-foreground ring-2 ring-black/10 shadow-node'
-          : 'border-border hover:border-zinc-300 hover:shadow-md',
-        disabled && 'opacity-55'
+          ? 'border-zinc-900 bg-zinc-900 text-white shadow-[0_12px_28px_-14px_rgba(0,0,0,0.55)]'
+          : 'border-border bg-white text-foreground shadow-soft hover:border-zinc-300 hover:shadow-md',
+        dragging && 'z-30 scale-[1.03] shadow-[0_22px_40px_-18px_rgba(0,0,0,0.35)] !transition-none',
+        !dragging && 'hover:-translate-y-0.5',
+        disabled && 'opacity-55',
+        className
       )}
     >
       <div className="flex items-start gap-3">
         <div
           className={cn(
-            'mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm',
-            meta.accent
+            'mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md shadow-sm',
+            selected ? 'bg-white/15 ring-1 ring-white/20' : meta.well
           )}
         >
-          <Icon className="h-5 w-5" />
+          <Icon
+            className={cn('h-4 w-4', selected ? 'text-white' : meta.iconClass)}
+            strokeWidth={2.25}
+          />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-bold text-foreground">{meta.title}</h3>
+            <h3 className={cn('text-sm font-bold', selected ? 'text-white' : 'text-foreground')}>
+              {titleOverride || meta.title}
+            </h3>
             {disabled && (
               <StatusBadge tone="expired" icon={false} className="uppercase text-[10px]">
                 Off
               </StatusBadge>
             )}
           </div>
-          <div className="mt-1.5 text-sm text-muted-foreground">{summary}</div>
+          <div
+            className={cn(
+              'mt-1.5 text-sm',
+              selected
+                ? 'text-white/70 [&_.text-foreground]:text-white [&_.text-primary-600]:text-white/80 [&_.text-primary-700]:text-white [&_.rounded-full]:bg-white/15 [&_.rounded-full]:text-white [&_.rounded-full]:ring-white/20'
+                : 'text-muted-foreground'
+            )}
+          >
+            {summary}
+          </div>
         </div>
       </div>
     </button>
   );
 }
+
+export { nodeMeta };

@@ -75,7 +75,7 @@ export function StatusBadge({ tone, children, icon, className }: StatusBadgeProp
     >
       {Icon && (
         <Icon
-          className={cn('h-3.5 w-3.5 shrink-0', tone === 'progress' && 'animate-spin')}
+          className={cn('h-[1em] w-[1em] shrink-0', tone === 'progress' && 'animate-spin')}
         />
       )}
       {children}
@@ -92,8 +92,12 @@ export function PausedBadge() {
   return <StatusBadge tone="expired" icon={Clock3}>Pausado</StatusBadge>;
 }
 
-export function ConnectedBadge() {
-  return <StatusBadge tone="success">Conectado</StatusBadge>;
+export function ConnectedBadge({ className }: { className?: string }) {
+  return (
+    <StatusBadge tone="success" className={className}>
+      Conectado
+    </StatusBadge>
+  );
 }
 
 export function OpenBadge() {

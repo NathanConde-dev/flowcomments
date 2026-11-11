@@ -67,6 +67,7 @@ export async function POST(request: Request) {
         userId: session.userId,
         igUserId: igAccount.id,
         igUsername: igAccount.username,
+        profilePictureUrl: igAccount.profile_picture_url || null,
         igBusinessAccountId: igAccount.ig_id?.toString(),
         accessToken: encryptedToken,
         tokenExpiresAt: expiresAt,
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
       },
       update: {
         igUsername: igAccount.username,
+        profilePictureUrl: igAccount.profile_picture_url || undefined,
         accessToken: encryptedToken,
         tokenExpiresAt: expiresAt,
         isActive: true,
