@@ -10,6 +10,7 @@ import {
   PaginationNav,
   parsePage,
 } from '@/components/ui/pagination-nav';
+import { formatBrasiliaDateTime } from '@/lib/utils/datetime';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,13 +115,7 @@ export default async function InboxPage({
                         <>
                           {' '}
                           ·{' '}
-                          {new Date(conversation.lastMessageAt).toLocaleString('pt-BR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatBrasiliaDateTime(conversation.lastMessageAt)}
                         </>
                       )}
                     </p>

@@ -9,6 +9,7 @@ import {
   parsePage,
 } from '@/components/ui/pagination-nav';
 import { ExportContactsButton } from '@/components/contacts/ExportContactsButton';
+import { formatBrasiliaDateTime } from '@/lib/utils/datetime';
 import { Users } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -126,13 +127,7 @@ export default async function ContactsPage({
                             <>
                               {' '}
                               · Última interação:{' '}
-                              {new Date(contact.lastSeenAt).toLocaleString('pt-BR', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
+                              {formatBrasiliaDateTime(contact.lastSeenAt)}
                             </>
                           )}
                         </p>
