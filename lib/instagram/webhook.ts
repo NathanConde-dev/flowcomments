@@ -120,11 +120,11 @@ export async function processWebhookEvent(payload: WebhookPayload): Promise<void
     if (entry.changes) {
       for (const change of entry.changes) {
         if (change.field === 'comments') {
-          await handleCommentEvent(change.value, 'comment');
+          await handleCommentEvent(change.value, 'comment', entry.id);
         } else if (change.field === 'live_comments') {
-          await handleCommentEvent(change.value, 'live_comment');
+          await handleCommentEvent(change.value, 'live_comment', entry.id);
         } else if (change.field === 'mentions') {
-          await handleMentionEvent(change.value);
+          await handleMentionEvent(change.value, entry.id);
         }
       }
     }
@@ -139,7 +139,8 @@ export async function processWebhookEvent(payload: WebhookPayload): Promise<void
 
 async function handleCommentEvent(
   value: any,
-  triggerType: 'comment' | 'live_comment'
+  triggerType: 'comment' | 'live_comment',
+  entryIgUserId?: string
 ): Promise<void> {
   const comment = value;
   const igUserId = comment.from?.id;
@@ -147,17 +148,36 @@ async function handleCommentEvent(
   const commentText = comment.text;
 
   if (!igUserId || !commentId || !commentText) {
+    console.warn('Comment event missing fields', {
+      hasFrom: Boolean(igUserId),
+      hasId: Boolean(commentId),
+      hasText: Boolean(commentText),
+    });
     return;
   }
 
-  const igAccount = await prisma.instagramAccount.findFirst({
-    where: {
-      igUserId: value.media?.owner?.id || value.owner?.id,
-      isActive: true,
-    },
-  });
+  // Meta puts the IG business account on entry.id; media.owner.id is often absent.
+  const ownerCandidates = [
+    entryIgUserId,
+    value.media?.owner?.id,
+    value.owner?.id,
+  ].filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+  const igAccount = ownerCandidates.length
+    ? await prisma.instagramAccount.findFirst({
+        where: {
+          igUserId: { in: ownerCandidates },
+          isActive: true,
+        },
+      })
+    : null;
 
   if (!igAccount) {
+    console.warn('Comment event: IG account not found', {
+      ownerCandidates,
+      mediaId: value.media?.id || value.media_id,
+      commentId,
+    });
     return;
   }
 
@@ -177,6 +197,15 @@ async function handleCommentEvent(
     { text: commentText, mediaId },
     triggerType
   );
+
+  if (matchedAutomations.length === 0) {
+    console.log('Comment event: no matching automation', {
+      igAccountId: igAccount.id,
+      mediaId,
+      text: commentText,
+      triggerType,
+    });
+  }
 
   for (const automationId of matchedAutomations) {
     await queueOrExecuteAutomation(automationId, {
@@ -210,7 +239,7 @@ async function handleCommentEvent(
   }
 }
 
-async function handleMentionEvent(value: any): Promise<void> {
+async function handleMentionEvent(value: any, entryIgUserId?: string): Promise<void> {
   // Story mention / @mention payloads vary; try common shapes.
   const igUserId =
     value.from?.id || value.sender?.id || value.user?.id || value.mentioner?.id;
@@ -224,9 +253,12 @@ async function handleMentionEvent(value: any): Promise<void> {
     return;
   }
 
-  const ownerCandidates = [mediaOwnerId, value.instagram_id, value.id].filter(
-    (id): id is string => typeof id === 'string' && id.length > 0
-  );
+  const ownerCandidates = [
+    entryIgUserId,
+    mediaOwnerId,
+    value.instagram_id,
+    value.id,
+  ].filter((id): id is string => typeof id === 'string' && id.length > 0);
 
   const igAccount = ownerCandidates.length
     ? await prisma.instagramAccount.findFirst({
