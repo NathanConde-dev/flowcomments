@@ -4,9 +4,9 @@ import { defaultLocale, isAppLocale, type AppLocale } from './config';
 /**
  * Locale resolution:
  * 1) Explicit user preference cookie
- * 2) Geo country BR (CDN / edge headers when present)
- * 3) Accept-Language preferring Portuguese
- * 4) Default English (primary)
+ * 2) Geo country BR/PT
+ * 3) Accept-Language
+ * 4) Default English
  */
 export function detectLocale(request: NextRequest): AppLocale {
   const cookie = request.cookies.get('NEXT_LOCALE')?.value;
@@ -20,7 +20,7 @@ export function detectLocale(request: NextRequest): AppLocale {
     ''
   ).toUpperCase();
 
-  if (country === 'BR') return 'pt';
+  if (country === 'BR' || country === 'PT') return 'pt';
 
   const accept = request.headers.get('accept-language') || '';
   const ranked = accept
@@ -33,8 +33,8 @@ export function detectLocale(request: NextRequest): AppLocale {
     .sort((a, b) => b.q - a.q);
 
   for (const item of ranked) {
-    if (item.tag.startsWith('pt')) return 'pt';
-    if (item.tag.startsWith('en')) return 'en';
+    const base = item.tag.split('-')[0];
+    if (isAppLocale(base)) return base;
   }
 
   return defaultLocale;

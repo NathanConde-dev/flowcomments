@@ -1,0 +1,101 @@
+{
+  "meta": {
+    "title": "Flowcomments - Instagram Comment Automation",
+    "description": "Automate Instagram replies and DMs with Flowcomments"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "back": "Back",
+    "copy": "Copy",
+    "copied": "Copied",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "open": "Open",
+    "language": "Italiano",
+    "english": "English",
+    "portuguese": "Portuguese"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "dashboardShort": "Home",
+    "contacts": "Contacts",
+    "contactsShort": "Contacts",
+    "automations": "Automations",
+    "automationsShort": "Autos",
+    "inbox": "Inbox",
+    "inboxShort": "Inbox",
+    "whatsNew": "What's new",
+    "whatsNewShort": "News",
+    "settings": "Settings",
+    "settingsShort": "Settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "instagram": "Instagram",
+    "metaApp": "Meta App",
+    "mcp": "MCP / AI",
+    "announcements": "Announcements",
+    "updates": "Updates",
+    "account": "Account"
+  },
+  "auth": {
+    "loginTitle": "Sign in",
+    "loginSubtitle": "Access your Flowcomments workspace",
+    "username": "Username",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in...",
+    "loginSuccess": "Signed in",
+    "backHome": "Back"
+  },
+  "announcements": {
+    "title": "Announcements",
+    "description": "Official Flowcomments messages (news, videos, notices) from the control plane.",
+    "refresh": "Refresh",
+    "empty": "No announcements right now.",
+    "notConfigured": "Control plane is not configured. Set FLOWCOMMENTS_CONTROL_PLANE_URL in your .env to your Flowcomments Cloud URL.",
+    "watchVideo": "Watch video",
+    "openMedia": "Open media",
+    "loading": "Fetching announcements..."
+  },
+  "updates": {
+    "title": "What's new",
+    "description": "See new versions and update when you want. Nothing runs automatically.",
+    "safeTitle": "Safe update",
+    "safeBody": "Your automations, Instagram accounts, and database stay in place. We only apply additive migrations and restart the app when you confirm.",
+    "check": "Check for updates",
+    "current": "Your version",
+    "latest": "Latest version",
+    "available": "A new version is ready",
+    "availableHint": "Review what's new below, then update when you're ready.",
+    "upToDate": "You're on the latest version.",
+    "githubUnavailable": "(GitHub unavailable — showing local changelog.)",
+    "updateNow": "Update safely",
+    "updating": "Updating… please wait",
+    "oneClickOff": "Guided update",
+    "oneClickHint": "One-click is off on this server. Copy the steps for your install type — they won't wipe .env or your data.",
+    "viewRelease": "Open release notes",
+    "howTo": "Update steps",
+    "howToHint": "Pick how you installed Flowcomments. Copy, paste in your server terminal, done.",
+    "whatsNew": "Release notes",
+    "whatsNewHint": "What changed in each version from the public repository.",
+    "copyCommands": "Copy steps",
+    "noNotes": "No detailed notes for this version.",
+    "guaranteesTitle": "What will not break",
+    "guaranteeData": "Postgres data and Redis queues are kept",
+    "guaranteeEnv": ".env secrets are never deleted by the updater",
+    "guaranteeOptIn": "Update only happens when you click / run the steps",
+    "announcementsTitle": "From the Flowcomments team",
+    "announcementsEmpty": "No team announcements right now."
+  },
+  "language": {
+    "title": "Italiano",
+    "description": "English is the default. Brazilian visitors get Portuguese automatically; you can override anytime.",
+    "auto": "Automatic (Brazil → Portuguese, otherwise English)",
+    "saved": "Language updated"
+  }
+}

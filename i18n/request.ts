@@ -15,10 +15,14 @@ async function resolveLocale(): Promise<AppLocale> {
     h.get('cloudfront-viewer-country') ||
     ''
   ).toUpperCase();
-  if (country === 'BR') return 'pt';
+  if (country === 'BR' || country === 'PT') return 'pt';
 
   const accept = h.get('accept-language') || '';
-  if (/\bpt\b/i.test(accept)) return 'pt';
+  for (const part of accept.split(',')) {
+    const tag = part.trim().split(';')[0]?.toLowerCase() || '';
+    const base = tag.split('-')[0];
+    if (isAppLocale(base)) return base;
+  }
 
   return defaultLocale;
 }

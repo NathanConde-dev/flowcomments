@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -9,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { BrandLogo } from '@/components/brand/BrandLogo';
+import { LanguageSwitcher } from '@/components/i18n/LanguageSwitcher';
 import { toast } from '@/lib/ui/toast';
 
 export default function LoginPage() {
@@ -58,13 +58,17 @@ export default function LoginPage() {
         }}
       />
 
-      <Link
-        href="/"
+      <a
+        href="https://flowcomments.com"
         className="absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full border border-border bg-white/80 px-3 py-2 text-sm font-medium text-muted-foreground shadow-soft backdrop-blur-sm transition-colors hover:bg-white hover:text-foreground sm:left-6 sm:top-6"
       >
         <ArrowLeft className="h-4 w-4" />
         {t('backHome')}
-      </Link>
+      </a>
+
+      <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
+        <LanguageSwitcher variant="nav" />
+      </div>
 
       <Card className="relative z-10 w-full max-w-md">
         <CardHeader className="text-center">
