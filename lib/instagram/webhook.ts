@@ -190,6 +190,12 @@ async function handleCommentEvent(
     return;
   }
 
+  // Evita loop: resposta pública / comentário da própria conta re-dispara o webhook
+  if (igUserId === igAccount.igUserId) {
+    console.log('Comment event: ignoring own-account comment', { commentId, igUserId });
+    return;
+  }
+
   await prisma.webhookEvent.create({
     data: {
       userId: igAccount.userId,

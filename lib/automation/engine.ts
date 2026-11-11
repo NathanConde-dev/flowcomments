@@ -64,17 +64,64 @@ async function logDm(params: {
   igAccountId: string;
   text: string;
   messageType?: string;
+  contactId?: string;
 }) {
   await prisma.dmLog.create({
     data: {
       userId: params.userId,
       igAccountId: params.igAccountId,
+      contactId: params.contactId || null,
       status: 'sent',
       messageType: params.messageType || 'text',
       payload: JSON.stringify({ text: params.text }),
       sentAt: new Date(),
     },
   });
+}
+
+async function recordOutboundInbox(params: {
+  userId: string;
+  igAccountId: string;
+  contactId: string;
+  businessIgUserId: string;
+  recipientIgUserId: string;
+  text: string;
+  messageType: string;
+  dedupeKey: string;
+}) {
+  const igThreadId = `${params.businessIgUserId}_${params.recipientIgUserId}`;
+  const conversation = await prisma.conversation.upsert({
+    where: { igThreadId },
+    create: {
+      userId: params.userId,
+      igAccountId: params.igAccountId,
+      contactId: params.contactId,
+      igThreadId,
+      lastMessageAt: new Date(),
+      unreadCount: 0,
+      status: 'open',
+    },
+    update: {
+      lastMessageAt: new Date(),
+    },
+  });
+
+  try {
+    await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        igMessageId: params.dedupeKey,
+        fromIgUserId: params.businessIgUserId,
+        toIgUserId: params.recipientIgUserId,
+        messageType: params.messageType,
+        text: params.text,
+        isFromPage: true,
+        sentAt: new Date(),
+      },
+    });
+  } catch {
+    // duplicate outbound mid — ignore
+  }
 }
 
 function readContactState(contact: { tags: string | null; customData: string | null }): ContactState {
@@ -232,6 +279,7 @@ async function runActions(params: {
     id: string;
     userId: string;
     igAccountId: string;
+    businessIgUserId: string;
   };
   client: InstagramClient;
   context: AutomationContext;
@@ -240,6 +288,28 @@ async function runActions(params: {
 }): Promise<'ok' | 'waiting_input'> {
   const { actions, automation, client, context } = params;
   let { state } = params;
+
+  const trackOutbound = async (text: string, messageType: string, suffix: string) => {
+    await logDm({
+      userId: automation.userId,
+      igAccountId: automation.igAccountId,
+      contactId: params.contactId || undefined,
+      text,
+      messageType,
+    });
+    if (params.contactId && context.userId) {
+      await recordOutboundInbox({
+        userId: automation.userId,
+        igAccountId: automation.igAccountId,
+        contactId: params.contactId,
+        businessIgUserId: automation.businessIgUserId,
+        recipientIgUserId: context.userId,
+        text,
+        messageType,
+        dedupeKey: `out:${automation.id}:${context.commentId || context.userId}:${suffix}`,
+      });
+    }
+  };
 
   for (const action of actions) {
     switch (action.type) {
@@ -270,12 +340,11 @@ async function runActions(params: {
             quickReplies: action.quickReplies,
             automationId: automation.id,
           });
-          await logDm({
-            userId: automation.userId,
-            igAccountId: automation.igAccountId,
-            text: action.text,
-            messageType: action.buttons?.length ? 'buttons' : 'text',
-          });
+          await trackOutbound(
+            action.text,
+            action.buttons?.length ? 'buttons' : 'text',
+            `dm:${action.text.slice(0, 24)}`
+          );
         }
         break;
 
@@ -294,12 +363,7 @@ async function runActions(params: {
               payload: followCheckPayload(automation.id),
             },
           ]);
-          await logDm({
-            userId: automation.userId,
-            igAccountId: automation.igAccountId,
-            text: action.prompt,
-            messageType: 'follow_gate',
-          });
+          await trackOutbound(action.prompt, 'follow_gate', 'follow_gate');
         }
         break;
 
@@ -319,12 +383,7 @@ async function runActions(params: {
       case 'ask_input': {
         if (!context.userId || !action.prompt || !action.saveKey) break;
         await client.sendMessage(context.userId, action.prompt);
-        await logDm({
-          userId: automation.userId,
-          igAccountId: automation.igAccountId,
-          text: action.prompt,
-          messageType: 'ask_input',
-        });
+        await trackOutbound(action.prompt, 'ask_input', `ask:${action.saveKey}`);
         state.customData._pendingInput = {
           automationId: automation.id,
           saveKey: action.saveKey,
@@ -353,10 +412,30 @@ export async function executeAutomation(
     throw new Error('Automation not found or inactive');
   }
 
+  const triggeredBy = context.commentId || context.userId || null;
+  if (context.commentId) {
+    const duplicate = await prisma.automationExecution.findFirst({
+      where: {
+        automationId: automation.id,
+        triggeredBy: context.commentId,
+        status: { in: ['processing', 'completed'] },
+      },
+      select: { id: true, status: true },
+    });
+    if (duplicate) {
+      console.log('Skipping duplicate automation execution', {
+        automationId,
+        commentId: context.commentId,
+        existingStatus: duplicate.status,
+      });
+      return;
+    }
+  }
+
   const execution = await prisma.automationExecution.create({
     data: {
       automationId: automation.id,
-      triggeredBy: context.commentId || context.userId,
+      triggeredBy,
       status: 'processing',
       metadata: JSON.stringify(context),
     },
@@ -387,6 +466,7 @@ export async function executeAutomation(
         id: automation.id,
         userId: automation.userId,
         igAccountId: automation.igAccountId,
+        businessIgUserId: automation.igAccount.igUserId,
       },
       client,
       context: {
@@ -682,7 +762,20 @@ export async function queueOrExecuteAutomation(
   const { createQueue, QUEUE_NAMES } = await import('@/lib/queue/client');
   const queue = createQueue(QUEUE_NAMES.AUTOMATION);
   if (queue) {
-    await queue.add('execute-automation', { automationId, context });
+    const jobId = context.commentId
+      ? `auto:${automationId}:c:${context.commentId}`
+      : undefined;
+    await queue.add(
+      'execute-automation',
+      { automationId, context },
+      jobId
+        ? {
+            jobId,
+            // Um comentário = uma execução; retries só no mesmo job
+            attempts: 3,
+          }
+        : undefined
+    );
   } else {
     await executeAutomation(automationId, context);
   }
