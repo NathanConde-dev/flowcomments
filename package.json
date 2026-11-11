@@ -2,6 +2,16 @@
   "name": "flowcomments",
   "version": "0.1.0",
   "private": true,
+  "description": "Source-available Instagram comment & DM automation (self-host core). Canonical site: https://flowcomments.com",
+  "homepage": "https://flowcomments.com",
+  "bugs": {
+    "url": "https://github.com/NathanConde-dev/flowcomments/issues",
+    "email": "contato@nathanconde.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NathanConde-dev/flowcomments.git"
+  },
   "license": "SEE LICENSE IN LICENSE",
   "scripts": {
     "dev": "next dev",

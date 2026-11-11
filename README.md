@@ -1,14 +1,28 @@
-# Flowcomments
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/flowcomments-logo-white.png" />
+    <img src="docs/assets/flowcomments-logo.png" alt="Flowcomments" width="420" />
+  </picture>
+</p>
 
-**Automatize Comentários e DMs do Instagram.** Alternativa self-hosted e source-available ao ManyChat.
+<p align="center">
+  <strong>Automatize comentários e DMs do Instagram.</strong><br />
+  Alternativa self-hosted e source-available ao ManyChat.
+</p>
 
-![License](https://img.shields.io/badge/license-Sustainable%20Use-blue)
-![Version](https://img.shields.io/badge/version-0.1.0-green)
+<p align="center">
+  <a href="https://flowcomments.com"><img src="https://img.shields.io/badge/website-flowcomments.com-111111" alt="Website" /></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Sustainable%20Use-blue" alt="License" /></a>
+  <a href="./CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.1.0-green" alt="Version" /></a>
+  <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs welcome" /></a>
+</p>
 
 > **Licença:** Flowcomments Sustainable Use License (source-available / fair-code, não é OSI open source).  
-> Veja [LICENSE](./LICENSE) e [/licenca](https://seu-dominio.com/licenca) para detalhes completos.
+> Veja [LICENSE](./LICENSE) e [flowcomments.com/license](https://flowcomments.com/license).
 
-## ❤️ Apoie o projeto (doação)
+**Site oficial / Cloud:** [flowcomments.com](https://flowcomments.com) · **ManyChat alternative:** [flowcomments.com/alternatives/manychat](https://flowcomments.com/alternatives/manychat)
+
+## Apoie o projeto (doação)
 
 Self-host é **gratuito** na sua infra. Se o Flowcomments te ajuda, uma doação pontual via Stripe sustenta docs, updates e o core público:
 
@@ -16,299 +30,155 @@ Self-host é **gratuito** na sua infra. Se o Flowcomments te ajuda, uma doação
 
 Valores sugeridos: $5 · $15 · $50 (Checkout Stripe). Cloud hospedado: [R$ 197/mês](https://flowcomments.com/signup) (BR) · $67/mo (intl).
 
-## 📋 O que é o Flowcomments?
+## O que é o Flowcomments?
 
-Flowcomments é uma plataforma self-hosted para automatizar interações no Instagram:
+Plataforma self-hosted para automatizar interações no Instagram:
 
-- ✅ **Automações inteligentes**: Responda comentários automaticamente com base em palavras-chave
-- ✅ **DMs automáticos**: Envie mensagens diretas após comentários
-- ✅ **Gestão de contatos**: Organize seguidores e acompanhe interações
-- ✅ **Inbox unificado**: Veja todas as conversas em um só lugar
-- ✅ **Self-hosted**: Controle total dos seus dados
-- ✅ **Source-available**: Código disponível para auditoria e customização
+- **Automações inteligentes** — responda comentários com base em palavras-chave
+- **DMs automáticos** — envie mensagens diretas após comentários
+- **Gestão de contatos** — organize seguidores e acompanhe interações
+- **Inbox unificado** — todas as conversas em um só lugar
+- **Self-hosted** — controle total dos seus dados
+- **Source-available** — código disponível para auditoria e customização
 
-## 🚀 Quick Start
+## Quick Start
 
-### Com Docker Compose (Recomendado)
+### Docker Compose (recomendado)
 
-1. **Clone o repositório**
-   ```bash
-   git clone https://github.com/NathanConde-dev/flowcomments.git
-   cd flowcomments
-   ```
+```bash
+git clone https://github.com/NathanConde-dev/flowcomments.git
+cd flowcomments
+cp .env.example .env
+# Defina ENCRYPTION_KEY e SESSION_SECRET
+docker compose up -d
+```
 
-2. **Configure as variáveis de ambiente**
-   ```bash
-   cp .env.example .env
-   # Edite .env e defina valores para ENCRYPTION_KEY e SESSION_SECRET
-   ```
-
-3. **Inicie os serviços**
-   ```bash
-   docker compose up -d
-   ```
-
-4. **Acesse a aplicação**
-   - Abra [http://localhost:3000](http://localhost:3000)
-   - Complete o wizard de configuração inicial
-   - Conecte sua conta do Instagram
+Abra [http://localhost:3000](http://localhost:3000), complete o wizard e conecte o Instagram.
 
 ### Railway (1-Click Deploy)
 
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/flowcomments)
 
-1. Clique no botão acima
-2. Configure as variáveis de ambiente (Railway cria um Postgres automaticamente)
-3. Aguarde o deploy
-4. Acesse sua URL e complete o setup
+### VPS (Hostinger, DigitalOcean, etc.)
 
-### VPS / Servidor (Hostinger, DigitalOcean, etc.)
+Veja o guia completo em [docs/RAILWAY_DEPLOY.md](./docs/RAILWAY_DEPLOY.md) e a seção VPS abaixo no histórico de docs, ou o [guia oficial de self-host](https://flowcomments.com/self-host).
+
+Resumo mínimo:
 
 ```bash
-# Instalar Node.js 20+ e PostgreSQL
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs postgresql
-
-# Clonar e configurar
 git clone https://github.com/NathanConde-dev/flowcomments.git
 cd flowcomments
-npm install
-
-# Configurar banco de dados
-sudo -u postgres psql
-CREATE DATABASE flowcomments;
-CREATE USER flowcomments WITH PASSWORD 'sua-senha-aqui';
-GRANT ALL PRIVILEGES ON DATABASE flowcomments TO flowcomments;
-\q
-
-# Configurar .env
 cp .env.example .env
-nano .env  # Edite com suas configurações
-
-# Migrar banco e buildar
+npm install
 npx prisma migrate deploy
 npm run build
-
-# Iniciar com PM2 (recomendado)
-npm install -g pm2
-pm2 start npm --name "flowcomments" -- start
-pm2 start npm --name "flowcomments-worker" -- run worker
-
-# Configurar para iniciar no boot
-pm2 startup
-pm2 save
-```
-
-## 🔧 Configuração do Meta App
-
-Para conectar o Instagram, você precisa criar um App no Meta for Developers:
-
-### 1. Criar App no Meta for Developers
-
-1. Acesse [Meta for Developers](https://developers.facebook.com/)
-2. Clique em **"Meus Apps"** → **"Criar App"**
-3. Selecione **"Negócios"** como tipo de app
-4. Preencha os detalhes do app
-
-### 2. Configurar Produtos
-
-Adicione os seguintes produtos ao seu app:
-
-- **Instagram Basic Display** (para perfis pessoais) OU
-- **Instagram API** (para contas Business/Creator - recomendado)
-- **Facebook Login**
-- **Webhooks**
-
-### 3. Permissões Necessárias
-
-Solicite as seguintes permissões no App Review:
-
-- `instagram_basic`
-- `instagram_manage_comments`
-- `instagram_manage_messages`
-- `pages_show_list`
-- `pages_read_engagement`
-- `business_management` (se usar Facebook Login for Business)
-
-### 4. Configurar Webhook
-
-1. No painel do app, vá em **Webhooks**
-2. Clique em **"Configurar"** para Instagram
-3. **URL de Callback**: `https://seu-dominio.com/api/webhook`
-4. **Verificar Token**: Use o mesmo token que você definiu no setup
-5. Ative os campos:
-   - `comments`
-   - `mentions`
-   - `messages`
-
-### 5. Obter Credenciais
-
-No painel do app:
-- **App ID**: Encontrado em Configurações → Básico
-- **App Secret**: Encontrado em Configurações → Básico (clique em "Mostrar")
-- **Config ID** (opcional): Para Facebook Login for Business
-
-### 6. Configurar no Flowcomments
-
-Durante o setup wizard ou depois nas configurações:
-1. Cole o **App ID**
-2. Cole o **App Secret**
-3. Cole o **Config ID** (se usar Facebook Login for Business)
-4. Cole o **Webhook Verify Token**
-5. Conecte sua conta do Instagram
-
-## 🔄 Atualizações e comunicados (self-hosted)
-
-Este repo é **só a plataforma** (sem landing de marketing). A landing oficial fica no Cloud privado.
-
-No painel, item de sidebar **Novidades / What's new**:
-
-- Changelog das releases do GitHub
-- Update **opt-in** e seguro (não apaga `.env`/dados) — [docs/UPDATES.md](./docs/UPDATES.md)
-- Comunicados oficiais via `FLOWCOMMENTS_CONTROL_PLANE_URL`
-
-SaaS + landing + admin de comunicados: [`flowcomments-cloud`](https://github.com/NathanConde-dev/flowcomments-cloud). Detalhes: [docs/CLOUD_VS_SELFHOST.md](./docs/CLOUD_VS_SELFHOST.md).
-
-> Self-host para uso próprio: permitido. Revender como SaaS/assinatura concorrente: **proibido** pela [LICENSE](./LICENSE) (Sustainable Use).
-
-## 🛠️ Desenvolvimento
-
-```bash
-# Instalar dependências
-npm install
-
-# Configurar banco de dados local
-docker run --name flowcomments-db -e POSTGRES_PASSWORD=flowcomments -e POSTGRES_DB=flowcomments -p 5432:5432 -d postgres:16-alpine
-docker run --name flowcomments-redis -p 6379:6379 -d redis:7-alpine
-
-# Configurar .env
-cp .env.example .env
-
-# Migrar banco
-npx prisma migrate dev
-
-# Iniciar desenvolvimento
-npm run dev
-
-# Em outro terminal, iniciar worker
+npm start
+# em outro processo:
 npm run worker
 ```
 
-### Scripts Disponíveis
+## Meta App (Instagram)
 
-- `npm run dev` - Inicia o servidor de desenvolvimento
-- `npm run build` - Builda a aplicação para produção
-- `npm start` - Inicia a aplicação em produção
-- `npm run lint` - Roda o linter
-- `npm run typecheck` - Verifica tipos TypeScript
-- `npm test` - Roda os testes
-- `npm run worker` - Inicia o worker de processamento
+Resumo: crie um app em [Meta for Developers](https://developers.facebook.com/), adicione Instagram API + Webhooks, permissões `instagram_basic`, `instagram_manage_comments`, `instagram_manage_messages`, `pages_show_list`, `pages_read_engagement`, e aponte o webhook para `https://seu-dominio.com/api/webhook`.
 
-## 📦 Stack Tecnológico
+Guia passo a passo (humano + IA): [docs/ai/SETUP_PROMPT.md](./docs/ai/SETUP_PROMPT.md) · [flowcomments.com/guides/first-automation](https://flowcomments.com/guides/first-automation)
 
-- **Framework**: Next.js 15 (App Router)
-- **Language**: TypeScript
-- **Database**: PostgreSQL + Prisma ORM
-- **Queue**: BullMQ + Redis (opcional)
-- **Auth**: iron-session
-- **Styling**: Tailwind CSS
-- **UI Components**: shadcn/ui style
-- **Instagram API**: Meta Graph API v21.0
+## Atualizações e comunicados
 
-## 🐛 Troubleshooting
+Este repo é **só a plataforma** (sem landing de marketing). A landing oficial fica no Cloud.
 
-### Conta do Instagram não aparece após conectar
+No painel: **Novidades / What's new** — changelog GitHub, update opt-in ([docs/UPDATES.md](./docs/UPDATES.md)) e comunicados via `FLOWCOMMENTS_CONTROL_PLANE_URL`.
 
-**Causa comum**: Sua conta pessoal e a página do Facebook que você conectou não estão na mesma Business Portfolio.
+SaaS + landing: [flowcomments.com](https://flowcomments.com). Detalhes: [docs/CLOUD_VS_SELFHOST.md](./docs/CLOUD_VS_SELFHOST.md).
 
-**Solução**:
-1. Acesse [Facebook Business Manager](https://business.facebook.com/)
-2. Verifique se sua conta do Instagram está vinculada à mesma Business
-3. Se não estiver, adicione a conta do Instagram ao Business correto
+> Self-host para uso próprio: permitido. Revender como SaaS/assinatura concorrente: **proibido** pela [LICENSE](./LICENSE).
 
-### Webhook não está recebendo eventos
-
-**Checklist**:
-- ✅ URL do webhook está acessível publicamente (use ngrok para testes locais)
-- ✅ Token de verificação é o mesmo no Meta e no Flowcomments
-- ✅ App está em modo Live (não Development)
-- ✅ Campos do webhook estão ativados (comments, messages, mentions)
-- ✅ Conta do Instagram está corretamente conectada
-
-### Erro de permissão ao enviar DM
-
-O envio de DM requer que:
-1. A pessoa tenha comentado no seu post primeiro, OU
-2. Já tenha iniciado uma conversa com você
-
-Isso é uma limitação da API do Instagram por política do Meta.
-
-### "ENCRYPTION_KEY is not set"
-
-Defina `ENCRYPTION_KEY` no seu `.env` com um valor aleatório de 64 caracteres hexadecimais:
+## Desenvolvimento
 
 ```bash
-# Gerar chave:
-openssl rand -hex 32
-
-# Adicionar ao .env:
-ENCRYPTION_KEY=sua-chave-gerada-aqui
+npm install
+docker run --name flowcomments-db -e POSTGRES_PASSWORD=flowcomments -e POSTGRES_DB=flowcomments -p 5432:5432 -d postgres:16-alpine
+docker run --name flowcomments-redis -p 6379:6379 -d redis:7-alpine
+cp .env.example .env
+npx prisma migrate dev
+npm run dev
+# outro terminal
+npm run worker
 ```
 
-## 📄 Licença
+| Script | Descrição |
+|--------|-----------|
+| `npm run dev` | Dev server |
+| `npm run build` | Build produção |
+| `npm start` | Start produção |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript |
+| `npm test` | Vitest |
+| `npm run worker` | Worker BullMQ |
 
-Flowcomments é licenciado sob a **Flowcomments Sustainable Use License** © 2026 Nathan Condé.
+## Stack
 
-**TL;DR** (leia [LICENSE](./LICENSE) e [/licenca](https://seu-dominio.com/licenca) para termos completos):
+Next.js 15 · TypeScript · PostgreSQL + Prisma · BullMQ + Redis · iron-session · Tailwind · Meta Graph API v21.0
 
-✅ **PODE**:
-- Usar gratuitamente para suas próprias contas pessoais/comerciais
-- Self-hospedar em sua infraestrutura
-- Modificar o código para suas necessidades
-- Usar em sua empresa para contas da própria empresa
-- Agências: usar para gerenciar contas de clientes (sem cobrar pelo software)
+## Contribuir
 
-❌ **NÃO PODE** (sem licença comercial):
-- Vender ou revender como produto/serviço
-- Oferecer como SaaS hospedado
-- White-label (remover nossa marca)
-- Remover logo "Flowcomments" e "Powered by Flowcomments"
+Leia **[CONTRIBUTING.md](./CONTRIBUTING.md)** antes do primeiro PR.
 
-Para licenciamento comercial ou Cloud oficial (R$ 197/mês · $67/mo): [flowcomments.com](https://flowcomments.com/signup) · **contato@nathanconde.com**
+1. Fork → branch `feat/…` ou `fix/…`
+2. `npm run lint && npm run typecheck && npm test`
+3. Abra o PR com o template
 
-## 🤝 Contribuições
+Também: [Code of Conduct](./CODE_OF_CONDUCT.md) · [Security](./SECURITY.md)
 
-Contribuições são bem-vindas! Por favor:
+Ao contribuir, você concorda com a mesma Flowcomments Sustainable Use License.
 
-1. Faça um fork do projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/NovaFeature`)
-3. Commit suas mudanças (`git commit -m 'feat: adiciona nova feature'`)
-4. Push para a branch (`git push origin feature/NovaFeature`)
-5. Abra um Pull Request
+## Troubleshooting
 
-**Nota**: Ao contribuir, você concorda que seu código será licenciado sob a mesma Flowcomments Sustainable Use License.
+**Instagram não aparece após conectar** — conta e Page precisam estar no mesmo Business Portfolio ([business.facebook.com](https://business.facebook.com/)).
 
-## 📞 Suporte
+**Webhook sem eventos** — URL pública, verify token igual, app Live, campos `comments` / `messages` / `mentions` ativos.
 
-- 📧 **E-mail**: contato@nathanconde.com
-- 🐛 **Issues**: [GitHub Issues](https://github.com/NathanConde-dev/flowcomments/issues)
-- 📖 **Documentação**: [Wiki](https://github.com/NathanConde-dev/flowcomments/wiki) (em breve)
+**DM com erro de permissão** — a pessoa precisa ter comentado ou iniciado conversa (regra da API Meta).
 
-## 🗺️ Roadmap
+**`ENCRYPTION_KEY is not set`**
 
-- [ ] v0.1 - MVP básico (você está aqui!)
-- [ ] v0.2 - Instagram Stories automações
-- [ ] v0.3 - Analytics e relatórios
-- [ ] v0.4 - Templates de mensagens com variáveis
-- [ ] v0.5 - Múltiplos usuários/equipes
-- [ ] v1.0 - API pública e webhooks
-- [ ] v2.0 - Suporte a WhatsApp Business
+```bash
+openssl rand -hex 32
+# cole no .env como ENCRYPTION_KEY=...
+```
 
-## 💝 Agradecimentos
+## Licença
 
-Inspirado pelo espírito de projetos como [n8n](https://n8n.io), [Supabase](https://supabase.com) e [Cal.com](https://cal.com): software de qualidade, source-available e com modelos de negócio sustentáveis.
+**Flowcomments Sustainable Use License** © 2026 Nathan Condé — [LICENSE](./LICENSE)
+
+✅ Uso próprio / self-host / modificar / agência sem cobrar pelo software  
+❌ SaaS concorrente / white-label / remover marca — sem licença comercial
+
+Cloud oficial: [flowcomments.com/signup](https://flowcomments.com/signup) · **contato@nathanconde.com**
+
+## Suporte
+
+- E-mail: [contato@nathanconde.com](mailto:contato@nathanconde.com)
+- Issues: [GitHub Issues](https://github.com/NathanConde-dev/flowcomments/issues)
+- Docs: [flowcomments.com/docs](https://flowcomments.com/docs)
+
+## Roadmap
+
+- [x] v0.1 — MVP
+- [ ] v0.2 — Stories
+- [ ] v0.3 — Analytics
+- [ ] v0.4 — Templates com variáveis
+- [ ] v0.5 — Equipes
+- [ ] v1.0 — API pública + webhooks
+- [ ] v2.0 — WhatsApp Business
+
+## Agradecimentos
+
+Inspiração de modelo e cultura de produto: [n8n](https://n8n.io), [Supabase](https://supabase.com) e [Cal.com](https://cal.com) — qualidade source-available com negócio sustentável.
+
+E, acima de tudo, à minha esposa **Amanda** e ao meu filho **Isaac** — meus maiores motivadores a continuar buscando mais. (escrito às 01:55 da manhã e algumas latas de energético.)
 
 ---
 
 **Powered by Flowcomments** © 2026 Nathan Condé  
-[Licença](./LICENSE) • [GitHub](https://github.com/NathanConde-dev/flowcomments) • [Contato](mailto:contato@nathanconde.com)
+[Licença](./LICENSE) · [GitHub](https://github.com/NathanConde-dev/flowcomments) · [Site](https://flowcomments.com)

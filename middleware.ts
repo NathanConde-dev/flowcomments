@@ -10,6 +10,7 @@ const publicPathsExact = [
   '/licenca',
   '/setup-com-ia.md',
   '/favicon.ico',
+  '/robots.txt',
 ];
 
 const publicPathsPrefixes = [

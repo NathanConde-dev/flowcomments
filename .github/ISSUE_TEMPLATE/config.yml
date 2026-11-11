@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Docs & Cloud
+    url: https://flowcomments.com/docs
+    about: Official docs, license, and Cloud signup live on flowcomments.com
+  - name: Security report
+    url: https://github.com/NathanConde-dev/flowcomments/blob/main/SECURITY.md
+    about: Report vulnerabilities privately (see SECURITY.md)

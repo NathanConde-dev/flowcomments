@@ -66,7 +66,9 @@ export function LanguageSwitcher({
           disabled={pending}
           onClick={() => setOpen((v) => !v)}
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium transition-colors ${
-            open ? 'bg-zinc-900 text-white' : 'text-muted-foreground hover:text-foreground'
+            open
+              ? 'bg-zinc-900 text-white'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
           }`}
         >
           <span>{locale.toUpperCase()}</span>
@@ -75,7 +77,7 @@ export function LanguageSwitcher({
         {open ? (
           <div
             role="listbox"
-            className="absolute right-0 top-[calc(100%+0.5rem)] z-50 min-w-[11rem] overflow-hidden rounded-2xl border border-zinc-800 bg-[#1c1c1e] p-1.5 text-sm shadow-float"
+            className="absolute right-0 top-[calc(100%+0.5rem)] z-50 min-w-[11rem] overflow-hidden rounded-2xl border border-border/70 bg-white p-1.5 text-sm shadow-float"
           >
             {locales.map((code) => {
               const active = code === locale;
@@ -88,8 +90,8 @@ export function LanguageSwitcher({
                   onClick={() => setLocale(code)}
                   className={`flex w-full items-center rounded-xl px-3 py-2.5 text-left transition ${
                     active
-                      ? 'bg-white/10 font-semibold text-white'
-                      : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                      ? 'bg-muted font-semibold text-foreground'
+                      : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                   }`}
                 >
                   {localeLabels[code]}
@@ -120,7 +122,7 @@ export function LanguageSwitcher({
           <ChevronDown className="h-3.5 w-3.5 opacity-70" />
         </button>
         {open ? (
-          <div className="absolute left-0 top-[calc(100%+0.5rem)] z-50 min-w-[12rem] overflow-hidden rounded-2xl border border-zinc-800 bg-[#1c1c1e] p-1.5 text-sm shadow-float">
+          <div className="absolute left-0 top-[calc(100%+0.5rem)] z-50 min-w-[12rem] overflow-hidden rounded-2xl border border-border/70 bg-white p-1.5 text-sm shadow-float">
             {locales.map((code) => (
               <button
                 key={code}
@@ -128,8 +130,8 @@ export function LanguageSwitcher({
                 onClick={() => setLocale(code)}
                 className={`flex w-full items-center rounded-xl px-3 py-2.5 text-left transition ${
                   code === locale
-                    ? 'bg-white/10 font-semibold text-white'
-                    : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                    ? 'bg-muted font-semibold text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
                 }`}
               >
                 {localeLabels[code]}

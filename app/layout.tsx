@@ -18,6 +18,17 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t('title'),
     description: t('description'),
+    // Self-host installs must not compete with flowcomments.com for Google / AI discovery.
+    robots: {
+      index: false,
+      follow: false,
+      nocache: true,
+      googleBot: {
+        index: false,
+        follow: false,
+        noimageindex: true,
+      },
+    },
     appleWebApp: {
       capable: true,
       statusBarStyle: 'default',
