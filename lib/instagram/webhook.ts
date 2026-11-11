@@ -112,6 +112,15 @@ export async function handleWebhookEvent(payload: WebhookPayload): Promise<void>
 }
 
 export async function processWebhookEvent(payload: WebhookPayload): Promise<void> {
+  console.log('Webhook received', {
+    object: payload.object,
+    entries: (payload.entry || []).map((entry) => ({
+      id: entry.id,
+      changes: entry.changes?.map((change) => change.field),
+      messaging: entry.messaging?.length || 0,
+    })),
+  });
+
   if (payload.object !== 'instagram' && payload.object !== 'page') {
     return;
   }

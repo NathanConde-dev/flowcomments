@@ -387,38 +387,124 @@ async function getInstagramAccountDetails(
   }
 }
 
+const IG_WEBHOOK_FIELDS = [
+  'comments',
+  'live_comments',
+  'mentions',
+  'messages',
+  'messaging_postbacks',
+  'messaging_seen',
+  'messaging_optins',
+  'message_reactions',
+] as const;
+
+const PAGE_WEBHOOK_FIELDS = [
+  'messages',
+  'messaging_postbacks',
+  'messaging_optins',
+  'message_deliveries',
+  'feed',
+] as const;
+
+/** Subscribe the Instagram professional account — required for comment webhooks. */
+export async function subscribeInstagramToWebhooks(
+  igUserId: string,
+  accessToken: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const params = new URLSearchParams({
+      subscribed_fields: IG_WEBHOOK_FIELDS.join(','),
+      access_token: accessToken,
+    });
+    const response = await fetch(
+      `${GRAPH_API_BASE}/${igUserId}/subscribed_apps?${params.toString()}`,
+      { method: 'POST' }
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = data?.error?.message || `HTTP ${response.status}`;
+      console.error('IG webhook subscribe failed', { igUserId, data });
+      return { ok: false, error: message };
+    }
+    console.log('IG webhook subscribed', { igUserId, data });
+    return { ok: true };
+  } catch (error) {
+    console.error('Error subscribing IG account to webhooks:', error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'subscribe failed',
+    };
+  }
+}
+
 export async function subscribePageToWebhooks(
   pageId: string,
   pageAccessToken: string
 ): Promise<boolean> {
   try {
-    const response = await fetch(
-      `${GRAPH_API_BASE}/${pageId}/subscribed_apps`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscribed_fields: [
-            'messages',
-            'messaging_postbacks',
-            'messaging_optins',
-            'message_deliveries',
-            'comments',
-            'live_comments',
-            'mentions',
-          ],
-          access_token: pageAccessToken,
-        }),
-      }
-    );
+    const response = await fetch(`${GRAPH_API_BASE}/${pageId}/subscribed_apps`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subscribed_fields: [...PAGE_WEBHOOK_FIELDS],
+        access_token: pageAccessToken,
+      }),
+    });
 
-    return response.ok;
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error('Page webhook subscribe failed', { pageId, data });
+      return false;
+    }
+    console.log('Page webhook subscribed', { pageId, data });
+    return true;
   } catch (error) {
     console.error('Error subscribing page to webhooks:', error);
     return false;
   }
+}
+
+/** Best-effort: subscribe IG user + linked Facebook Page (if discoverable). */
+export async function ensureWebhookSubscriptions(params: {
+  igUserId: string;
+  accessToken: string;
+  pageId?: string;
+  pageAccessToken?: string;
+}): Promise<{ igOk: boolean; pageOk: boolean | null; error?: string }> {
+  const ig = await subscribeInstagramToWebhooks(params.igUserId, params.accessToken);
+
+  let pageId = params.pageId;
+  let pageAccessToken = params.pageAccessToken;
+
+  if (!pageId || !pageAccessToken) {
+    try {
+      const response = await fetch(
+        `${GRAPH_API_BASE}/me/accounts?fields=instagram_business_account,access_token&access_token=${encodeURIComponent(params.accessToken)}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        const page = (data.data || []).find(
+          (item: { instagram_business_account?: { id?: string } }) =>
+            item.instagram_business_account?.id === params.igUserId
+        );
+        if (page?.id && page?.access_token) {
+          pageId = page.id;
+          pageAccessToken = page.access_token;
+        }
+      }
+    } catch (error) {
+      console.warn('Could not discover page for webhook subscribe:', error);
+    }
+  }
+
+  let pageOk: boolean | null = null;
+  if (pageId && pageAccessToken) {
+    pageOk = await subscribePageToWebhooks(pageId, pageAccessToken);
+  }
+
+  return { igOk: ig.ok, pageOk, error: ig.error };
 }
 
 export async function testCredentials(appId: string, appSecret: string): Promise<{

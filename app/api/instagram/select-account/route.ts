@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
 import { encrypt, decrypt } from '@/lib/crypto/encryption';
-import { resolveTokenExpiresAt, subscribePageToWebhooks } from '@/lib/instagram/oauth';
+import { ensureWebhookSubscriptions, resolveTokenExpiresAt } from '@/lib/instagram/oauth';
 
 function parsePending(value: string, encrypted: boolean) {
   const raw = encrypted ? decrypt(value) : value;
@@ -71,9 +71,12 @@ export async function POST(request: Request) {
       },
     });
 
-    if (account.pageId && account.pageAccessToken) {
-      await subscribePageToWebhooks(account.pageId, account.pageAccessToken);
-    }
+    await ensureWebhookSubscriptions({
+      igUserId: account.id,
+      accessToken: data.token,
+      pageId: account.pageId,
+      pageAccessToken: account.pageAccessToken,
+    });
 
     await prisma.systemConfig.delete({
       where: { key: `pending_accounts_${session.userId}` },

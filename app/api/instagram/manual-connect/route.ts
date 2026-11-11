@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
 import { encrypt } from '@/lib/crypto/encryption';
-import { getErrorHintPtBR } from '@/lib/instagram/oauth';
+import { ensureWebhookSubscriptions, getErrorHintPtBR } from '@/lib/instagram/oauth';
 
 const GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION || 'v21.0';
 const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
@@ -82,6 +82,11 @@ export async function POST(request: Request) {
         isActive: true,
         lastSyncAt: new Date(),
       },
+    });
+
+    await ensureWebhookSubscriptions({
+      igUserId: igAccount.id,
+      accessToken,
     });
 
     return NextResponse.json({ success: true, account: igAccount });

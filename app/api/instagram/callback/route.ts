@@ -6,7 +6,7 @@ import {
   exchangeCodeForToken,
   getLongLivedToken,
   discoverInstagramAccounts,
-  subscribePageToWebhooks,
+  ensureWebhookSubscriptions,
   getErrorHintPtBR,
   resolveTokenExpiresAt,
 } from '@/lib/instagram/oauth';
@@ -174,9 +174,12 @@ export async function GET(request: Request) {
         },
       });
 
-      if (account.pageId && account.pageAccessToken) {
-        await subscribePageToWebhooks(account.pageId, account.pageAccessToken);
-      }
+      await ensureWebhookSubscriptions({
+        igUserId: account.id,
+        accessToken: longLivedToken,
+        pageId: account.pageId,
+        pageAccessToken: account.pageAccessToken,
+      });
 
       await prisma.systemConfig
         .delete({
