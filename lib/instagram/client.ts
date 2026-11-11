@@ -114,12 +114,9 @@ export class InstagramClient {
   }
 
   private messagesPath() {
-    // Instagram Login: /{ig-user-id}/messages on graph.instagram.com
-    // Facebook Login / Page token: /me/messages on graph.facebook.com (Page context)
-    if (this.isInstagramLoginToken()) {
-      return `/${this.requireIgUserId()}/messages`;
-    }
-    return `/me/messages`;
+    // Both Instagram Login and Facebook tokens use the IG professional account id.
+    // /me fails for System User tokens (Unsupported post request on 'me').
+    return `/${this.requireIgUserId()}/messages`;
   }
 
   private messagingHeaders() {
@@ -130,10 +127,7 @@ export class InstagramClient {
   }
 
   private messengerProfilePath() {
-    if (this.isInstagramLoginToken()) {
-      return `/${this.requireIgUserId()}/messenger_profile?platform=instagram`;
-    }
-    return `/me/messenger_profile?platform=instagram`;
+    return `/${this.requireIgUserId()}/messenger_profile?platform=instagram`;
   }
 
   async getProfile(userId: string): Promise<InstagramProfile> {

@@ -906,7 +906,7 @@ export async function recoverFailedCommentAutomations(limit = 30): Promise<{
       triggeredBy: { not: null },
     },
     orderBy: { createdAt: 'asc' },
-    take: limit,
+    take: 200,
     select: {
       id: true,
       automationId: true,
@@ -915,9 +915,16 @@ export async function recoverFailedCommentAutomations(limit = 30): Promise<{
     },
   });
 
+  // Uma tentativa por par automação+comentário por pass (evita flood do recovery)
+  const seen = new Set<string>();
   let queued = 0;
   for (const exec of failed) {
     if (!exec.triggeredBy) continue;
+    const key = `${exec.automationId}_${exec.triggeredBy}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (queued >= limit) break;
+
     const done = await prisma.automationExecution.findFirst({
       where: {
         automationId: exec.automationId,
@@ -945,7 +952,7 @@ export async function recoverFailedCommentAutomations(limit = 30): Promise<{
     queued += 1;
   }
 
-  return { scanned: failed.length, queued };
+  return { scanned: seen.size, queued };
 }
 
 /** @deprecated alias kept for older imports */
