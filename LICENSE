@@ -44,6 +44,16 @@ d) Charge third parties specifically for access to, or use of, the Software (tho
 e) Use the Software as part of a product or service that competes with Flowcomments or
    any official offerings from the Licensor
 
+f) Copy, fork, or redistribute the Software (original or modified) primarily to resell,
+   rebrand, or commercially exploit it as a substitute for Flowcomments Cloud or the
+   official self-host edition, including private “clone and charge” deployments offered
+   to third parties as access to the Software
+
+g) Strip, obfuscate, or systematically disable the required attribution notices, copyright
+   headers, or the anonymous installation identity / telemetry mechanisms included to
+   support license compliance and community metrics, except where the Licensor has granted
+   a separate commercial license
+
 3. ATTRIBUTION AND BRANDING REQUIREMENTS
 
 a) You must retain all copyright notices, license notices, and attribution present in the
@@ -59,6 +69,12 @@ c) These attribution elements must remain clearly visible to end users and admin
 
 d) Removing, modifying, obscuring, or making these elements non-visible requires a separate
    commercial license from the Licensor
+
+e) Official builds may report an anonymous installation identifier, software version, and
+   coarse operational metrics (for example public hostname and connected account counts) to
+   the Licensor’s control plane for install metrics and license compliance. This does not
+   include your Instagram content, message bodies, or end-user personal data. You may disable
+   telemetry with FLOWCOMMENTS_TELEMETRY=false; doing so does not waive Sections 2–3.
 
 4. GENERAL TERMS
 

@@ -14,10 +14,12 @@ Dois repositórios, um produto:
 ## Self-host
 
 1. Clone/docker do repo **público** (só a plataforma)
-2. Opcional: `FLOWCOMMENTS_CONTROL_PLANE_URL=https://<sua-url-cloud>`
-3. Painel → **Novidades** (sidebar): changelog do GitHub + update opt-in seguro
+2. Control plane default: `https://flowcomments.com` (comunicados + heartbeat anônimo de install)
+3. Opt-out de telemetria: `FLOWCOMMENTS_TELEMETRY=false`
+4. Painel → **Novidades** (sidebar): changelog do GitHub + update opt-in seguro
+5. CTA para **star** no GitHub (Ajuda / banner / Settings)
 
-A LICENSE Sustainable Use permite uso interno/self-host. **Proíbe** oferecer o software como SaaS concorrente.
+A LICENSE Sustainable Use permite uso interno/self-host. **Proíbe** oferecer o software como SaaS concorrente, white-label e remoção de atribuição / telemetria de compliance.
 
 ## Cloud
 

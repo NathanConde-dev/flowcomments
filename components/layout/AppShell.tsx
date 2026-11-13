@@ -13,6 +13,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings2,
+  Heart,
+  Star,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
@@ -26,9 +28,14 @@ import {
   useSelectedIgAccount,
   type IgAccountSummary,
 } from '@/components/instagram/SelectedIgAccountContext';
+import { DonateNudge } from '@/components/github/DonateNudge';
+import { GitHubStarNudge } from '@/components/github/GitHubStarNudge';
+import { TelemetryPing } from '@/components/telemetry/TelemetryPing';
 import { APP_NAV, isImmersiveAppRoute } from './nav';
 import { MobileBottomNav } from './MobileBottomNav';
 import { MobileTopBar } from './MobileTopBar';
+
+const GITHUB_REPO_URL = 'https://github.com/NathanConde-dev/flowcomments';
 
 interface AppShellProps {
   username: string;
@@ -337,6 +344,38 @@ function HelpMenu({
             <BookOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="font-medium">Documentação</span>
           </a>
+          <a
+            href={GITHUB_REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+          >
+            <Star className="h-4 w-4 shrink-0 text-amber-500" />
+            <span className="min-w-0">
+              <span className="block font-medium">Star no GitHub</span>
+              <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                Apoie o core self-host com uma estrela
+              </span>
+            </span>
+          </a>
+          <a
+            href="https://flowcomments.com/donate"
+            target="_blank"
+            rel="noopener noreferrer"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+          >
+            <Heart className="h-4 w-4 shrink-0 text-rose-500" />
+            <span className="min-w-0">
+              <span className="block font-medium">Doe para o projeto</span>
+              <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                Ajude a manter docs e melhorias
+              </span>
+            </span>
+          </a>
         </div>
       )}
     </div>
@@ -471,7 +510,13 @@ function AppShellFrame({
               })}
             </div>
 
-            <div className="mt-auto space-y-1 pt-3">
+            <div className="mt-auto space-y-2 pt-3">
+              {!collapsed ? (
+                <>
+                  <DonateNudge />
+                  <GitHubStarNudge />
+                </>
+              ) : null}
               <HelpMenu collapsed={collapsed} email={email} />
             </div>
           </nav>
@@ -545,6 +590,7 @@ function AppShellFrame({
 export function AppShell({ username, email, igAccounts, children }: AppShellProps) {
   return (
     <SelectedIgAccountProvider accounts={igAccounts}>
+      <TelemetryPing />
       <AppShellFrame username={username} email={email}>
         {children}
       </AppShellFrame>

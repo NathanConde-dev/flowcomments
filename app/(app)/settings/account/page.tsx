@@ -146,7 +146,11 @@ export default async function AccountSettingsPage() {
             <div className="mt-4 space-y-1">
               <p className="font-medium">Powered by Flowcomments</p>
               <p className="text-muted-foreground">© 2026 Nathan Condé</p>
-              <div className="mt-2 flex flex-wrap gap-3">
+              <p className="text-muted-foreground">
+                Self-host sob a Sustainable Use License — uso próprio permitido; revender como SaaS
+                concorrente é proibido. Atribuição “Powered by Flowcomments” deve permanecer visível.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
                 <Link href="/licenca" className="text-muted-foreground hover:underline">
                   Ver Licença
                 </Link>
@@ -154,9 +158,17 @@ export default async function AccountSettingsPage() {
                   href="https://github.com/NathanConde-dev/flowcomments"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-muted-foreground hover:underline"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-zinc-800"
                 >
-                  GitHub
+                  ★ Star no GitHub
+                </a>
+                <a
+                  href="https://flowcomments.com/donate"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-900 hover:bg-rose-100"
+                >
+                  ♥ Doe para o projeto
                 </a>
                 <a
                   href="mailto:contato@nathanconde.com"
