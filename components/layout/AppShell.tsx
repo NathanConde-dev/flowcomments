@@ -28,8 +28,7 @@ import {
   useSelectedIgAccount,
   type IgAccountSummary,
 } from '@/components/instagram/SelectedIgAccountContext';
-import { DonateNudge } from '@/components/github/DonateNudge';
-import { GitHubStarNudge } from '@/components/github/GitHubStarNudge';
+import { EngagementToasts } from '@/components/engagement/EngagementToasts';
 import { TelemetryPing } from '@/components/telemetry/TelemetryPing';
 import { APP_NAV, isImmersiveAppRoute } from './nav';
 import { MobileBottomNav } from './MobileBottomNav';
@@ -511,12 +510,6 @@ function AppShellFrame({
             </div>
 
             <div className="mt-auto space-y-2 pt-3">
-              {!collapsed ? (
-                <>
-                  <DonateNudge />
-                  <GitHubStarNudge />
-                </>
-              ) : null}
               <HelpMenu collapsed={collapsed} email={email} />
             </div>
           </nav>
@@ -583,6 +576,7 @@ function AppShellFrame({
         </main>
         <MobileBottomNav />
       </div>
+      <EngagementToasts />
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
   type TriggerKind,
 } from './types';
 import { toast } from '@/lib/ui/toast';
+import { signalEngagement } from '@/lib/engagement/storage';
 
 type AutomationBuilderProps = {
   automationId?: string;
@@ -415,6 +416,7 @@ export function AutomationBuilder({ automationId }: AutomationBuilderProps) {
       }
 
       toast.success(isEdit ? 'Automação atualizada' : 'Automação criada');
+      signalEngagement({ source: isEdit ? 'automation-update' : 'automation-create' });
       router.push('/automations');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro desconhecido');
