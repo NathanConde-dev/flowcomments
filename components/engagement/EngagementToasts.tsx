@@ -37,14 +37,6 @@ type PromptCopy = {
 
 const PROMPTS: PromptCopy[] = [
   {
-    id: 'donate',
-    title: 'Quer apoiar o Flowcomments?',
-    body: 'Self-host é grátis. Uma doação pontual ajuda a manter o projeto atualizado.',
-    cta: 'Doar agora',
-    href: DONATE_URL,
-    icon: 'heart',
-  },
-  {
     id: 'github-star',
     title: 'Está gostando do Flowcomments?',
     body: 'Uma estrela no GitHub ajuda mais pessoas a encontrar o projeto.',
@@ -53,9 +45,17 @@ const PROMPTS: PromptCopy[] = [
     icon: 'github',
   },
   {
+    id: 'donate',
+    title: 'Quer apoiar o Flowcomments?',
+    body: 'Self-host é grátis. Uma doação pontual ajuda a manter o projeto atualizado.',
+    cta: 'Doar agora',
+    href: DONATE_URL,
+    icon: 'heart',
+  },
+  {
     id: 'whatsapp',
     title: 'Entre no grupo open source',
-    body: 'Receba outros projetos de código aberto e novidades da comunidade.',
+    body: 'IA, Tech e Open Source — outros projetos e novidades da comunidade.',
     cta: WHATSAPP_URL ? 'Entrar no WhatsApp' : 'Em breve no WhatsApp',
     href: WHATSAPP_URL || null,
     icon: 'whatsapp',
@@ -171,17 +171,18 @@ export function EngagementToasts() {
     <div
       className={cn(
         'pointer-events-none fixed z-[60] flex justify-end px-4',
-        // Sit above mobile bottom nav
-        'bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] right-0',
-        'sm:bottom-6 sm:right-6 sm:px-0',
-        'lg:bottom-6'
+        // Top-right with a little air from the edge
+        'top-[calc(1.25rem+env(safe-area-inset-top,0px))] right-3',
+        'sm:top-5 sm:right-6 sm:px-0'
       )}
       aria-live="polite"
     >
       <div
         className={cn(
-          'pointer-events-auto w-[min(100%,22rem)] overflow-hidden rounded-2xl border border-border/80 bg-white p-4 shadow-float transition-[opacity,transform] duration-300 ease-out',
-          entered ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
+          'pointer-events-auto w-[min(100%,22rem)] overflow-hidden rounded-2xl border border-border bg-white p-4',
+          'shadow-[0_8px_30px_rgba(15,23,42,0.12),0_2px_8px_rgba(15,23,42,0.08)]',
+          'transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+          entered ? 'translate-x-0 opacity-100' : 'translate-x-10 opacity-0'
         )}
         role="dialog"
         aria-label={prompt.title}
@@ -213,10 +214,18 @@ export function EngagementToasts() {
             </button>
           ) : (
             <a
+              key={prompt.id}
               href={prompt.href!}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={complete}
+              onClick={(event) => {
+                // Capture URL first: completing the prompt re-renders the next toast
+                // and would swap this <a href> mid-click (e.g. donate → GitHub).
+                const url = prompt.href!;
+                event.preventDefault();
+                window.open(url, '_blank', 'noopener,noreferrer');
+                complete();
+              }}
               className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-zinc-800"
             >
               {prompt.icon === 'github' ? <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" /> : null}

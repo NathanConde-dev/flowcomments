@@ -1,5 +1,6 @@
 import { readSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageShell } from '@/components/ui/motion';
@@ -9,6 +10,11 @@ import {
   parsePage,
 } from '@/components/ui/pagination-nav';
 import { ExportContactsButton } from '@/components/contacts/ExportContactsButton';
+import { ContactsFilters } from '@/components/contacts/ContactsFilters';
+import {
+  ContactsBulkList,
+  type ContactListItem,
+} from '@/components/contacts/ContactsBulkList';
 import { formatBrasiliaDateTime } from '@/lib/utils/datetime';
 import { Users } from 'lucide-react';
 
@@ -36,10 +42,19 @@ function parseTags(raw: string | null) {
   }
 }
 
+function firstParam(value: string | string[] | undefined) {
+  return (Array.isArray(value) ? value[0] : value)?.trim() || '';
+}
+
 export default async function ContactsPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ page?: string }>;
+  searchParams?: Promise<{
+    page?: string;
+    q?: string;
+    account?: string;
+    automation?: string;
+  }>;
 }) {
   const session = await readSession();
   if (!session.isLoggedIn) redirect('/login');
@@ -47,11 +62,75 @@ export default async function ContactsPage({
   const params = (await searchParams) || {};
   const page = parsePage(params.page);
   const pageSize = DEFAULT_PAGE_SIZE;
+  const q = firstParam(params.q);
+  const account = firstParam(params.account);
+  const automation = firstParam(params.automation);
 
-  const where = { userId: session.userId };
+  const [accounts, automationRows, livingAutomations] = await Promise.all([
+    prisma.instagramAccount.findMany({
+      where: { userId: session.userId },
+      select: { id: true, igUsername: true },
+      orderBy: { igUsername: 'asc' },
+    }),
+    prisma.contact.findMany({
+      where: {
+        userId: session.userId,
+        sourceAutomationName: { not: null },
+      },
+      distinct: ['sourceAutomationName'],
+      select: { sourceAutomationName: true },
+      orderBy: { sourceAutomationName: 'asc' },
+    }),
+    prisma.automation.findMany({
+      where: { userId: session.userId },
+      select: { id: true },
+    }),
+  ]);
+
+  const livingIds = livingAutomations.map((a) => a.id);
+  const livingSet = new Set(livingIds);
+  const automationNames = automationRows
+    .map((row) => row.sourceAutomationName?.trim())
+    .filter((name): name is string => Boolean(name));
+
+  const where: Prisma.ContactWhereInput = {
+    userId: session.userId,
+  };
+
+  if (q) {
+    where.OR = [
+      { igUsername: { contains: q, mode: 'insensitive' } },
+      { fullName: { contains: q, mode: 'insensitive' } },
+    ];
+  }
+
+  if (account) {
+    where.igAccountId = account;
+  }
+
+  if (automation === 'unknown') {
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      {
+        OR: [{ sourceAutomationName: null }, { sourceAutomationName: '' }],
+      },
+    ];
+  } else if (automation === 'removed') {
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      { sourceAutomationId: { not: null } },
+      livingIds.length > 0
+        ? { sourceAutomationId: { notIn: livingIds } }
+        : { sourceAutomationId: { not: null } },
+    ];
+  } else if (automation) {
+    where.sourceAutomationName = automation;
+  }
+
   const totalItems = await prisma.contact.count({ where });
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const safePage = Math.min(page, totalPages);
+  const hasFilters = Boolean(q || account || automation);
 
   const contacts = await prisma.contact.findMany({
     where,
@@ -65,6 +144,30 @@ export default async function ContactsPage({
     take: pageSize,
   });
 
+  const listItems: ContactListItem[] = contacts.map((contact) => ({
+    id: contact.id,
+    igUsername: contact.igUsername,
+    fullName: contact.fullName,
+    profilePic: contact.profilePic,
+    accountUsername: contact.igAccount.igUsername,
+    lastSeenLabel: contact.lastSeenAt
+      ? formatBrasiliaDateTime(contact.lastSeenAt)
+      : null,
+    sourceName: contact.sourceAutomationName?.trim() || null,
+    sourceRemoved:
+      Boolean(contact.sourceAutomationId) &&
+      !livingSet.has(contact.sourceAutomationId!),
+    lastName: contact.lastAutomationName?.trim() || null,
+    tags: parseTags(contact.tags),
+    fields: parseCustomData(contact.customData),
+  }));
+
+  const filterQuery = {
+    q: q || undefined,
+    account: account || undefined,
+    automation: automation || undefined,
+  };
+
   return (
     <PageShell className="p-4 sm:p-6 md:p-8">
       <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
@@ -72,10 +175,22 @@ export default async function ContactsPage({
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Contatos</h1>
           <p className="mt-1 text-[15px] text-muted-foreground">
             Pessoas que interagiram com suas automações
-            {totalItems > 0 ? ` · ${totalItems} no total` : ''}
+            {totalItems > 0
+              ? hasFilters
+                ? ` · ${totalItems} encontrado${totalItems === 1 ? '' : 's'}`
+                : ` · ${totalItems} no total`
+              : ''}
           </p>
         </div>
-        {totalItems > 0 && <ExportContactsButton />}
+        <ExportContactsButton />
+      </div>
+
+      <div className="mb-4">
+        <ContactsFilters
+          values={{ q, account, automation }}
+          accounts={accounts}
+          automations={automationNames}
+        />
       </div>
 
       {contacts.length === 0 ? (
@@ -84,93 +199,30 @@ export default async function ContactsPage({
             <div className="mb-4 rounded-full bg-muted p-4">
               <Users className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="mb-2 text-lg font-bold">Nenhum contato ainda</h3>
+            <h3 className="mb-2 text-lg font-bold">
+              {hasFilters ? 'Nenhum contato encontrado' : 'Nenhum contato ainda'}
+            </h3>
             <p className="text-center text-muted-foreground">
-              Quando alguém interagir com suas automações, aparecerá aqui
+              {hasFilters
+                ? 'Ajuste a busca ou os filtros e tente de novo'
+                : 'Quando alguém interagir com suas automações, aparecerá aqui'}
             </p>
           </CardContent>
         </Card>
       ) : (
         <Card className="overflow-hidden">
           <CardContent className="p-0">
-            <div className="fc-stagger divide-y divide-border">
-              {contacts.map((contact) => {
-                const tags = parseTags(contact.tags);
-                const fields = parseCustomData(contact.customData);
-                return (
-                  <div
-                    key={contact.id}
-                    className="flex flex-col gap-3 p-4 transition-colors duration-200 hover:bg-muted/70 sm:flex-row sm:items-start sm:gap-4"
-                  >
-                    <div className="flex min-w-0 flex-1 items-start gap-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
-                        {contact.profilePic ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={contact.profilePic}
-                            alt={`@${contact.igUsername}`}
-                            className="h-full w-full object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <Users className="h-6 w-6 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold">@{contact.igUsername}</p>
-                        {contact.fullName && (
-                          <p className="text-sm text-muted-foreground">{contact.fullName}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          Via @{contact.igAccount.igUsername}
-                          {contact.lastSeenAt && (
-                            <>
-                              {' '}
-                              · Última interação:{' '}
-                              {formatBrasiliaDateTime(contact.lastSeenAt)}
-                            </>
-                          )}
-                        </p>
-
-                        {fields.length > 0 && (
-                          <div className="mt-2.5 flex flex-wrap gap-1.5">
-                            {fields.map(([key, value]) => (
-                              <span
-                                key={key}
-                                className="inline-flex max-w-full items-center gap-1 rounded-lg border border-border bg-zinc-50 px-2 py-1 text-[11px] text-foreground"
-                                title={`${key}: ${value}`}
-                              >
-                                <span className="font-semibold text-muted-foreground">{key}</span>
-                                <span className="truncate">{value}</span>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 sm:max-w-[220px] sm:justify-end">
-                        {tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full bg-muted px-2 py-1 text-xs text-foreground"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <ContactsBulkList
+              key={`${q}|${account}|${automation}|${safePage}`}
+              contacts={listItems}
+            />
             <PaginationNav
               page={safePage}
               totalPages={totalPages}
               totalItems={totalItems}
               pageSize={pageSize}
               basePath="/contacts"
+              query={filterQuery}
             />
           </CardContent>
         </Card>

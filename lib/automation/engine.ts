@@ -158,6 +158,8 @@ async function getOrCreateContact(params: {
   igUserId: string;
   igUsername?: string;
   client?: InstagramClient;
+  automationId?: string;
+  automationName?: string;
 }) {
   const existing = await prisma.contact.findFirst({
     where: { igAccountId: params.igAccountId, igUserId: params.igUserId },
@@ -171,6 +173,20 @@ async function getOrCreateContact(params: {
     if (profile?.name) fullName = profile.name;
   }
 
+  const automationPatch =
+    params.automationId || params.automationName
+      ? {
+          lastAutomationId: params.automationId || null,
+          lastAutomationName: params.automationName || null,
+          ...(!existing?.sourceAutomationName
+            ? {
+                sourceAutomationId: params.automationId || null,
+                sourceAutomationName: params.automationName || null,
+              }
+            : {}),
+        }
+      : {};
+
   if (existing) {
     return prisma.contact.update({
       where: { id: existing.id },
@@ -179,6 +195,7 @@ async function getOrCreateContact(params: {
         ...(params.igUsername ? { igUsername: params.igUsername } : {}),
         ...(profilePic && profilePic !== existing.profilePic ? { profilePic } : {}),
         ...(fullName && fullName !== existing.fullName ? { fullName } : {}),
+        ...automationPatch,
       },
     });
   }
@@ -191,6 +208,10 @@ async function getOrCreateContact(params: {
       profilePic: profilePic || null,
       fullName: fullName || null,
       lastSeenAt: new Date(),
+      sourceAutomationId: params.automationId || null,
+      sourceAutomationName: params.automationName || null,
+      lastAutomationId: params.automationId || null,
+      lastAutomationName: params.automationName || null,
     },
   });
 }
@@ -581,6 +602,8 @@ export async function executeAutomation(
         igUserId: context.userId,
         igUsername: context.username,
         client,
+        automationId: automation.id,
+        automationName: automation.name,
       });
       contactId = contact.id;
       state = readContactState(contact);
@@ -683,6 +706,8 @@ export async function executeFollowGatePostback(params: {
       igAccountId: automation.igAccountId,
       igUserId: params.senderId,
       client,
+      automationId: automation.id,
+      automationName: automation.name,
     });
 
     const { isAutomationTemporarilyPaused, clearInboxAutomationSuspend } = await import(
@@ -822,6 +847,8 @@ export async function executeButtonPostback(params: {
     igAccountId: automation.igAccountId,
     igUserId: params.senderId,
     client,
+    automationId: automation.id,
+    automationName: automation.name,
   });
 
   {

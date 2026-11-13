@@ -117,6 +117,12 @@ model Contact {
   tags             String?
   customData       String?  @db.Text
   automationPaused Boolean  @default(false)
+  /// First automation that created/attributed this contact (kept even if automation is deleted)
+  sourceAutomationId   String?
+  sourceAutomationName String?
+  /// Most recent automation that touched this contact
+  lastAutomationId     String?
+  lastAutomationName   String?
   lastSeenAt       DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -127,6 +133,7 @@ model Contact {
   @@unique([igAccountId, igUserId])
   @@index([userId])
   @@index([igAccountId])
+  @@index([sourceAutomationId])
 }
 
 model Conversation {

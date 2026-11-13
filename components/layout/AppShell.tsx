@@ -14,6 +14,7 @@ import {
   PanelLeftOpen,
   Settings2,
   Heart,
+  MessageCircle,
   Star,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -35,6 +36,8 @@ import { MobileBottomNav } from './MobileBottomNav';
 import { MobileTopBar } from './MobileTopBar';
 
 const GITHUB_REPO_URL = 'https://github.com/NathanConde-dev/flowcomments';
+/** Set NEXT_PUBLIC_WHATSAPP_GROUP_URL when the community invite is ready. */
+const WHATSAPP_GROUP_URL = (process.env.NEXT_PUBLIC_WHATSAPP_GROUP_URL || '').trim();
 
 interface AppShellProps {
   username: string;
@@ -251,6 +254,40 @@ function IgAccountSwitcher({ collapsed }: { collapsed: boolean }) {
   );
 }
 
+function SuggestionButton({
+  collapsed,
+  email,
+}: {
+  collapsed: boolean;
+  email: string;
+}) {
+  return (
+    <WithTooltip label="Enviar sugestão" side="right" disabled={!collapsed}>
+      <a
+        href={buildFeedbackUrl(email)}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Enviar sugestão"
+        className={`
+          flex cursor-pointer items-center rounded-xl text-sm font-medium
+          transition-[background-color,color,transform,box-shadow,gap,padding] duration-200 ease-out
+          text-muted-foreground hover:bg-muted hover:text-foreground
+          ${collapsed ? 'w-full justify-center px-0 py-2.5' : 'gap-2 px-2.5 py-2.5'}
+        `}
+      >
+        <Lightbulb className="h-4 w-4 shrink-0" />
+        <span
+          className={`overflow-hidden whitespace-nowrap transition-all duration-200 ${
+            collapsed ? 'max-w-0 opacity-0' : 'max-w-[140px] opacity-100'
+          }`}
+        >
+          Sugestão
+        </span>
+      </a>
+    </WithTooltip>
+  );
+}
+
 function HelpMenu({
   collapsed,
   email,
@@ -278,7 +315,7 @@ function HelpMenu({
   }, [open]);
 
   return (
-    <div className="relative" ref={rootRef}>
+    <div className="relative overflow-visible" ref={rootRef}>
       <WithTooltip label="Ajuda" side="right" disabled={!collapsed || open}>
         <button
           type="button"
@@ -310,11 +347,7 @@ function HelpMenu({
       {open && (
         <div
           role="menu"
-          className={`absolute z-50 w-64 rounded-xl border border-border bg-white p-1.5 shadow-float ${
-            collapsed
-              ? 'bottom-0 left-[calc(100%+8px)]'
-              : 'bottom-[calc(100%+8px)] left-0 right-0 w-auto'
-          }`}
+          className="absolute bottom-0 left-[calc(100%+8px)] z-50 w-64 max-w-[min(16rem,calc(100vw-4rem))] rounded-xl border border-border bg-white p-1.5 shadow-float"
         >
           <a
             href={buildFeedbackUrl(email)}
@@ -324,7 +357,7 @@ function HelpMenu({
             onClick={() => setOpen(false)}
             className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
           >
-            <Lightbulb className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <Lightbulb className="h-4 w-4 shrink-0 text-amber-500" />
             <span className="min-w-0">
               <span className="block font-medium">Enviar sugestão</span>
               <span className="mt-0.5 block text-[11px] text-muted-foreground">
@@ -371,10 +404,42 @@ function HelpMenu({
             <span className="min-w-0">
               <span className="block font-medium">Doe para o projeto</span>
               <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                Ajude a manter docs e melhorias
+                Ajude a trazer novas atualizações
               </span>
             </span>
           </a>
+          {WHATSAPP_GROUP_URL ? (
+            <a
+              href={WHATSAPP_GROUP_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+            >
+              <MessageCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+              <span className="min-w-0">
+                <span className="block font-medium">Grupo no WhatsApp</span>
+                <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                  IA, Tech e Open Source
+                </span>
+              </span>
+            </a>
+          ) : (
+            <div
+              role="menuitem"
+              aria-disabled="true"
+              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm text-muted-foreground"
+            >
+              <MessageCircle className="h-4 w-4 shrink-0 text-emerald-600/70" />
+              <span className="min-w-0">
+                <span className="block font-medium text-foreground/80">Grupo no WhatsApp</span>
+                <span className="mt-0.5 block text-[11px]">
+                  Em breve — IA, Tech e Open Source
+                </span>
+              </span>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -509,8 +574,15 @@ function AppShellFrame({
               })}
             </div>
 
-            <div className="mt-auto space-y-2 pt-3">
-              <HelpMenu collapsed={collapsed} email={email} />
+            <div
+              className={`mt-auto overflow-visible pt-3 ${
+                collapsed ? 'space-y-2' : 'flex items-stretch gap-2'
+              }`}
+            >
+              <SuggestionButton collapsed={collapsed} email={email} />
+              <div className={collapsed ? undefined : 'min-w-0 flex-1 overflow-visible'}>
+                <HelpMenu collapsed={collapsed} email={email} />
+              </div>
             </div>
           </nav>
 

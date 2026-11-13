@@ -12,8 +12,8 @@ export type EngagementPromptState = {
 export type EngagementStore = Record<EngagementPromptId, EngagementPromptState>;
 
 export const ENGAGEMENT_PROMPT_ORDER: EngagementPromptId[] = [
-  'donate',
   'github-star',
+  'donate',
   'whatsapp',
 ];
 

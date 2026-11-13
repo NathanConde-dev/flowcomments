@@ -8,12 +8,27 @@ type PaginationNavProps = {
   totalItems: number;
   pageSize: number;
   basePath: string;
+  /** Extra query params preserved across pages (e.g. search filters) */
+  query?: Record<string, string | undefined>;
   className?: string;
 };
 
-function hrefFor(basePath: string, page: number) {
+function hrefFor(
+  basePath: string,
+  page: number,
+  query?: Record<string, string | undefined>
+) {
   const path = basePath.split('?')[0] || '/';
-  return page <= 1 ? path : `${path}?page=${page}`;
+  const params = new URLSearchParams();
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      if (key === 'page') continue;
+      if (value != null && String(value).trim()) params.set(key, String(value));
+    }
+  }
+  if (page > 1) params.set('page', String(page));
+  const qs = params.toString();
+  return qs ? `${path}?${qs}` : path;
 }
 
 export function PaginationNav({
@@ -22,6 +37,7 @@ export function PaginationNav({
   totalItems,
   pageSize,
   basePath,
+  query,
   className,
 }: PaginationNavProps) {
   if (totalPages <= 1) return null;
@@ -41,7 +57,7 @@ export function PaginationNav({
       </p>
       <div className="flex items-center gap-2">
         <Link
-          href={hrefFor(basePath, page - 1)}
+          href={hrefFor(basePath, page - 1, query)}
           aria-disabled={page <= 1}
           className={cn(
             'inline-flex h-9 items-center gap-1 rounded-lg border border-border px-3 text-sm font-medium transition-colors',
@@ -57,7 +73,7 @@ export function PaginationNav({
           Página {page} de {totalPages}
         </span>
         <Link
-          href={hrefFor(basePath, page + 1)}
+          href={hrefFor(basePath, page + 1, query)}
           aria-disabled={page >= totalPages}
           className={cn(
             'inline-flex h-9 items-center gap-1 rounded-lg border border-border px-3 text-sm font-medium transition-colors',
