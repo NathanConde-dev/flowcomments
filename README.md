@@ -57,7 +57,7 @@ Abra [http://localhost:3000](http://localhost:3000), complete o wizard e conecte
 
 ### Railway (1-Click Deploy)
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/flowcomments)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/flowcomments-template)
 
 ### VPS (Hostinger, DigitalOcean, etc.)
 
