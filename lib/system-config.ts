@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db';
+import { prisma } from '@/lib/db/client';
 
 export async function getSystemConfig(key: string): Promise<string | null> {
   const row = await prisma.systemConfig.findUnique({ where: { key } });

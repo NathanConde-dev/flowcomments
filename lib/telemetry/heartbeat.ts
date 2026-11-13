@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/db';
+import { prisma } from '@/lib/db/client';
 import { getLocalVersion } from '@/lib/updates/version';
 import { getHeartbeatUrl, isTelemetryEnabled } from '@/lib/telemetry/config';
 import { getOrCreateInstallId } from '@/lib/telemetry/install-id';
