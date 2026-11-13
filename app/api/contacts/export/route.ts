@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
+import { automationSourcedContactFilter } from '@/lib/contacts/filters';
 
 function csvEscape(value: unknown) {
   const text = value == null ? '' : String(value);
@@ -15,7 +16,10 @@ export async function GET() {
     const session = await requireAuth();
 
     const contacts = await prisma.contact.findMany({
-      where: { userId: session.userId },
+      where: {
+        userId: session.userId,
+        AND: [automationSourcedContactFilter()],
+      },
       include: {
         igAccount: { select: { igUsername: true } },
       },

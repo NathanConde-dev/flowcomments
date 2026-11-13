@@ -62,14 +62,18 @@ export async function GET(request: NextRequest) {
 
     const rangeEndExclusive = addDaysUtc(to, 1);
 
+    const { automationSourcedContactFilter } = await import('@/lib/contacts/filters');
+    const sourced = automationSourcedContactFilter();
+
     const [total, active, contacts] = await Promise.all([
       prisma.contact.count({
-        where: { userId: session.userId, igAccountId: account.id },
+        where: { userId: session.userId, igAccountId: account.id, AND: [sourced] },
       }),
       prisma.contact.count({
         where: {
           userId: session.userId,
           igAccountId: account.id,
+          AND: [sourced],
           lastSeenAt: {
             gte: from,
             lt: rangeEndExclusive,
@@ -80,6 +84,7 @@ export async function GET(request: NextRequest) {
         where: {
           userId: session.userId,
           igAccountId: account.id,
+          AND: [sourced],
           createdAt: { lt: rangeEndExclusive },
         },
         select: { createdAt: true },

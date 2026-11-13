@@ -16,6 +16,10 @@ import {
   type ContactListItem,
 } from '@/components/contacts/ContactsBulkList';
 import { formatBrasiliaDateTime } from '@/lib/utils/datetime';
+import {
+  automationSourcedContactFilter,
+  unsourcedContactFilter,
+} from '@/lib/contacts/filters';
 import { Users } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -97,6 +101,24 @@ export default async function ContactsPage({
     userId: session.userId,
   };
 
+  // Default: only contacts that came from automations (inbox DMs stay out).
+  // Filter "unknown" is kept so leftover organic rows can be cleaned up.
+  if (automation === 'unknown') {
+    where.AND = [unsourcedContactFilter()];
+  } else {
+    where.AND = [automationSourcedContactFilter()];
+    if (automation === 'removed') {
+      where.AND.push(
+        { sourceAutomationId: { not: null } },
+        livingIds.length > 0
+          ? { sourceAutomationId: { notIn: livingIds } }
+          : { sourceAutomationId: { not: null } }
+      );
+    } else if (automation) {
+      where.sourceAutomationName = automation;
+    }
+  }
+
   if (q) {
     where.OR = [
       { igUsername: { contains: q, mode: 'insensitive' } },
@@ -106,25 +128,6 @@ export default async function ContactsPage({
 
   if (account) {
     where.igAccountId = account;
-  }
-
-  if (automation === 'unknown') {
-    where.AND = [
-      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-      {
-        OR: [{ sourceAutomationName: null }, { sourceAutomationName: '' }],
-      },
-    ];
-  } else if (automation === 'removed') {
-    where.AND = [
-      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-      { sourceAutomationId: { not: null } },
-      livingIds.length > 0
-        ? { sourceAutomationId: { notIn: livingIds } }
-        : { sourceAutomationId: { not: null } },
-    ];
-  } else if (automation) {
-    where.sourceAutomationName = automation;
   }
 
   const totalItems = await prisma.contact.count({ where });
@@ -174,7 +177,7 @@ export default async function ContactsPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Contatos</h1>
           <p className="mt-1 text-[15px] text-muted-foreground">
-            Pessoas que interagiram com suas automações
+            Leads gerados por automações (conversas orgânicas do inbox não entram aqui)
             {totalItems > 0
               ? hasFilters
                 ? ` · ${totalItems} encontrado${totalItems === 1 ? '' : 's'}`

@@ -90,8 +90,8 @@ export function ContactsFilters({
             defaultValue={values.automation}
             className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <option value="">Todas</option>
-            <option value="unknown">Sem origem</option>
+            <option value="">Todas (só automações)</option>
+            <option value="unknown">Sem automação (limpeza)</option>
             <option value="removed">Automação removida</option>
             {automations.map((name) => (
               <option key={name} value={name}>

@@ -195,38 +195,6 @@ async function markWebhookProcessed(eventId: string, error?: string | null) {
   });
 }
 
-async function ensureCommentContact(params: {
-  userId: string;
-  igAccountId: string;
-  igUserId: string;
-  igUsername?: string;
-}) {
-  const existing = await prisma.contact.findFirst({
-    where: { igAccountId: params.igAccountId, igUserId: params.igUserId },
-  });
-
-  if (!existing) {
-    await prisma.contact.create({
-      data: {
-        userId: params.userId,
-        igAccountId: params.igAccountId,
-        igUserId: params.igUserId,
-        igUsername: params.igUsername || params.igUserId,
-        lastSeenAt: new Date(),
-      },
-    });
-    return;
-  }
-
-  await prisma.contact.update({
-    where: { id: existing.id },
-    data: {
-      lastSeenAt: new Date(),
-      ...(params.igUsername ? { igUsername: params.igUsername } : {}),
-    },
-  });
-}
-
 async function handleCommentEvent(
   value: any,
   triggerType: 'comment' | 'live_comment',
@@ -307,14 +275,8 @@ async function handleCommentEvent(
   }
 
   try {
-    // Contato primeiro — sobrevive mesmo se a automação falhar depois
-    await ensureCommentContact({
-      userId: igAccount.userId,
-      igAccountId: igAccount.id,
-      igUserId,
-      igUsername: comment.from?.username,
-    });
-
+    // Contacts are created only when an automation runs (engine.getOrCreateContact).
+    // Organic comments must not pollute the Contatos list.
     const mediaId = comment.media?.id || value.media?.id || value.media_id;
     const matchedAutomations = await findMatchingAutomations(
       igAccount.id,
