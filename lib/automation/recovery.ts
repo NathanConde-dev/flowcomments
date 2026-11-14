@@ -1,4 +1,5 @@
 import { recoverFailedCommentAutomations } from '@/lib/automation/engine';
+import { recoverDelayedAutomations } from '@/lib/automation/delay';
 import { recoverPendingCommentEvents } from '@/lib/instagram/webhook';
 import { refreshExpiringTokens } from '@/lib/instagram/token-refresh';
 
@@ -16,8 +17,9 @@ export async function runCommentRecoveryPass() {
   try {
     const events = await recoverPendingCommentEvents(40);
     const failed = await recoverFailedCommentAutomations(40);
-    if (events.scanned || failed.scanned) {
-      console.log('[RECOVERY] comment pass', { events, failed });
+    const delayed = await recoverDelayedAutomations(40);
+    if (events.scanned || failed.scanned || delayed.scanned) {
+      console.log('[RECOVERY] comment pass', { events, failed, delayed });
     }
 
     passCount += 1;

@@ -1,10 +1,11 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useTransition } from 'react';
+import { useMemo, useTransition } from 'react';
 import { Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SelectField } from '@/components/ui/select-field';
 
 export type ContactsFilterValues = {
   q: string;
@@ -26,6 +27,35 @@ export function ContactsFilters({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+
+  const accountOptions = useMemo(
+    () => [
+      { value: '', label: 'Todas' },
+      ...accounts.map((account) => ({
+        value: account.id,
+        label: `@${account.igUsername}`,
+      })),
+    ],
+    [accounts]
+  );
+
+  const automationOptions = useMemo(
+    () => [
+      { value: '', label: 'Todas (só automações)' },
+      { value: 'unknown', label: 'Sem automação (limpeza)' },
+      { value: 'removed', label: 'Automação removida' },
+      ...automations.map((name) => ({ value: name, label: name })),
+    ],
+    [automations]
+  );
+
+  const tagOptions = useMemo(
+    () => [
+      { value: '', label: 'Todas' },
+      ...tags.map((tag) => ({ value: tag, label: tag })),
+    ],
+    [tags]
+  );
 
   const apply = (form: HTMLFormElement) => {
     const data = new FormData(form);
@@ -72,55 +102,35 @@ export function ContactsFilters({
           </div>
         </label>
 
-        <label className="w-full space-y-1.5 lg:w-52">
+        <div className="w-full space-y-1.5 lg:w-52">
           <span className="text-xs font-semibold text-muted-foreground">Conta IG</span>
-          <select
+          <SelectField
             name="account"
             defaultValue={values.account}
-            className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="">Todas</option>
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                @{account.igUsername}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={accountOptions}
+            placeholder="Todas"
+          />
+        </div>
 
-        <label className="w-full space-y-1.5 lg:w-56">
+        <div className="w-full space-y-1.5 lg:w-56">
           <span className="text-xs font-semibold text-muted-foreground">Automação</span>
-          <select
+          <SelectField
             name="automation"
             defaultValue={values.automation}
-            className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="">Todas (só automações)</option>
-            <option value="unknown">Sem automação (limpeza)</option>
-            <option value="removed">Automação removida</option>
-            {automations.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={automationOptions}
+            placeholder="Todas (só automações)"
+          />
+        </div>
 
-        <label className="w-full space-y-1.5 lg:w-44">
+        <div className="w-full space-y-1.5 lg:w-44">
           <span className="text-xs font-semibold text-muted-foreground">Tag</span>
-          <select
+          <SelectField
             name="tag"
             defaultValue={values.tag}
-            className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <option value="">Todas</option>
-            {tags.map((tag) => (
-              <option key={tag} value={tag}>
-                {tag}
-              </option>
-            ))}
-          </select>
-        </label>
+            options={tagOptions}
+            placeholder="Todas"
+          />
+        </div>
 
         <div className="flex gap-2">
           <Button type="submit" className="rounded-full px-5" disabled={pending}>

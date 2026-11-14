@@ -12,7 +12,12 @@ export type StoredMediaMeta = {
   createdAt: string;
 };
 
-const UPLOAD_ROOT = path.join(process.cwd(), 'data', 'uploads');
+/** Persist across deploys via volume mount (Railway/Docker): FLOWCOMMENTS_UPLOAD_DIR */
+export function getUploadRoot(): string {
+  const configured = process.env.FLOWCOMMENTS_UPLOAD_DIR?.trim();
+  if (configured) return path.resolve(configured);
+  return path.join(process.cwd(), 'data', 'uploads');
+}
 
 function extFromNameOrMime(filename: string, mimeType: string): string {
   const fromName = path.extname(filename || '').toLowerCase();
@@ -38,6 +43,12 @@ export function mediaKindFromMime(
   return 'file';
 }
 
+export async function ensureUploadDir(): Promise<string> {
+  const root = getUploadRoot();
+  await mkdir(root, { recursive: true });
+  return root;
+}
+
 export async function saveMediaFile(params: {
   userId: string;
   buffer: Buffer;
@@ -46,7 +57,7 @@ export async function saveMediaFile(params: {
 }): Promise<StoredMediaMeta> {
   const id = randomUUID();
   const ext = extFromNameOrMime(params.filename, params.mimeType);
-  await mkdir(UPLOAD_ROOT, { recursive: true });
+  const root = await ensureUploadDir();
 
   const meta: StoredMediaMeta = {
     id,
@@ -58,14 +69,15 @@ export async function saveMediaFile(params: {
     createdAt: new Date().toISOString(),
   };
 
-  await writeFile(path.join(UPLOAD_ROOT, `${id}${ext}`), params.buffer);
-  await writeFile(path.join(UPLOAD_ROOT, `${id}.json`), JSON.stringify(meta));
+  await writeFile(path.join(root, `${id}${ext}`), params.buffer);
+  await writeFile(path.join(root, `${id}.json`), JSON.stringify(meta));
   return meta;
 }
 
 export async function readMediaMeta(id: string): Promise<StoredMediaMeta | null> {
   try {
-    const raw = await readFile(path.join(UPLOAD_ROOT, `${id}.json`), 'utf8');
+    const root = getUploadRoot();
+    const raw = await readFile(path.join(root, `${id}.json`), 'utf8');
     return JSON.parse(raw) as StoredMediaMeta;
   } catch {
     return null;
@@ -76,7 +88,8 @@ export async function readMediaBuffer(
   meta: StoredMediaMeta
 ): Promise<Buffer | null> {
   try {
-    return await readFile(path.join(UPLOAD_ROOT, `${meta.id}${meta.ext}`));
+    const root = getUploadRoot();
+    return await readFile(path.join(root, `${meta.id}${meta.ext}`));
   } catch {
     return null;
   }

@@ -88,7 +88,7 @@ export function ContactsBulkList({ contacts }: { contacts: ContactListItem[] }) 
               if (el) el.indeterminate = someSelected;
             }}
             onChange={toggleAll}
-            className="h-4 w-4 rounded border-zinc-200 text-foreground accent-zinc-900"
+            className="h-4 w-4 rounded border-zinc-300/80 bg-white text-zinc-400 accent-zinc-400"
           />
           {selected.size > 0
             ? `${selected.size} selecionado${selected.size > 1 ? 's' : ''}`
@@ -163,7 +163,7 @@ export function ContactsBulkList({ contacts }: { contacts: ContactListItem[] }) 
                   checked={checked}
                   onChange={() => toggleOne(contact.id)}
                   aria-label={`Selecionar @${contact.igUsername}`}
-                  className="mt-3.5 h-4 w-4 shrink-0 rounded border-zinc-200 text-foreground accent-zinc-900"
+                  className="mt-3.5 h-4 w-4 shrink-0 rounded border-zinc-300/80 bg-white text-zinc-400 accent-zinc-400"
                 />
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
                   {contact.profilePic ? (

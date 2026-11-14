@@ -3,6 +3,10 @@
 
 echo "🚀 Starting Flowcomments..."
 
+UPLOAD_DIR="${FLOWCOMMENTS_UPLOAD_DIR:-/app/data/uploads}"
+mkdir -p "$UPLOAD_DIR" 2>/dev/null || true
+echo "📁 Media uploads: $UPLOAD_DIR"
+
 # Run migrations (failure is fatal, with light recovery for known P3009)
 echo "📦 Running database migrations..."
 MIGRATE_LOG="$(mktemp)"

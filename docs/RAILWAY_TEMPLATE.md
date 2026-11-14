@@ -61,5 +61,19 @@ Public networking and a healthcheck on `/api/health` are included. After deploy,
 | `FLOWCOMMENTS_CONTROL_PLANE_URL` | `https://flowcomments.com` |
 | `ENABLE_SELF_UPDATE` | `false` (never enable on Railway) |
 | `FLOWCOMMENTS_TELEMETRY` | `true` |
+| `FLOWCOMMENTS_UPLOAD_DIR` | `/app/data/uploads` |
+| `REDIS_URL` | `${{Redis.REDIS_URL}}` (required) |
 
 These update vars keep **Novidades** working after deploy: the app checks GitHub releases, and if the repo is private/rate-limited it falls back to the Cloud feed at `/api/v1/releases`.
+
+## Persistent media (required)
+
+Attach a **Volume** to the app service mounted at `/app/data/uploads` (env `FLOWCOMMENTS_UPLOAD_DIR`). Without it, redeploys wipe DM image/audio files stored on disk.
+
+```bash
+railway volume add --mount-path /app/data/uploads
+```
+
+## Redis (required)
+
+The template already provisions Redis. Do not remove it: queues, long automation delays, comment recovery, and IG token refresh depend on `REDIS_URL` + the embedded worker (`RUN_WORKER=true`).

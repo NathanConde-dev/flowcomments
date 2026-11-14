@@ -21,6 +21,7 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis_data:/data
     ports:
@@ -31,6 +32,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # Web + worker no mesmo container (start.sh), igual ao template Railway
   app:
     build:
       context: .
@@ -45,33 +47,19 @@ services:
       - SESSION_SECRET=${SESSION_SECRET:-change-this-to-a-random-secret-min-32-chars}
       - NEXT_PUBLIC_URL=${NEXT_PUBLIC_URL:-http://localhost:3000}
       - META_GRAPH_API_VERSION=v21.0
+      - FLOWCOMMENTS_UPLOAD_DIR=/app/data/uploads
+      - RUN_WORKER=true
       - NODE_ENV=production
+      - PORT=3000
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
-      - ./prisma:/app/prisma
-
-  worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    command: ["node", "-r", "tsx/register", "worker/index.ts"]
-    environment:
-      - DATABASE_URL=postgresql://flowcomments:flowcomments@db:5432/flowcomments
-      - REDIS_URL=redis://redis:6379
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
-      - META_GRAPH_API_VERSION=v21.0
-      - NODE_ENV=production
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - uploads_data:/app/data/uploads
 
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:

@@ -15,11 +15,14 @@ e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-BR/).
 - Accordion no inspector do canvas
 - Feed de releases via control plane (`/api/v1/releases`) quando o GitHub não responde
 - Variáveis de update ativas no template Railway (Novidades)
+- Volume persistente de uploads (`FLOWCOMMENTS_UPLOAD_DIR`) para mídia sobreviver a redeploy
+- Delays longos (>10s) via fila Redis (BullMQ) com recovery se o job se perder
 
 ### Fixed
 
 - Follow `null` não conta como “não segue”
 - Uma automação por comentário (evita spam multi-match)
+- Compose: Redis AOF + volume de uploads; worker único embutido no `start.sh`
 
 ## [0.1.0] - 2026-11-11
 

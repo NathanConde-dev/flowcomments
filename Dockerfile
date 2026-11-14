@@ -51,9 +51,13 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/start.sh ./start.sh
 
-RUN chmod +x ./start.sh
+# Persistent media uploads (mount a volume at /app/data/uploads on Railway/Docker)
+RUN mkdir -p /app/data/uploads \
+  && chown -R nextjs:nodejs /app/data \
+  && chmod +x ./start.sh
 
 USER nextjs
+ENV FLOWCOMMENTS_UPLOAD_DIR=/app/data/uploads
 
 EXPOSE 8080
 

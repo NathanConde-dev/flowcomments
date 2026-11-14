@@ -44,10 +44,12 @@ FLOWCOMMENTS_UPDATE_REPO=NathanConde-dev/flowcomments
 FLOWCOMMENTS_CONTROL_PLANE_URL=https://flowcomments.com
 ENABLE_SELF_UPDATE=false
 FLOWCOMMENTS_TELEMETRY=true
+FLOWCOMMENTS_UPLOAD_DIR=/app/data/uploads
 ```
 
-5. **Settings → Generate Domain**, alinhe `NEXT_PUBLIC_URL`.
-6. Aguarde o build; healthcheck: `/api/health` (timeout 100s).
+5. **Volume de mídia (obrigatório):** no serviço app, adicione um Volume com mount `/app/data/uploads` (`FLOWCOMMENTS_UPLOAD_DIR`).
+6. **Settings → Generate Domain**, alinhe `NEXT_PUBLIC_URL`.
+7. Aguarde o build; healthcheck: `/api/health` (timeout 100s).
 
 ---
 
@@ -58,11 +60,12 @@ FLOWCOMMENTS_TELEMETRY=true
 ```
 Flowcomments container
 ├── Next.js (PORT)
-├── Worker (se REDIS_URL + RUN_WORKER≠false)
+├── Worker (REDIS_URL + RUN_WORKER≠false)
+├── Volume /app/data/uploads (mídia)
 └── prisma migrate deploy no start
         │
         ├── PostgreSQL
-        └── Redis
+        └── Redis (obrigatório)
 ```
 
 ### Split web / worker (avançado)

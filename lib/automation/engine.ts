@@ -515,7 +515,7 @@ async function runActions(params: {
   templateVars: Record<string, string>;
   executionId?: string;
   completedActions?: Set<string>;
-}): Promise<'ok' | 'waiting_input' | 'stopped'> {
+}): Promise<'ok' | 'waiting_input' | 'stopped' | 'delayed'> {
   const { actions, automation, client, context, templateVars } = params;
   let { state } = params;
   const completedActions = params.completedActions || new Set<string>();
@@ -578,7 +578,25 @@ async function runActions(params: {
     switch (action.type) {
       case 'delay': {
         const seconds = Math.max(0, action.delay || 0);
-        if (seconds > 0) {
+        if (seconds > 0 && params.executionId) {
+          const { scheduleAutomationResume, shouldScheduleDurableDelay } = await import(
+            '@/lib/automation/delay'
+          );
+          if (shouldScheduleDurableDelay(seconds)) {
+            const scheduled = await scheduleAutomationResume({
+              automationId: automation.id,
+              context,
+              executionId: params.executionId,
+              actionIndex: index,
+              seconds,
+            });
+            if (scheduled === 'queued') {
+              await markDone(key);
+              return 'delayed';
+            }
+          }
+          await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+        } else if (seconds > 0) {
           await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
         }
         await markDone(key);
@@ -604,7 +622,31 @@ async function runActions(params: {
       }
 
       case 'send_dm': {
-        if (action.delay && action.delay > 0) {
+        if (action.delay && action.delay > 0 && params.executionId) {
+          const seconds = Math.max(0, action.delay);
+          const { scheduleAutomationResume, shouldScheduleDurableDelay } = await import(
+            '@/lib/automation/delay'
+          );
+          const delayKey = `${key}:predelay`;
+          if (shouldScheduleDurableDelay(seconds) && !completedActions.has(delayKey)) {
+            await persistCompletedAction(params.executionId, completedActions, delayKey);
+            const scheduled = await scheduleAutomationResume({
+              automationId: automation.id,
+              context,
+              executionId: params.executionId,
+              actionIndex: index,
+              seconds,
+            });
+            if (scheduled === 'queued') {
+              return 'delayed';
+            }
+            // Sem Redis: remove marker e cai no sleep inline
+            completedActions.delete(delayKey);
+          }
+          if (!completedActions.has(delayKey)) {
+            await new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+          }
+        } else if (action.delay && action.delay > 0) {
           await new Promise((resolve) => setTimeout(resolve, action.delay! * 1000));
         }
         const picked = resolveCopy(action, liveVars(), {
@@ -767,6 +809,7 @@ async function runActions(params: {
         await markDone(key);
         if (result === 'waiting_input') return 'waiting_input';
         if (result === 'stopped') return 'stopped';
+        if (result === 'delayed') return 'delayed';
         break;
       }
 
@@ -818,7 +861,7 @@ export async function executeAutomation(
       where: {
         automationId: automation.id,
         triggeredBy: context.commentId,
-        status: { in: ['processing', 'completed'] },
+        status: { in: ['processing', 'completed', 'delayed', 'waiting_input'] },
       },
       select: { id: true, status: true },
     });
@@ -830,6 +873,17 @@ export async function executeAutomation(
       });
       return;
     }
+  }
+
+  if (context.resume && triggeredBy) {
+    await prisma.automationExecution.updateMany({
+      where: {
+        automationId: automation.id,
+        triggeredBy,
+        status: 'delayed',
+      },
+      data: { status: 'completed' },
+    });
   }
 
   if (!context.resume) {
@@ -933,6 +987,11 @@ export async function executeAutomation(
       executionId: execution.id,
       completedActions,
     });
+
+    if (runResult === 'delayed') {
+      // status already set to delayed by scheduleAutomationResume
+      return;
+    }
 
     await prisma.automationExecution.update({
       where: { id: execution.id },
