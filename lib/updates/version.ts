@@ -37,6 +37,11 @@ export function isNewerVersion(latest: string, current: string): boolean {
 }
 
 export function getLocalVersion(): string {
+  // Runtime override for installs that want to pin/report a version
+  // (also useful to simulate “update available” locally).
+  const override = process.env.FLOWCOMMENTS_LOCAL_VERSION?.trim();
+  if (override) return normalizeVersion(override);
+
   return (
     process.env.NEXT_PUBLIC_APP_VERSION ||
     process.env.npm_package_version ||
@@ -50,4 +55,12 @@ export function getUpdateRepo(): string {
 
 export function isSelfUpdateEnabled(): boolean {
   return process.env.ENABLE_SELF_UPDATE === 'true';
+}
+
+export function getGithubToken(): string | null {
+  const token =
+    process.env.FLOWCOMMENTS_GITHUB_TOKEN?.trim() ||
+    process.env.GITHUB_TOKEN?.trim() ||
+    null;
+  return token || null;
 }

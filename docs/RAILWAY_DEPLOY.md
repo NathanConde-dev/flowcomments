@@ -40,6 +40,10 @@ NEXT_PUBLIC_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}
 ENCRYPTION_KEY=<openssl rand -hex 32>
 SESSION_SECRET=<openssl rand -hex 32>
 RUN_WORKER=true
+FLOWCOMMENTS_UPDATE_REPO=NathanConde-dev/flowcomments
+FLOWCOMMENTS_CONTROL_PLANE_URL=https://flowcomments.com
+ENABLE_SELF_UPDATE=false
+FLOWCOMMENTS_TELEMETRY=true
 ```
 
 5. **Settings → Generate Domain**, alinhe `NEXT_PUBLIC_URL`.

@@ -1,19 +1,13 @@
 import { readLocalChangelog, type ChangelogEntry } from './changelog';
+import { fetchRemoteReleases, type RemoteRelease } from './remote';
 import {
   getLocalVersion,
   getUpdateRepo,
   isNewerVersion,
   isSelfUpdateEnabled,
-  normalizeVersion,
 } from './version';
 
-export type RemoteRelease = {
-  version: string;
-  name: string;
-  htmlUrl: string;
-  publishedAt: string | null;
-  body: string;
-};
+export type { RemoteRelease };
 
 export type UpdateCheckResult = {
   current: string;
@@ -23,6 +17,7 @@ export type UpdateCheckResult = {
   repo: string;
   checkedAt: string;
   remoteAvailable: boolean;
+  remoteSource: 'github' | 'control_plane' | null;
   releases: Array<{
     version: string;
     date: string | null;
@@ -37,63 +32,6 @@ export type UpdateCheckResult = {
     railway: string;
   };
 };
-
-type CacheEntry = {
-  expiresAt: number;
-  releases: RemoteRelease[];
-};
-
-const CACHE_MS = 6 * 60 * 60 * 1000;
-const globalForCache = globalThis as unknown as {
-  __fcUpdateCache?: CacheEntry;
-};
-
-async function fetchGithubReleases(repo: string): Promise<RemoteRelease[]> {
-  const cached = globalForCache.__fcUpdateCache;
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.releases;
-  }
-
-  const res = await fetch(`https://api.github.com/repos/${repo}/releases?per_page=15`, {
-    headers: {
-      Accept: 'application/vnd.github+json',
-      'User-Agent': 'flowcomments-update-check',
-    },
-    next: { revalidate: 21600 },
-  });
-
-  if (!res.ok) {
-    throw new Error(`GitHub releases HTTP ${res.status}`);
-  }
-
-  const data = (await res.json()) as Array<{
-    tag_name?: string;
-    name?: string;
-    html_url?: string;
-    published_at?: string;
-    body?: string;
-    draft?: boolean;
-    prerelease?: boolean;
-  }>;
-
-  const releases = data
-    .filter((item) => !item.draft && !item.prerelease && item.tag_name)
-    .map((item) => ({
-      version: normalizeVersion(item.tag_name || ''),
-      name: item.name || item.tag_name || '',
-      htmlUrl: item.html_url || `https://github.com/${repo}/releases`,
-      publishedAt: item.published_at || null,
-      body: item.body || '',
-    }))
-    .filter((item) => Boolean(item.version));
-
-  globalForCache.__fcUpdateCache = {
-    expiresAt: Date.now() + CACHE_MS,
-    releases,
-  };
-
-  return releases;
-}
 
 function mergeReleases(
   changelog: ChangelogEntry[],
@@ -147,16 +85,11 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
   const repo = getUpdateRepo();
   const changelog = await readLocalChangelog();
 
-  let remote: RemoteRelease[] = [];
-  let remoteAvailable = true;
-
-  try {
-    remote = await fetchGithubReleases(repo);
-  } catch {
-    remoteAvailable = false;
-  }
+  const remoteResult = await fetchRemoteReleases(repo);
+  const remote = remoteResult.releases;
 
   const releases = mergeReleases(changelog, remote, repo);
+  // Prefer remote latest; if remote failed, changelog alone still drives "update available"
   const latest = remote[0]?.version || releases[0]?.version || null;
   const updateAvailable = latest ? isNewerVersion(latest, current) : false;
 
@@ -167,7 +100,8 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
     selfUpdateEnabled: isSelfUpdateEnabled(),
     repo,
     checkedAt: new Date().toISOString(),
-    remoteAvailable,
+    remoteAvailable: remoteResult.remoteAvailable,
+    remoteSource: remoteResult.source,
     releases,
     installHints: {
       docker: [

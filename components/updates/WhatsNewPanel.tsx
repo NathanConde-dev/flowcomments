@@ -40,6 +40,7 @@ type UpdatesPayload = {
   updateAvailable: boolean;
   selfUpdateEnabled: boolean;
   remoteAvailable: boolean;
+  remoteSource?: 'github' | 'control_plane' | null;
   releases: ReleaseItem[];
   installHints: {
     docker: string;

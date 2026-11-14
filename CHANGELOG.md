@@ -5,6 +5,22 @@ Todas as mudanças relevantes do Flowcomments são documentadas neste arquivo.
 O formato segue [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e o projeto usa [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [0.2.0] - 2026-11-14
+
+### Added
+
+- Botões `web_url`, handoff humano, ice breakers e mídia (imagem/áudio) na DM
+- Contagem de disparos/DMs/taps e filtro de contatos por tag
+- Refresh de token IG, resume pós `ask_input`, follow-gate em stories
+- Accordion no inspector do canvas
+- Feed de releases via control plane (`/api/v1/releases`) quando o GitHub não responde
+- Variáveis de update ativas no template Railway (Novidades)
+
+### Fixed
+
+- Follow `null` não conta como “não segue”
+- Uma automação por comentário (evita spam multi-match)
+
 ## [0.1.0] - 2026-11-11
 
 ### Added

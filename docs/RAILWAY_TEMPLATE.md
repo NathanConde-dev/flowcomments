@@ -57,3 +57,9 @@ Public networking and a healthcheck on `/api/health` are included. After deploy,
 | `ENCRYPTION_KEY` | generated secret |
 | `SESSION_SECRET` | generated secret |
 | `RUN_WORKER` | `true` |
+| `FLOWCOMMENTS_UPDATE_REPO` | `NathanConde-dev/flowcomments` |
+| `FLOWCOMMENTS_CONTROL_PLANE_URL` | `https://flowcomments.com` |
+| `ENABLE_SELF_UPDATE` | `false` (never enable on Railway) |
+| `FLOWCOMMENTS_TELEMETRY` | `true` |
+
+These update vars keep **Novidades** working after deploy: the app checks GitHub releases, and if the repo is private/rate-limited it falls back to the Cloud feed at `/api/v1/releases`.
