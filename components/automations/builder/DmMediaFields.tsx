@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/lib/ui/toast';
 import type { AutomationDraft } from './types';
+import { InspectorAccordion } from './InspectorAccordion';
 
 const MAX_AUDIO_SECONDS = 60;
 
@@ -27,6 +28,9 @@ export function DmMediaFields({ draft, disabled, onChange }: DmMediaFieldsProps)
   const timerRef = useRef<number | null>(null);
   const elapsedRef = useRef(0);
   const discardRef = useRef(false);
+
+  const hasImage = Boolean(draft.dmImageUrl.trim() || draft.dmImageAttachmentId.trim());
+  const hasAudio = Boolean(draft.dmAudioUrl.trim() || draft.dmAudioAttachmentId.trim());
 
   const clearTimer = () => {
     if (timerRef.current) {
@@ -167,9 +171,12 @@ export function DmMediaFields({ draft, disabled, onChange }: DmMediaFieldsProps)
   };
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-foreground">Imagem na DM</label>
+    <div className="space-y-2">
+      <InspectorAccordion
+        title="Imagem"
+        summary={hasImage ? 'Anexada · enviada antes do texto' : 'Opcional · upload ou URL'}
+        defaultOpen={hasImage}
+      >
         <div className="flex flex-wrap gap-2">
           <input
             ref={imageInputRef}
@@ -193,7 +200,7 @@ export function DmMediaFields({ draft, disabled, onChange }: DmMediaFieldsProps)
             <ImagePlus className="mr-1.5 h-4 w-4" />
             {uploading === 'image' ? 'Enviando…' : 'Subir imagem'}
           </Button>
-          {draft.dmImageUrl ? (
+          {hasImage ? (
             <Button
               type="button"
               variant="ghost"
@@ -217,7 +224,7 @@ export function DmMediaFields({ draft, disabled, onChange }: DmMediaFieldsProps)
           <img
             src={draft.dmImageUrl}
             alt=""
-            className="mt-1 max-h-36 rounded-lg border border-border object-cover"
+            className="max-h-36 rounded-lg border border-border object-cover"
           />
         ) : null}
         <Input
@@ -235,10 +242,17 @@ export function DmMediaFields({ draft, disabled, onChange }: DmMediaFieldsProps)
         <p className="text-xs text-muted-foreground">
           Enviada antes do texto. Upload gera anexo reutilizável na Meta.
         </p>
-      </div>
+      </InspectorAccordion>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold text-foreground">Áudio na DM</label>
+      <InspectorAccordion
+        title="Áudio"
+        summary={
+          hasAudio
+            ? draft.dmAudioName || 'Anexado'
+            : 'Opcional · subir, gravar ou URL'
+        }
+        defaultOpen={hasAudio}
+      >
         <div className="flex flex-wrap gap-2">
           <input
             ref={audioInputRef}
@@ -275,7 +289,12 @@ export function DmMediaFields({ draft, disabled, onChange }: DmMediaFieldsProps)
             </Button>
           ) : (
             <>
-              <Button type="button" variant="destructive" size="sm" onClick={() => stopRecording(false)}>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => stopRecording(false)}
+              >
                 <Square className="mr-1.5 h-4 w-4" />
                 Parar {formatElapsed(elapsed)}
               </Button>
@@ -284,7 +303,7 @@ export function DmMediaFields({ draft, disabled, onChange }: DmMediaFieldsProps)
               </Button>
             </>
           )}
-          {draft.dmAudioUrl || draft.dmAudioAttachmentId ? (
+          {hasAudio ? (
             <Button
               type="button"
               variant="ghost"
@@ -304,7 +323,7 @@ export function DmMediaFields({ draft, disabled, onChange }: DmMediaFieldsProps)
             </Button>
           ) : null}
         </div>
-        {(draft.dmAudioUrl || draft.dmAudioAttachmentId) && (
+        {hasAudio ? (
           <div className="rounded-lg border border-border bg-muted/40 px-3 py-2">
             <p className="truncate text-xs font-medium text-foreground">
               {draft.dmAudioName || 'Áudio anexado'}
@@ -315,7 +334,7 @@ export function DmMediaFields({ draft, disabled, onChange }: DmMediaFieldsProps)
               </audio>
             ) : null}
           </div>
-        )}
+        ) : null}
         <Input
           disabled={disabled}
           value={draft.dmAudioUrl}
@@ -331,7 +350,7 @@ export function DmMediaFields({ draft, disabled, onChange }: DmMediaFieldsProps)
           }
           placeholder="Ou cole uma URL HTTPS de áudio…"
         />
-      </div>
+      </InspectorAccordion>
     </div>
   );
 }

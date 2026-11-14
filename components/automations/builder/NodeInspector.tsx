@@ -18,6 +18,7 @@ import {
   type VariantPickMode,
 } from './types';
 import { DmMediaFields } from './DmMediaFields';
+import { InspectorAccordion } from './InspectorAccordion';
 
 interface NodeInspectorProps {
   selected: FlowNodeId;
@@ -261,7 +262,7 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
         </div>
       </div>
 
-      <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+      <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
         {selected === 'start' && (
           <>
             <div className="rounded-xl border border-border bg-muted/50 p-3 text-sm">
@@ -346,10 +347,14 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
 
             {needsKeywords(draft.triggerKind) && (
               <>
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-foreground">
-                    Palavras-chave
-                  </label>
+                <InspectorAccordion
+                  title="Palavras-chave"
+                  summary={
+                    draft.keywords.filter((k) => k.trim()).join(', ') ||
+                    'Defina o que dispara o fluxo'
+                  }
+                  defaultOpen
+                >
                   <div className="space-y-2">
                     {draft.keywords.map((keyword, index) => (
                       <div key={index} className="flex gap-2">
@@ -370,41 +375,49 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                       </div>
                     ))}
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addKeyword}
-                    className="mt-2"
-                  >
+                  <Button type="button" variant="outline" size="sm" onClick={addKeyword}>
                     + Adicionar palavra-chave
                   </Button>
-                </div>
+                </InspectorAccordion>
 
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-foreground">
-                    Tipo de correspondência
-                  </label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={draft.matchType}
-                    onChange={(e) =>
-                      onChange({ ...draft, matchType: e.target.value as MatchType })
-                    }
-                  >
-                    <option value="contains">Contém</option>
-                    <option value="exact">Exato</option>
-                    <option value="starts_with">Começa com</option>
-                    <option value="ends_with">Termina com</option>
-                    <option value="any">Qualquer mensagem</option>
-                  </select>
-                </div>
-
-                <ToggleSwitch
-                  checked={draft.caseSensitive}
-                  onCheckedChange={(caseSensitive) => onChange({ ...draft, caseSensitive })}
-                  label="Diferenciar maiúsculas/minúsculas"
-                />
+                <InspectorAccordion
+                  title="Correspondência"
+                  summary={`${
+                    draft.matchType === 'exact'
+                      ? 'Exato'
+                      : draft.matchType === 'starts_with'
+                        ? 'Começa com'
+                        : draft.matchType === 'ends_with'
+                          ? 'Termina com'
+                          : draft.matchType === 'any'
+                            ? 'Qualquer'
+                            : 'Contém'
+                  }${draft.caseSensitive ? ' · case-sensitive' : ''}`}
+                >
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-foreground">
+                      Tipo
+                    </label>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      value={draft.matchType}
+                      onChange={(e) =>
+                        onChange({ ...draft, matchType: e.target.value as MatchType })
+                      }
+                    >
+                      <option value="contains">Contém</option>
+                      <option value="exact">Exato</option>
+                      <option value="starts_with">Começa com</option>
+                      <option value="ends_with">Termina com</option>
+                      <option value="any">Qualquer mensagem</option>
+                    </select>
+                  </div>
+                  <ToggleSwitch
+                    checked={draft.caseSensitive}
+                    onCheckedChange={(caseSensitive) => onChange({ ...draft, caseSensitive })}
+                    label="Diferenciar maiúsculas/minúsculas"
+                  />
+                </InspectorAccordion>
               </>
             )}
           </>
@@ -417,18 +430,27 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
               onCheckedChange={(replyEnabled) => onChange({ ...draft, replyEnabled })}
               label="Ativar resposta no comentário"
             />
-            <VariantModeSelect
-              value={draft.variantPickMode}
-              onChange={(variantPickMode) => onChange({ ...draft, variantPickMode })}
-            />
-            <TextVariantsEditor
-              label="Texto da resposta"
-              hint="Use {{nome}}, {{username}}, {{comentario}}… Com várias variantes, uma é escolhida a cada envio."
-              disabled={!draft.replyEnabled}
-              variants={draft.replyVariants}
-              placeholder="Ex: Oi {{primeiro_nome}}! Enviei os detalhes no direct"
-              onChange={(replyVariants) => onChange({ ...draft, replyVariants })}
-            />
+            <InspectorAccordion
+              title="Texto da resposta"
+              summary={
+                firstVariant(draft.replyVariants) ||
+                `${draft.replyVariants.filter((v) => v.trim()).length || 0} variante(s)`
+              }
+              defaultOpen
+            >
+              <VariantModeSelect
+                value={draft.variantPickMode}
+                onChange={(variantPickMode) => onChange({ ...draft, variantPickMode })}
+              />
+              <TextVariantsEditor
+                label="Variantes"
+                hint="Use {{nome}}, {{username}}, {{comentario}}… Com várias variantes, uma é escolhida a cada envio."
+                disabled={!draft.replyEnabled}
+                variants={draft.replyVariants}
+                placeholder="Ex: Oi {{primeiro_nome}}! Enviei os detalhes no direct"
+                onChange={(replyVariants) => onChange({ ...draft, replyVariants })}
+              />
+            </InspectorAccordion>
           </>
         )}
 
@@ -600,28 +622,39 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
 
         {selected === 'followCheck' && (
           <>
-            <VariantModeSelect
-              value={draft.variantPickMode}
-              onChange={(variantPickMode) => onChange({ ...draft, variantPickMode })}
-            />
-            <TextVariantsEditor
-              label="Texto do private reply"
-              hint="Variantes + variáveis {{nome}}, {{username}}…"
-              variants={draft.gatePromptVariants}
-              placeholder="Toque abaixo pra receber o link — precisa estar me seguindo."
-              onChange={(gatePromptVariants) => onChange({ ...draft, gatePromptVariants })}
-            />
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">
-                Texto do botão
-              </label>
-              <Input
-                value={draft.gateButtonLabel}
-                onChange={(e) => onChange({ ...draft, gateButtonLabel: e.target.value })}
-                placeholder="Já sigo"
-                maxLength={20}
+            <InspectorAccordion
+              title="Pedido pra seguir"
+              summary={
+                firstVariant(draft.gatePromptVariants) ||
+                'Texto do private reply + botão'
+              }
+              defaultOpen
+            >
+              <VariantModeSelect
+                value={draft.variantPickMode}
+                onChange={(variantPickMode) => onChange({ ...draft, variantPickMode })}
               />
-            </div>
+              <TextVariantsEditor
+                label="Texto do private reply"
+                hint="Variantes + variáveis {{nome}}, {{username}}…"
+                variants={draft.gatePromptVariants}
+                placeholder="Toque abaixo pra receber o link — precisa estar me seguindo."
+                onChange={(gatePromptVariants) =>
+                  onChange({ ...draft, gatePromptVariants })
+                }
+              />
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-foreground">
+                  Texto do botão
+                </label>
+                <Input
+                  value={draft.gateButtonLabel}
+                  onChange={(e) => onChange({ ...draft, gateButtonLabel: e.target.value })}
+                  placeholder="Já sigo"
+                  maxLength={20}
+                />
+              </div>
+            </InspectorAccordion>
           </>
         )}
 
@@ -634,28 +667,64 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                 label="Ativar envio de DM"
               />
             )}
-            <VariantModeSelect
-              value={draft.variantPickMode}
-              onChange={(variantPickMode) => onChange({ ...draft, variantPickMode })}
-            />
-            <TextVariantsEditor
-              label={draft.followCheckEnabled ? 'Conteúdo / link liberado' : 'Texto da DM'}
-              hint="Variáveis {{nome}}, {{username}}… e variantes rotativas."
-              disabled={!draft.dmEnabled && !draft.followCheckEnabled}
-              variants={draft.dmVariants}
-              placeholder="Ex: Oi {{primeiro_nome}}! O preço é R$ 99,90."
-              onChange={(dmVariants) => onChange({ ...draft, dmVariants })}
-            />
-            <DmMediaFields
-              draft={draft}
-              disabled={!draft.dmEnabled && !draft.followCheckEnabled}
-              onChange={onChange}
-            />
+            <InspectorAccordion
+              title={draft.followCheckEnabled ? 'Conteúdo liberado' : 'Texto da DM'}
+              summary={
+                firstVariant(draft.dmVariants) ||
+                `${draft.dmVariants.filter((v) => v.trim()).length || 0} variante(s)`
+              }
+              defaultOpen
+            >
+              <VariantModeSelect
+                value={draft.variantPickMode}
+                onChange={(variantPickMode) => onChange({ ...draft, variantPickMode })}
+              />
+              <TextVariantsEditor
+                label="Variantes"
+                hint="Variáveis {{nome}}, {{username}}… e variantes rotativas."
+                disabled={!draft.dmEnabled && !draft.followCheckEnabled}
+                variants={draft.dmVariants}
+                placeholder="Ex: Oi {{primeiro_nome}}! O preço é R$ 99,90."
+                onChange={(dmVariants) => onChange({ ...draft, dmVariants })}
+              />
+            </InspectorAccordion>
+
+            <InspectorAccordion
+              title="Mídia"
+              summary={
+                [
+                  draft.dmImageUrl.trim() || draft.dmImageAttachmentId.trim()
+                    ? 'imagem'
+                    : null,
+                  draft.dmAudioUrl.trim() || draft.dmAudioAttachmentId.trim()
+                    ? 'áudio'
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' + ') || 'Imagem e áudio opcionais'
+              }
+            >
+              <DmMediaFields
+                draft={draft}
+                disabled={!draft.dmEnabled && !draft.followCheckEnabled}
+                onChange={onChange}
+              />
+            </InspectorAccordion>
 
             {!draft.followCheckEnabled && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold text-foreground">Botões</label>
+              <InspectorAccordion
+                title="Botões"
+                summary={
+                  draft.dmButtons.length
+                    ? draft.dmButtons
+                        .map((b) => b.title.trim() || 'Sem título')
+                        .join(', ')
+                    : 'Até 3 botões (link, resposta, handoff)'
+                }
+                defaultOpen={draft.dmButtons.length > 0}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-muted-foreground">Máximo 3 botões</p>
                   <Button
                     type="button"
                     variant="outline"
@@ -685,7 +754,20 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                   </Button>
                 </div>
                 {draft.dmButtons.map((button, index) => (
-                  <div key={index} className="space-y-3 rounded-xl border border-border p-3">
+                  <InspectorAccordion
+                    key={index}
+                    title={button.title.trim() || `Botão ${index + 1}`}
+                    summary={
+                      button.url?.trim()
+                        ? 'Link'
+                        : button.handoff
+                          ? 'Handoff'
+                          : button.requireFollow
+                            ? 'Exige follow'
+                            : firstVariant(button.responseVariants) || 'Postback'
+                    }
+                    defaultOpen={index === 0}
+                  >
                     <Input
                       value={button.title}
                       maxLength={20}
@@ -801,15 +883,22 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                     >
                       Remover
                     </Button>
-                  </div>
+                  </InspectorAccordion>
                 ))}
-              </div>
+              </InspectorAccordion>
             )}
           </>
         )}
 
         {selected === 'dmNotFollowing' && (
-          <>
+          <InspectorAccordion
+            title="Pedido pra seguir"
+            summary={
+              firstVariant(draft.dmIfNotFollowingVariants) ||
+              `Botão: ${draft.recheckButtonLabel || 'Já segui'}`
+            }
+            defaultOpen
+          >
             <TextVariantsEditor
               label="Mensagem se ainda não segue"
               hint="Variantes usadas quando o follow check falha."
@@ -830,7 +919,7 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                 maxLength={20}
               />
             </div>
-          </>
+          </InspectorAccordion>
         )}
       </div>
     </aside>

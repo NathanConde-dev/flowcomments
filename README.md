@@ -178,16 +178,6 @@ Official Cloud: [flowcomments.com/signup](https://flowcomments.com/signup) · **
 - Issues: [GitHub Issues](https://github.com/NathanConde-dev/flowcomments/issues)
 - Docs: [flowcomments.com/docs](https://flowcomments.com/docs)
 
-## Roadmap
-
-- [x] v0.1 — MVP
-- [ ] v0.2 — Stories
-- [ ] v0.3 — Analytics
-- [ ] v0.4 — Templates with variables
-- [ ] v0.5 — Teams
-- [ ] v1.0 — Public API + webhooks
-- [ ] v2.0 — WhatsApp Business
-
 ## Acknowledgments
 
 Product and culture inspiration: [n8n](https://n8n.io), [Supabase](https://supabase.com), and [Cal.com](https://cal.com) — source-available quality with a sustainable business.
