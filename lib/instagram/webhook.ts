@@ -295,25 +295,25 @@ async function handleCommentEvent(
       return;
     }
 
-    for (const automationId of matchedAutomations) {
-      await queueOrExecuteAutomation(automationId, {
-        commentId,
-        commentText,
-        userId: igUserId,
-        username: comment.from?.username,
-        source: triggerType,
-      });
-    }
+    // Uma automação por comentário (maior prioridade) — evita spam de DMs.
+    const automationId = matchedAutomations[0];
+    await queueOrExecuteAutomation(automationId, {
+      commentId,
+      commentText,
+      userId: igUserId,
+      username: comment.from?.username,
+      source: triggerType,
+    });
 
-    // Só marca processado quando todas as automações casadas concluíram.
+    // Só marca processado quando a execução concluíu.
     // Se a fila ainda está rodando / falhou, fica pending p/ recovery.
     const pendingAutomations: string[] = [];
-    for (const automationId of matchedAutomations) {
+    {
       const done = await prisma.automationExecution.findFirst({
         where: {
           automationId,
           triggeredBy: commentId,
-          status: 'completed',
+          status: { in: ['completed', 'waiting_input'] },
         },
         select: { id: true },
       });
@@ -453,8 +453,8 @@ async function handleMentionEvent(value: any, entryIgUserId?: string): Promise<v
     'story_mention'
   );
 
-  for (const automationId of matched) {
-    await queueOrExecuteAutomation(automationId, {
+  if (matched[0]) {
+    await queueOrExecuteAutomation(matched[0], {
       userId: igUserId,
       username: value.from?.username,
       messageText: String(mentionText),
@@ -504,20 +504,52 @@ async function handleMessagingEvent(message: any): Promise<void> {
     },
   });
 
+  let profileUsername: string | undefined;
+  let profileName: string | undefined;
+  let profilePic: string | undefined;
+  const needsProfile =
+    !contact ||
+    !contact.fullName ||
+    !contact.profilePic ||
+    !contact.igUsername ||
+    /^\d{5,}$/.test(contact.igUsername);
+  if (needsProfile) {
+    try {
+      const { createInstagramClient } = await import('@/lib/instagram/client');
+      const client = createInstagramClient(decrypt(igAccount.accessToken), igAccount.igUserId);
+      const profile = await client.getScopedUserProfile(senderId);
+      profileUsername = profile?.username;
+      profileName = profile?.name;
+      profilePic = profile?.profilePic;
+    } catch {
+      /* best-effort */
+    }
+  }
+
   if (!contact) {
     contact = await prisma.contact.create({
       data: {
         userId: igAccount.userId,
         igAccountId: igAccount.id,
         igUserId: senderId,
-        igUsername: senderId,
+        igUsername: profileUsername || senderId,
+        fullName: profileName || null,
+        profilePic: profilePic || null,
         lastSeenAt: new Date(),
       },
     });
   } else {
-    await prisma.contact.update({
+    contact = await prisma.contact.update({
       where: { id: contact.id },
-      data: { lastSeenAt: new Date() },
+      data: {
+        lastSeenAt: new Date(),
+        ...(profileUsername &&
+        (contact.igUsername !== profileUsername || /^\d{5,}$/.test(contact.igUsername))
+          ? { igUsername: profileUsername }
+          : {}),
+        ...(profileName && profileName !== contact.fullName ? { fullName: profileName } : {}),
+        ...(profilePic && profilePic !== contact.profilePic ? { profilePic } : {}),
+      },
     });
   }
 
@@ -686,14 +718,14 @@ async function handleMessagingEvent(message: any): Promise<void> {
       { text: messageText },
       'story_reply'
     );
-    for (const automationId of matched) {
-      await queueOrExecuteAutomation(automationId, {
+    if (matched[0]) {
+      await queueOrExecuteAutomation(matched[0], {
         userId: senderId,
         messageText,
         source: 'story_reply',
       });
+      return;
     }
-    if (matched.length > 0) return;
   }
 
   const match = await findMatchingDmAutomation(igAccount.id, messageText);

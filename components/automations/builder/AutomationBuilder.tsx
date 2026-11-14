@@ -15,8 +15,12 @@ import {
   DEFAULT_NODE_POSITIONS,
   applyAutomationTemplate,
   defaultAutomationDraft,
+  delayToSeconds,
+  filledVariants,
+  firstVariant,
   needsKeywords,
   needsPostSelection,
+  splitDelaySeconds,
   type AutomationDraft,
   type AutomationTemplateId,
   type BuilderStep,
@@ -29,6 +33,7 @@ import {
 } from './types';
 import { toast } from '@/lib/ui/toast';
 import { signalEngagement } from '@/lib/engagement/storage';
+import { normalizeTextVariants } from '@/lib/automation/types';
 
 type AutomationBuilderProps = {
   automationId?: string;
@@ -37,19 +42,31 @@ type AutomationBuilderProps = {
 type ActionConfig = {
   type: string;
   text?: string;
+  texts?: string[];
+  textPickMode?: 'random' | 'sequential';
   delay?: number;
   prompt?: string;
+  promptTexts?: string[];
   buttonLabel?: string;
   rewardText?: string;
   notFollowingText?: string;
+  notFollowingTexts?: string[];
   recheckButtonLabel?: string;
+  imageUrl?: string;
+  imageAttachmentId?: string;
+  audioUrl?: string;
+  audioAttachmentId?: string;
   tag?: string;
   buttons?: Array<{
     title: string;
+    url?: string;
     responseText?: string;
+    responseTexts?: string[];
     addTag?: string;
+    handoff?: boolean;
     requireFollow?: boolean;
     notFollowingText?: string;
+    notFollowingTexts?: string[];
   }>;
   rule?: string;
   field?: string;
@@ -59,6 +76,17 @@ type ActionConfig = {
   saveKey?: string;
   fieldType?: 'text' | 'email' | 'phone';
 };
+
+function withPickMode<T extends ActionConfig>(
+  action: T,
+  mode: 'random' | 'sequential'
+): T {
+  return mode === 'sequential' ? { ...action, textPickMode: 'sequential' } : action;
+}
+
+function actionVariants(action?: ActionConfig | null, fallbackText?: string): string[] {
+  return normalizeTextVariants(action?.texts, action?.text, fallbackText);
+}
 
 function draftFromAutomation(automation: {
   name: string;
@@ -83,13 +111,24 @@ function draftFromAutomation(automation: {
   const trigger = automation.triggerConfig?.trigger || {};
   const actions = automation.actionsConfig?.actions || [];
   const savedPositions = automation.actionsConfig?.canvas?.nodePositions || {};
-  const reply = actions.find((a) => a.type === 'reply_comment');
-  const followGate = actions.find((a) => a.type === 'follow_gate');
-  const dm = actions.find((a) => a.type === 'send_dm');
-  const delay = actions.find((a) => a.type === 'delay');
+  const findDeep = (list: ActionConfig[], type: ActionConfig['type']): ActionConfig | undefined => {
+    for (const action of list) {
+      if (action.type === type) return action;
+      const nested =
+        (action.then && findDeep(action.then, type)) ||
+        (action.else && findDeep(action.else, type));
+      if (nested) return nested;
+    }
+    return undefined;
+  };
+  const reply = findDeep(actions, 'reply_comment');
+  const followGate = findDeep(actions, 'follow_gate');
+  const dm = findDeep(actions, 'send_dm');
+  const delay = findDeep(actions, 'delay');
   const condition = actions.find((a) => a.type === 'condition');
-  const addTag = actions.find((a) => a.type === 'add_tag');
-  const askInput = actions.find((a) => a.type === 'ask_input');
+  const addTag = findDeep(actions, 'add_tag');
+  const askInput = findDeep(actions, 'ask_input');
+  const handoff = findDeep(actions, 'human_handoff');
   const mediaIds = trigger.mediaIds || [];
   const mediaScope: MediaScope =
     trigger.mediaScope || (mediaIds.length > 0 ? 'specific' : 'any');
@@ -120,27 +159,55 @@ function draftFromAutomation(automation: {
       matchType: trigger.matchType || (triggerKind === 'default_reply' ? 'any' : 'contains'),
       caseSensitive: Boolean(trigger.caseSensitive),
       replyEnabled: Boolean(reply),
-      replyComment: reply?.text || '',
+      replyVariants: actionVariants(reply),
       dmEnabled: followCheckEnabled || Boolean(dm),
-      sendDm: followGate?.rewardText || dm?.text || '',
+      dmVariants: actionVariants(
+        followGate
+          ? { type: 'follow_gate', text: followGate.rewardText, texts: followGate.texts }
+          : dm
+      ),
+      dmImageUrl: followGate?.imageUrl || dm?.imageUrl || '',
+      dmImageAttachmentId:
+        followGate?.imageAttachmentId || dm?.imageAttachmentId || '',
+      dmAudioUrl: followGate?.audioUrl || dm?.audioUrl || '',
+      dmAudioAttachmentId:
+        followGate?.audioAttachmentId || dm?.audioAttachmentId || '',
+      dmAudioName:
+        followGate?.audioUrl || dm?.audioUrl
+          ? 'Áudio anexado'
+          : '',
+      variantPickMode:
+        reply?.textPickMode === 'sequential' ||
+        dm?.textPickMode === 'sequential' ||
+        followGate?.textPickMode === 'sequential'
+          ? 'sequential'
+          : 'random',
       dmDelay: typeof dm?.delay === 'number' ? dm.delay : 0,
       dmButtons: (dm?.buttons || []).map((b) => ({
         title: b.title || '',
-        responseText: b.responseText || '',
+        url: b.url || '',
+        responseVariants: normalizeTextVariants(b.responseTexts, b.responseText),
         addTag: b.addTag || '',
         requireFollow: Boolean(b.requireFollow),
-        notFollowingText: b.notFollowingText || '',
+        notFollowingVariants: normalizeTextVariants(b.notFollowingTexts, b.notFollowingText),
+        handoff: Boolean(b.handoff),
       })),
       followCheckEnabled,
-      gatePrompt: followGate?.prompt || '',
+      gatePromptVariants: normalizeTextVariants(followGate?.promptTexts, followGate?.prompt),
       gateButtonLabel: followGate?.buttonLabel || 'Já sigo',
-      dmIfNotFollowing: followGate?.notFollowingText || '',
+      dmIfNotFollowingVariants: normalizeTextVariants(
+        followGate?.notFollowingTexts,
+        followGate?.notFollowingText
+      ),
       recheckButtonLabel:
         !followGate?.recheckButtonLabel || followGate.recheckButtonLabel === 'Verificar de novo'
           ? 'Já segui'
           : followGate.recheckButtonLabel,
       delayEnabled: Boolean(delay),
-      delaySeconds: typeof delay?.delay === 'number' ? delay.delay : 3,
+      ...(() => {
+        const split = splitDelaySeconds(typeof delay?.delay === 'number' ? delay.delay : 3);
+        return { delayAmount: split.amount, delayUnit: split.unit };
+      })(),
       conditionEnabled: Boolean(condition),
       conditionRule: (condition?.rule as AutomationDraft['conditionRule']) || 'has_tag',
       conditionTag: condition?.tag || '',
@@ -152,6 +219,8 @@ function draftFromAutomation(automation: {
       askInputPrompt: askInput?.prompt || '',
       askInputSaveKey: askInput?.saveKey || 'email',
       askInputFieldType: askInput?.fieldType || 'email',
+      handoffEnabled: Boolean(handoff),
+      handoffText: handoff?.text || 'Um atendente vai te responder em breve.',
       nodePositions: {
         ...DEFAULT_NODE_POSITIONS,
         ...(followCheckEnabled ? {} : { dm: { x: 260, y: 450 } }),
@@ -178,12 +247,23 @@ function parseTemplate(value: string | null): AutomationTemplateId | null {
 function buildActions(draft: AutomationDraft): ActionConfig[] {
   const actions: ActionConfig[] = [];
 
-  if (draft.delayEnabled && draft.delaySeconds > 0) {
-    actions.push({ type: 'delay', delay: draft.delaySeconds });
+  const delaySeconds = delayToSeconds(draft.delayAmount, draft.delayUnit);
+  if (draft.delayEnabled && delaySeconds > 0) {
+    actions.push({ type: 'delay', delay: delaySeconds });
   }
 
-  if (draft.replyEnabled && draft.replyComment.trim()) {
-    actions.push({ type: 'reply_comment', text: draft.replyComment.trim() });
+  const replyTexts = filledVariants(draft.replyVariants);
+  if (draft.replyEnabled && replyTexts.length > 0) {
+    actions.push(
+      withPickMode(
+        {
+          type: 'reply_comment',
+          text: replyTexts[0],
+          ...(replyTexts.length > 1 ? { texts: replyTexts } : {}),
+        },
+        draft.variantPickMode
+      )
+    );
   }
 
   if (draft.addTagEnabled && draft.tagToAdd.trim()) {
@@ -201,32 +281,86 @@ function buildActions(draft: AutomationDraft): ActionConfig[] {
 
   const deliveryActions: ActionConfig[] = [];
 
+  const dmTexts = filledVariants(draft.dmVariants);
+  const gatePrompts = filledVariants(draft.gatePromptVariants);
+  const notFollowingTexts = filledVariants(draft.dmIfNotFollowingVariants);
+  const imageUrl = draft.dmImageUrl.trim();
+  const imageAttachmentId = draft.dmImageAttachmentId.trim();
+  const audioUrl = draft.dmAudioUrl.trim();
+  const audioAttachmentId = draft.dmAudioAttachmentId.trim();
+  const mediaFields = {
+    ...(imageUrl ? { imageUrl } : {}),
+    ...(imageAttachmentId ? { imageAttachmentId } : {}),
+    ...(audioUrl ? { audioUrl } : {}),
+    ...(audioAttachmentId ? { audioAttachmentId } : {}),
+  };
+  const hasMedia = Boolean(imageUrl || imageAttachmentId || audioUrl || audioAttachmentId);
   if (draft.followCheckEnabled) {
+    deliveryActions.push(
+      withPickMode(
+        {
+          type: 'follow_gate',
+          prompt: gatePrompts[0] || '',
+          ...(gatePrompts.length > 1 ? { promptTexts: gatePrompts } : {}),
+          buttonLabel: draft.gateButtonLabel.trim().slice(0, 20),
+          rewardText: dmTexts[0] || '',
+          ...(dmTexts.length > 1 ? { texts: dmTexts } : {}),
+          notFollowingText: notFollowingTexts[0] || '',
+          ...(notFollowingTexts.length > 1 ? { notFollowingTexts } : {}),
+          recheckButtonLabel: (draft.recheckButtonLabel.trim() || 'Já segui').slice(0, 20),
+          ...mediaFields,
+        },
+        draft.variantPickMode
+      )
+    );
+  } else if (draft.dmEnabled && (dmTexts.length > 0 || hasMedia)) {
+    deliveryActions.push(
+      withPickMode(
+        {
+          type: 'send_dm',
+          text: dmTexts[0] || '',
+          ...(dmTexts.length > 1 ? { texts: dmTexts } : {}),
+          delay: draft.dmDelay,
+          ...mediaFields,
+          buttons: draft.dmButtons
+            .filter((b) => b.title.trim())
+            .map((b) => {
+              const url = b.url.trim();
+              if (url) {
+                return {
+                  title: b.title.trim().slice(0, 20),
+                  url,
+                };
+              }
+              const responseTexts = filledVariants(b.responseVariants);
+              const notFollowing = filledVariants(b.notFollowingVariants);
+              return {
+                title: b.title.trim().slice(0, 20),
+                responseText: responseTexts[0] || undefined,
+                ...(responseTexts.length > 1 ? { responseTexts } : {}),
+                addTag: b.addTag.trim() || undefined,
+                handoff: b.handoff || undefined,
+                requireFollow: b.handoff ? undefined : b.requireFollow || undefined,
+                notFollowingText:
+                  !b.handoff && b.requireFollow
+                    ? notFollowing[0] ||
+                      'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.'
+                    : undefined,
+                ...(!b.handoff && b.requireFollow && notFollowing.length > 1
+                  ? { notFollowingTexts: notFollowing }
+                  : {}),
+              };
+            }),
+        },
+        draft.variantPickMode
+      )
+    );
+  }
+
+  if (draft.handoffEnabled) {
     deliveryActions.push({
-      type: 'follow_gate',
-      prompt: draft.gatePrompt.trim(),
-      buttonLabel: draft.gateButtonLabel.trim().slice(0, 20),
-      rewardText: draft.sendDm.trim(),
-      notFollowingText: draft.dmIfNotFollowing.trim(),
-      recheckButtonLabel: (draft.recheckButtonLabel.trim() || 'Já segui').slice(0, 20),
-    });
-  } else if (draft.dmEnabled && draft.sendDm.trim()) {
-    deliveryActions.push({
-      type: 'send_dm',
-      text: draft.sendDm.trim(),
-      delay: draft.dmDelay,
-      buttons: draft.dmButtons
-        .filter((b) => b.title.trim())
-        .map((b) => ({
-          title: b.title.trim().slice(0, 20),
-          responseText: b.responseText.trim() || undefined,
-          addTag: b.addTag.trim() || undefined,
-          requireFollow: b.requireFollow || undefined,
-          notFollowingText: b.requireFollow
-            ? b.notFollowingText.trim() ||
-              'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.'
-            : undefined,
-        })),
+      type: 'human_handoff',
+      text: draft.handoffText.trim() || 'Um atendente vai te responder em breve.',
     });
   }
 
@@ -368,7 +502,11 @@ export function AutomationBuilder({ automationId }: AutomationBuilderProps) {
       }
 
       if (draft.followCheckEnabled) {
-        if (!draft.gatePrompt.trim() || !draft.sendDm.trim() || !draft.dmIfNotFollowing.trim()) {
+        if (
+          !firstVariant(draft.gatePromptVariants) ||
+          !firstVariant(draft.dmVariants) ||
+          !firstVariant(draft.dmIfNotFollowingVariants)
+        ) {
           setSelected('followCheck');
           throw new Error('Preencha o follow gate (prompt, conteúdo e mensagem se não segue)');
         }

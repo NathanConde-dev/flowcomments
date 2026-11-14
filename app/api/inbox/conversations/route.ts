@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
+import { automationLinkedConversationWhere } from '@/lib/inbox/contacts';
 import { parseTags } from '@/lib/inbox/serialize';
 
 export async function GET(request: Request) {
@@ -11,7 +12,10 @@ export async function GET(request: Request) {
     const filter = searchParams.get('filter') || 'open';
     const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit') || 50)));
 
-    const where: Record<string, unknown> = { userId: session.userId };
+    const where: Record<string, unknown> = {
+      userId: session.userId,
+      AND: [automationLinkedConversationWhere],
+    };
 
     if (filter === 'open') where.status = 'open';
     if (filter === 'closed') where.status = 'closed';

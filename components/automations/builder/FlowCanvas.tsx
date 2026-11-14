@@ -4,7 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronsLeft, ChevronsRight, Minus, Plus, Trash2 } from 'lucide-react';
 import { FlowNode, nodeMeta } from './FlowNode';
 import type { AutomationDraft, FlowNodeId, IGAccountOption, NodePosition } from './types';
-import { DEFAULT_NODE_POSITIONS, TRIGGER_KIND_LABELS } from './types';
+import {
+  DEFAULT_NODE_POSITIONS,
+  TRIGGER_KIND_LABELS,
+  filledVariants,
+  firstVariant,
+  formatDelayLabel,
+} from './types';
 import { cn } from '@/lib/utils/cn';
 
 interface FlowCanvasProps {
@@ -57,6 +63,7 @@ const PALETTE: FlowNodeId[] = [
   'condition',
   'addTag',
   'askInput',
+  'handoff',
 ];
 
 function nodeVisible(draft: AutomationDraft, id: FlowNodeId) {
@@ -72,8 +79,10 @@ function nodeVisible(draft: AutomationDraft, id: FlowNodeId) {
   if (id === 'dmNotFollowing') return draft.followCheckEnabled;
   if (id === 'delay') return draft.delayEnabled;
   if (id === 'condition') return draft.conditionEnabled;
+  if (id === 'conditionElse') return draft.conditionEnabled;
   if (id === 'addTag') return draft.addTagEnabled;
   if (id === 'askInput') return draft.askInputEnabled;
+  if (id === 'handoff') return draft.handoffEnabled;
   return false;
 }
 
@@ -99,7 +108,43 @@ function buildEdges(draft: AutomationDraft): FlowEdge[] {
 
   if (nodeVisible(draft, 'reply')) push('reply');
   if (draft.delayEnabled) push('delay');
-  if (draft.conditionEnabled) push('condition');
+
+  if (draft.conditionEnabled) {
+    edges.push({ from: prev, to: 'condition' });
+    prev = 'condition';
+    edges.push({ from: 'condition', to: 'conditionElse', label: 'Não' });
+
+    const thenPush = (to: FlowNodeId) => {
+      edges.push({
+        from: prev,
+        to,
+        label: prev === 'condition' ? 'Sim' : undefined,
+      });
+      prev = to;
+    };
+
+    if (draft.addTagEnabled) thenPush('addTag');
+    if (draft.askInputEnabled) thenPush('askInput');
+
+    if (draft.followCheckEnabled) {
+      edges.push({
+        from: prev,
+        to: 'followCheck',
+        label: prev === 'condition' ? 'Sim' : undefined,
+      });
+      edges.push({ from: 'followCheck', to: 'dm', label: 'Sim' });
+      edges.push({ from: 'followCheck', to: 'dmNotFollowing', label: 'Não' });
+      if (draft.handoffEnabled) {
+        edges.push({ from: 'dm', to: 'handoff' });
+      }
+      return edges;
+    }
+
+    if (draft.dmEnabled) thenPush('dm');
+    if (draft.handoffEnabled) thenPush('handoff');
+    return edges;
+  }
+
   if (draft.addTagEnabled) push('addTag');
   if (draft.askInputEnabled) push('askInput');
 
@@ -107,10 +152,14 @@ function buildEdges(draft: AutomationDraft): FlowEdge[] {
     edges.push({ from: prev, to: 'followCheck' });
     edges.push({ from: 'followCheck', to: 'dm', label: 'Sim' });
     edges.push({ from: 'followCheck', to: 'dmNotFollowing', label: 'Não' });
+    if (draft.handoffEnabled) {
+      edges.push({ from: 'dm', to: 'handoff' });
+    }
     return edges;
   }
 
   if (draft.dmEnabled) push('dm');
+  if (draft.handoffEnabled) push('handoff');
   return edges;
 }
 
@@ -338,11 +387,13 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
           'reply',
           'delay',
           'condition',
+          'conditionElse',
           'addTag',
           'askInput',
           'followCheck',
           'dm',
           'dmNotFollowing',
+          'handoff',
         ] as FlowNodeId[]
       ).filter((id) => nodeVisible(draft, id)),
     [draft]
@@ -613,14 +664,14 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
         ...draft,
         followCheckEnabled: true,
         dmEnabled: true,
-        gatePrompt:
-          draft.gatePrompt.trim() ||
-          'Toque abaixo pra receber o conteúdo — precisa estar me seguindo.',
+        gatePromptVariants: firstVariant(draft.gatePromptVariants)
+          ? draft.gatePromptVariants
+          : ['Toque abaixo pra receber o conteúdo — precisa estar me seguindo.'],
         gateButtonLabel: draft.gateButtonLabel.trim() || 'Já sigo',
         recheckButtonLabel: draft.recheckButtonLabel.trim() || 'Já segui',
-        dmIfNotFollowing:
-          draft.dmIfNotFollowing.trim() ||
-          'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
+        dmIfNotFollowingVariants: firstVariant(draft.dmIfNotFollowingVariants)
+          ? draft.dmIfNotFollowingVariants
+          : ['Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.'],
         nodePositions: {
           ...basePositions,
           followCheck: nextPos,
@@ -641,7 +692,17 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
       return;
     }
     if (id === 'condition') {
-      onChange({ ...draft, conditionEnabled: true, nodePositions: withPos('condition') });
+      onChange({
+        ...draft,
+        conditionEnabled: true,
+        nodePositions: {
+          ...withPos('condition'),
+          conditionElse: {
+            x: nextPos.x + 220,
+            y: nextPos.y + INSERT_GAP,
+          },
+        },
+      });
       selectNode('condition');
       return;
     }
@@ -664,6 +725,17 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
         nodePositions: withPos('askInput'),
       });
       selectNode('askInput');
+      return;
+    }
+    if (id === 'handoff') {
+      onChange({
+        ...draft,
+        handoffEnabled: true,
+        handoffText:
+          draft.handoffText || 'Um atendente vai te responder em breve.',
+        nodePositions: withPos('handoff'),
+      });
+      selectNode('handoff');
     }
   };
 
@@ -685,11 +757,11 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
       onChange({
         ...draft,
         followCheckEnabled: false,
-        dmEnabled: Boolean(draft.sendDm.trim()),
+        dmEnabled: Boolean(draft.dmVariants.some((v) => v.trim())),
         nodePositions: { ...draft.nodePositions, dm: { x: 260, y: 450 } },
       });
       if (selected === 'followCheck' || selected === 'dmNotFollowing') {
-        if (draft.sendDm.trim()) selectNode('dm');
+        if (firstVariant(draft.dmVariants)) selectNode('dm');
         else onSelect(null);
       }
       return;
@@ -698,6 +770,7 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
     if (id === 'condition') return clear({ conditionEnabled: false });
     if (id === 'addTag') return clear({ addTagEnabled: false });
     if (id === 'askInput') return clear({ askInputEnabled: false });
+    if (id === 'handoff') return clear({ handoffEnabled: false });
   };
 
   const paletteDragRef = useRef(paletteDrag);
@@ -798,14 +871,21 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
 
   const summaryFor = (id: FlowNodeId) => {
     if (id === 'start') {
+      const contentLabel =
+        draft.triggerKind === 'comment' || draft.triggerKind === 'live_comment'
+          ? draft.mediaScope === 'any'
+            ? 'Qualquer publicação'
+            : `${draft.selectedPosts.length} publicação${
+                draft.selectedPosts.length === 1 ? '' : 'ões'
+              }`
+          : null;
       return (
         <div className="space-y-1">
-          <p className="truncate font-medium text-foreground">
-            {draft.name.trim() || 'Sem nome'}
+          <p className="truncate text-xs font-medium text-foreground">
+            {TRIGGER_KIND_LABELS[draft.triggerKind]}
+            {account ? ` · @${account.igUsername}` : ''}
           </p>
-          <p className="truncate text-xs">
-            {account ? `@${account.igUsername}` : 'Selecione uma conta'}
-          </p>
+          {contentLabel ? <p className="truncate text-xs">{contentLabel}</p> : null}
         </div>
       );
     }
@@ -842,23 +922,46 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
       );
     }
     if (id === 'reply') {
+      const replyCount = filledVariants(draft.replyVariants).length;
       return (
-        <p className="line-clamp-2 text-xs leading-relaxed">
-          {draft.replyComment.trim() || 'Escreva a resposta do comentário'}
-        </p>
+        <div className="space-y-1">
+          <p className="line-clamp-2 text-xs leading-relaxed">
+            {firstVariant(draft.replyVariants) || 'Escreva a resposta do comentário'}
+          </p>
+          {replyCount > 1 ? (
+            <p className="text-[11px] font-medium text-primary-600">
+              {replyCount} variantes ·{' '}
+              {draft.variantPickMode === 'sequential' ? 'sequencial' : 'aleatório'}
+            </p>
+          ) : null}
+        </div>
       );
     }
     if (id === 'delay') {
-      return <p className="text-xs font-medium text-foreground">Espera {draft.delaySeconds}s</p>;
+      return (
+        <p className="text-xs font-medium text-foreground">
+          Espera {formatDelayLabel(draft.delayAmount, draft.delayUnit)}
+        </p>
+      );
     }
     if (id === 'condition') {
       return (
-        <p className="text-xs">
-          {draft.conditionRule === 'has_tag'
-            ? `Tem tag: ${draft.conditionTag || '—'}`
-            : draft.conditionRule === 'follows'
-              ? 'Segue a conta'
-              : `${draft.conditionField || 'campo'} = ${draft.conditionValue || '—'}`}
+        <div className="space-y-1">
+          <p className="text-xs">
+            {draft.conditionRule === 'has_tag'
+              ? `Tem tag: ${draft.conditionTag || '—'}`
+              : draft.conditionRule === 'follows'
+                ? 'Segue a conta'
+                : `${draft.conditionField || 'campo'} = ${draft.conditionValue || '—'}`}
+          </p>
+          <p className="text-[11px] font-medium text-indigo-600">Sim → continua · Não → encerra</p>
+        </div>
+      );
+    }
+    if (id === 'conditionElse') {
+      return (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Condição falhou — o fluxo para aqui (sem ações no ramo Não).
         </p>
       );
     }
@@ -872,42 +975,88 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
         </p>
       );
     }
+    if (id === 'handoff') {
+      return (
+        <p className="line-clamp-2 text-xs">
+          {draft.handoffText.trim() || 'Pausa e espera atendimento'}
+        </p>
+      );
+    }
     if (id === 'followCheck') {
+      const promptCount = filledVariants(draft.gatePromptVariants).length;
       return (
         <div className="space-y-1">
           <p className="line-clamp-2 text-xs leading-relaxed">
-            {draft.gatePrompt.trim() || 'Private reply com botão de confirmação'}
+            {firstVariant(draft.gatePromptVariants) || 'Private reply com botão de confirmação'}
           </p>
           <p className="text-[11px] font-medium text-primary-600">
             Botão: {draft.gateButtonLabel.trim() || 'Já sigo'}
+            {promptCount > 1
+              ? ` · ${promptCount} variantes · ${
+                  draft.variantPickMode === 'sequential' ? 'sequencial' : 'aleatório'
+                }`
+              : ''}
           </p>
         </div>
       );
     }
     if (id === 'dmNotFollowing') {
+      const notFollowCount = filledVariants(draft.dmIfNotFollowingVariants).length;
       return (
         <div className="space-y-1">
           <p className="line-clamp-2 text-xs leading-relaxed">
-            {draft.dmIfNotFollowing.trim() || 'Peça pra pessoa te seguir'}
+            {firstVariant(draft.dmIfNotFollowingVariants) || 'Peça pra pessoa te seguir'}
           </p>
           <p className="text-[11px] font-medium text-primary-600">
             {draft.recheckButtonLabel.trim() || 'Já segui'}
+            {notFollowCount > 1
+              ? ` · ${notFollowCount} variantes · ${
+                  draft.variantPickMode === 'sequential' ? 'sequencial' : 'aleatório'
+                }`
+              : ''}
           </p>
         </div>
       );
     }
+    const dmCount = filledVariants(draft.dmVariants).length;
     return (
       <div className="space-y-1">
         <p className="line-clamp-2 text-xs leading-relaxed">
-          {draft.sendDm.trim() ||
+          {firstVariant(draft.dmVariants) ||
             (draft.followCheckEnabled
               ? 'Conteúdo liberado se estiver seguindo'
               : 'Escreva a mensagem do direct')}
         </p>
+        {dmCount > 1 && (
+          <p className="text-[11px] font-medium text-primary-600">
+            {dmCount} variantes ·{' '}
+            {draft.variantPickMode === 'sequential' ? 'sequencial' : 'aleatório'}
+          </p>
+        )}
+        {(draft.dmImageUrl.trim() ||
+          draft.dmImageAttachmentId.trim() ||
+          draft.dmAudioUrl.trim() ||
+          draft.dmAudioAttachmentId.trim()) && (
+          <p className="text-[11px] font-medium text-emerald-600">
+            {[
+              draft.dmImageUrl.trim() || draft.dmImageAttachmentId.trim()
+                ? 'imagem'
+                : null,
+              draft.dmAudioUrl.trim() || draft.dmAudioAttachmentId.trim()
+                ? 'áudio'
+                : null,
+            ]
+              .filter(Boolean)
+              .join(' + ')}
+          </p>
+        )}
         {draft.dmButtons.length > 0 && (
           <p className="text-[11px] font-medium text-primary-600">
             {draft.dmButtons.length} botão(ões)
-            {draft.dmButtons.some((b) => b.requireFollow) ? ' · exige follow' : ''}
+            {draft.dmButtons.some((b) => b.url?.trim()) ? ' · com link' : ''}
+            {draft.dmButtons.some((b) => !b.url?.trim() && b.requireFollow)
+              ? ' · exige follow'
+              : ''}
           </p>
         )}
         {draft.followCheckEnabled && (
@@ -1145,6 +1294,7 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
               id === 'condition' ||
               id === 'addTag' ||
               id === 'askInput' ||
+              id === 'handoff' ||
               (id === 'dm' && !draft.followCheckEnabled) ||
               id === 'dmNotFollowing';
               const isDragging = draggingId === id;

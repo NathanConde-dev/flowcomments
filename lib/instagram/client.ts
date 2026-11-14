@@ -282,6 +282,31 @@ export class InstagramClient {
     );
   }
 
+  /** Send an image/audio/video by public HTTPS URL (Meta downloads it). */
+  async sendMediaByUrl(
+    recipientId: string,
+    type: 'image' | 'audio' | 'video' | 'file',
+    url: string
+  ): Promise<{ id: string }> {
+    return this.request<{ id: string }>(
+      this.messagesPath(),
+      {
+        method: 'POST',
+        headers: this.messagingHeaders(),
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: {
+            attachment: {
+              type,
+              payload: { url, is_reusable: true },
+            },
+          },
+        }),
+      },
+      this.messagingBaseUrl()
+    );
+  }
+
   async sendPrivateReply(
     commentId: string,
     message: string
@@ -300,10 +325,27 @@ export class InstagramClient {
     );
   }
 
+  private mapTemplateButtons(
+    buttons: Array<{ title: string; payload?: string; url?: string }>
+  ) {
+    return buttons.slice(0, 3).map((button) => {
+      const title = button.title.slice(0, 20);
+      const url = button.url?.trim();
+      if (url) {
+        return { type: 'web_url' as const, title, url };
+      }
+      return {
+        type: 'postback' as const,
+        title,
+        payload: button.payload || '',
+      };
+    });
+  }
+
   async sendPrivateReplyWithButtons(
     commentId: string,
     text: string,
-    buttons: Array<{ title: string; payload: string }>
+    buttons: Array<{ title: string; payload?: string; url?: string }>
   ): Promise<{ id: string }> {
     return this.request<{ id: string }>(
       this.messagesPath(),
@@ -318,11 +360,7 @@ export class InstagramClient {
               payload: {
                 template_type: 'button',
                 text,
-                buttons: buttons.slice(0, 3).map((button) => ({
-                  type: 'postback',
-                  title: button.title.slice(0, 20),
-                  payload: button.payload,
-                })),
+                buttons: this.mapTemplateButtons(buttons),
               },
             },
           },
@@ -335,7 +373,7 @@ export class InstagramClient {
   async sendMessageWithButtons(
     recipientId: string,
     text: string,
-    buttons: Array<{ title: string; payload: string }>
+    buttons: Array<{ title: string; payload?: string; url?: string }>
   ): Promise<{ id: string }> {
     return this.request<{ id: string }>(
       this.messagesPath(),
@@ -350,11 +388,7 @@ export class InstagramClient {
               payload: {
                 template_type: 'button',
                 text,
-                buttons: buttons.slice(0, 3).map((button) => ({
-                  type: 'postback',
-                  title: button.title.slice(0, 20),
-                  payload: button.payload,
-                })),
+                buttons: this.mapTemplateButtons(buttons),
               },
             },
           },

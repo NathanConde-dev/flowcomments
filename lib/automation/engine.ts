@@ -8,12 +8,17 @@ import {
   evaluateKeywordMatch,
   followCheckPayload,
   followRecheckPayload,
+  buildTemplateVars,
+  interpolateTemplate,
+  pickActionText,
+  pickButtonText,
   pickFollowNudgeMessage,
   type ActionConfig,
   type ActionsConfigEnvelope,
   type KeywordTriggerConfig,
   type TriggerConfigEnvelope,
   type TriggerKind,
+  type VariantPickMode,
 } from './types';
 
 export type {
@@ -42,12 +47,50 @@ export type AutomationContext = {
   userId?: string;
   username?: string;
   source?: TriggerKind | 'postback' | 'icebreaker';
+  /** Re-enter after ask_input; skips duplicate-execution guard. */
+  resume?: boolean;
 };
 
 type ContactState = {
   tags: string[];
   customData: Record<string, unknown>;
 };
+
+function variantSeqKey(automationId: string, slot: string) {
+  return `_variantSeq:${automationId}:${slot}`;
+}
+
+function readVariantSequence(state: ContactState, automationId: string, slot: string) {
+  const value = Number(state.customData[variantSeqKey(automationId, slot)] || 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+async function persistVariantSequence(
+  contactId: string,
+  state: ContactState,
+  automationId: string,
+  slot: string,
+  nextSequence: number | undefined
+) {
+  if (nextSequence == null || !contactId) return;
+  state.customData[variantSeqKey(automationId, slot)] = nextSequence;
+  await saveContactState(contactId, state);
+}
+
+function resolveCopy(
+  action: ActionConfig,
+  vars: Record<string, string>,
+  options?: {
+    pool?: 'text' | 'prompt' | 'notFollowing' | 'reward';
+    sequence?: number;
+  }
+) {
+  const picked = pickActionText(action, options);
+  return {
+    text: interpolateTemplate(picked.text, vars),
+    nextSequence: picked.nextSequence,
+  };
+}
 
 function parseActions(raw: string): ActionConfig[] {
   const parsed = JSON.parse(raw) as ActionsConfigEnvelope | ActionConfig[];
@@ -167,10 +210,14 @@ async function getOrCreateContact(params: {
 
   let profilePic = existing?.profilePic || undefined;
   let fullName = existing?.fullName || undefined;
-  if ((!profilePic || !fullName) && params.client) {
+  let profileUsername = params.igUsername || undefined;
+  const usernameLooksLikeId =
+    !existing?.igUsername || /^\d{5,}$/.test(existing.igUsername);
+  if ((!profilePic || !fullName || usernameLooksLikeId) && params.client) {
     const profile = await params.client.getScopedUserProfile(params.igUserId);
     if (profile?.profilePic) profilePic = profile.profilePic;
     if (profile?.name) fullName = profile.name;
+    if (profile?.username) profileUsername = profile.username;
   }
 
   const automationPatch =
@@ -192,7 +239,10 @@ async function getOrCreateContact(params: {
       where: { id: existing.id },
       data: {
         lastSeenAt: new Date(),
-        ...(params.igUsername ? { igUsername: params.igUsername } : {}),
+        ...(profileUsername &&
+        (profileUsername !== existing.igUsername || usernameLooksLikeId)
+          ? { igUsername: profileUsername }
+          : {}),
         ...(profilePic && profilePic !== existing.profilePic ? { profilePic } : {}),
         ...(fullName && fullName !== existing.fullName ? { fullName } : {}),
         ...automationPatch,
@@ -204,7 +254,7 @@ async function getOrCreateContact(params: {
       userId: params.userId,
       igAccountId: params.igAccountId,
       igUserId: params.igUserId,
-      igUsername: params.igUsername || params.igUserId,
+      igUsername: profileUsername || params.igUserId,
       profilePic: profilePic || null,
       fullName: fullName || null,
       lastSeenAt: new Date(),
@@ -237,6 +287,62 @@ export async function evaluateCommentTrigger(
   return evaluateKeywordMatch(comment.text, config);
 }
 
+async function sendActionMedia(params: {
+  client: InstagramClient;
+  recipientId: string;
+  automationId: string;
+  imageUrl?: string;
+  imageAttachmentId?: string;
+  audioUrl?: string;
+  audioAttachmentId?: string;
+}) {
+  const {
+    client,
+    recipientId,
+    automationId,
+    imageUrl,
+    imageAttachmentId,
+    audioUrl,
+    audioAttachmentId,
+  } = params;
+
+  if (imageAttachmentId || imageUrl) {
+    try {
+      if (imageAttachmentId) {
+        await client.sendMediaAttachment(recipientId, 'image', imageAttachmentId);
+      } else if (imageUrl) {
+        await client.sendMediaByUrl(recipientId, 'image', imageUrl);
+      }
+    } catch (error) {
+      console.error('send media image failed', {
+        automationId,
+        imageUrl,
+        imageAttachmentId,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
+    }
+  }
+
+  if (audioAttachmentId || audioUrl) {
+    try {
+      if (audioAttachmentId) {
+        await client.sendMediaAttachment(recipientId, 'audio', audioAttachmentId);
+      } else if (audioUrl) {
+        await client.sendMediaByUrl(recipientId, 'audio', audioUrl);
+      }
+    } catch (error) {
+      console.error('send media audio failed', {
+        automationId,
+        audioUrl,
+        audioAttachmentId,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
+    }
+  }
+}
+
 async function sendOutboundDm(params: {
   client: InstagramClient;
   context: AutomationContext;
@@ -244,18 +350,56 @@ async function sendOutboundDm(params: {
   buttons?: ActionConfig['buttons'];
   quickReplies?: ActionConfig['quickReplies'];
   automationId: string;
+  imageUrl?: string;
+  imageAttachmentId?: string;
+  audioUrl?: string;
+  audioAttachmentId?: string;
 }) {
-  const { client, context, text, buttons, quickReplies, automationId } = params;
+  const {
+    client,
+    context,
+    text,
+    buttons,
+    quickReplies,
+    automationId,
+    imageUrl,
+    imageAttachmentId,
+    audioUrl,
+    audioAttachmentId,
+  } = params;
+
+  const hasMedia = Boolean(imageUrl || imageAttachmentId || audioUrl || audioAttachmentId);
+  if (hasMedia && context.userId) {
+    await sendActionMedia({
+      client,
+      recipientId: context.userId,
+      automationId,
+      imageUrl,
+      imageAttachmentId,
+      audioUrl,
+      audioAttachmentId,
+    });
+  }
+
+  if (!text.trim() && !buttons?.length && !quickReplies?.length) {
+    return;
+  }
 
   if (buttons && buttons.length > 0) {
-    const mapped = buttons.slice(0, 3).map((button, index) => ({
-      title: button.title,
-      payload: buttonPayload(automationId, index),
-    }));
+    const mapped = buttons.slice(0, 3).map((button, index) => {
+      const url = button.url?.trim();
+      if (url) {
+        return { title: button.title, url };
+      }
+      return {
+        title: button.title,
+        payload: buttonPayload(automationId, index),
+      };
+    });
     if (context.commentId && context.source !== 'dm_keyword' && context.source !== 'default_reply') {
-      await client.sendPrivateReplyWithButtons(context.commentId, text, mapped);
+      await client.sendPrivateReplyWithButtons(context.commentId, text || ' ', mapped);
     } else if (context.userId) {
-      await client.sendMessageWithButtons(context.userId, text, mapped);
+      await client.sendMessageWithButtons(context.userId, text || ' ', mapped);
     }
     return;
   }
@@ -263,7 +407,7 @@ async function sendOutboundDm(params: {
   if (quickReplies && quickReplies.length > 0 && context.userId) {
     await client.sendMessageWithQuickReplies(
       context.userId,
-      text,
+      text || ' ',
       quickReplies.slice(0, 13).map((item, index) => ({
         title: item.title,
         payload: buttonPayload(automationId, index),
@@ -271,6 +415,8 @@ async function sendOutboundDm(params: {
     );
     return;
   }
+
+  if (!text.trim()) return;
 
   if (context.commentId && (context.source === 'comment' || context.source === 'live_comment')) {
     await client.sendPrivateReply(context.commentId, text);
@@ -366,12 +512,23 @@ async function runActions(params: {
   context: AutomationContext;
   contactId: string;
   state: ContactState;
+  templateVars: Record<string, string>;
   executionId?: string;
   completedActions?: Set<string>;
-}): Promise<'ok' | 'waiting_input'> {
-  const { actions, automation, client, context } = params;
+}): Promise<'ok' | 'waiting_input' | 'stopped'> {
+  const { actions, automation, client, context, templateVars } = params;
   let { state } = params;
   const completedActions = params.completedActions || new Set<string>();
+  const liveVars = () => ({
+    ...templateVars,
+    ...buildTemplateVars({
+      fullName: templateVars.nome || templateVars.name,
+      igUsername: templateVars.username,
+      commentText: context.commentText,
+      messageText: context.messageText,
+      customData: state.customData,
+    }),
+  });
 
   const trackOutbound = async (
     text: string,
@@ -428,26 +585,54 @@ async function runActions(params: {
         break;
       }
 
-      case 'reply_comment':
-        if (context.commentId && action.text) {
-          await client.replyToComment(context.commentId, action.text);
+      case 'reply_comment': {
+        const picked = resolveCopy(action, liveVars(), {
+          sequence: readVariantSequence(state, automation.id, key),
+        });
+        if (context.commentId && picked.text) {
+          await client.replyToComment(context.commentId, picked.text);
+          await persistVariantSequence(
+            params.contactId,
+            state,
+            automation.id,
+            key,
+            picked.nextSequence
+          );
         }
         await markDone(key);
         break;
+      }
 
-      case 'send_dm':
+      case 'send_dm': {
         if (action.delay && action.delay > 0) {
           await new Promise((resolve) => setTimeout(resolve, action.delay! * 1000));
         }
-        if (action.text && (context.userId || context.commentId)) {
+        const picked = resolveCopy(action, liveVars(), {
+          sequence: readVariantSequence(state, automation.id, key),
+        });
+        const imageUrl = action.imageUrl?.trim() || '';
+        const imageAttachmentId = action.imageAttachmentId?.trim() || '';
+        const audioUrl = action.audioUrl?.trim() || '';
+        const audioAttachmentId = action.audioAttachmentId?.trim() || '';
+        const hasMedia = Boolean(
+          imageUrl || imageAttachmentId || audioUrl || audioAttachmentId
+        );
+        if (
+          (picked.text || hasMedia || action.buttons?.length || action.quickReplies?.length) &&
+          (context.userId || context.commentId)
+        ) {
           try {
             await sendOutboundDm({
               client,
               context,
-              text: action.text,
+              text: picked.text,
               buttons: action.buttons,
               quickReplies: action.quickReplies,
               automationId: automation.id,
+              imageUrl: imageUrl || undefined,
+              imageAttachmentId: imageAttachmentId || undefined,
+              audioUrl: audioUrl || undefined,
+              audioAttachmentId: audioAttachmentId || undefined,
             });
           } catch (error) {
             console.error('send_dm/private_reply failed', {
@@ -459,47 +644,115 @@ async function runActions(params: {
             });
             throw error;
           }
+          await persistVariantSequence(
+            params.contactId,
+            state,
+            automation.id,
+            key,
+            picked.nextSequence
+          );
+          const mediaLabel = audioUrl || audioAttachmentId
+            ? '[áudio]'
+            : imageUrl || imageAttachmentId
+              ? '[imagem]'
+              : '';
           await trackOutbound(
-            action.text,
+            picked.text || mediaLabel,
             action.buttons?.length
               ? 'buttons'
               : action.quickReplies?.length
                 ? 'quick_replies'
-                : 'text',
-            `dm:${action.text.slice(0, 24)}`,
-            action.buttons?.map((b) => ({ title: b.title, type: 'postback' as const })) ||
+                : mediaLabel && !picked.text
+                  ? audioUrl || audioAttachmentId
+                    ? 'audio'
+                    : 'image'
+                  : 'text',
+            `dm:${(picked.text || mediaLabel).slice(0, 24)}`,
+            action.buttons?.map((b) => ({
+              title: b.title,
+              type: (b.url?.trim() ? 'web_url' : 'postback') as 'postback' | 'web_url',
+            })) ||
               action.quickReplies?.map((b) => ({
                 title: b.title,
                 type: 'quick_reply' as const,
               }))
           );
+          const { bumpAutomationStat } = await import('@/lib/automation/stats');
+          await bumpAutomationStat(automation.id, 'dms');
         }
         await markDone(key);
         break;
+      }
 
       case 'add_tag':
         if (action.tag && !state.tags.includes(action.tag)) {
           state.tags.push(action.tag);
           await saveContactState(params.contactId, state);
+          const { bumpAutomationStat } = await import('@/lib/automation/stats');
+          await bumpAutomationStat(automation.id, 'tags');
         }
         await markDone(key);
         break;
 
-      case 'follow_gate':
-        if (context.commentId && action.prompt) {
+      case 'follow_gate': {
+        const prompt = resolveCopy(action, liveVars(), {
+          pool: 'prompt',
+          sequence: readVariantSequence(state, automation.id, `${key}:prompt`),
+        });
+        if (prompt.text && (context.commentId || context.userId)) {
           const gateButton = {
             title: action.buttonLabel || 'Já sigo',
             payload: followCheckPayload(automation.id),
           };
-          await client.sendPrivateReplyWithButtons(context.commentId, action.prompt, [
-            gateButton,
-          ]);
-          await trackOutbound(action.prompt, 'follow_gate', 'follow_gate', [
+          if (
+            context.commentId &&
+            context.source !== 'dm_keyword' &&
+            context.source !== 'default_reply' &&
+            context.source !== 'story_reply' &&
+            context.source !== 'story_mention'
+          ) {
+            await client.sendPrivateReplyWithButtons(context.commentId, prompt.text, [
+              gateButton,
+            ]);
+          } else if (context.userId) {
+            await client.sendMessageWithButtons(context.userId, prompt.text, [gateButton]);
+          }
+          await persistVariantSequence(
+            params.contactId,
+            state,
+            automation.id,
+            `${key}:prompt`,
+            prompt.nextSequence
+          );
+          await trackOutbound(prompt.text, 'follow_gate', 'follow_gate', [
             { title: gateButton.title, type: 'postback' },
           ]);
         }
         await markDone(key);
         break;
+      }
+
+      case 'human_handoff': {
+        const note =
+          interpolateTemplate(action.text || '', liveVars()) ||
+          'Um atendente vai te responder em breve.';
+        if (context.userId && note) {
+          await client.sendMessage(context.userId, note);
+          await trackOutbound(note, 'human_handoff', 'handoff');
+        }
+        if (params.contactId) {
+          state.customData._automationPausedUntil = 'until_closed';
+          state.customData._handoffAt = new Date().toISOString();
+          state.customData._handoffAutomationId = automation.id;
+          await saveContactState(params.contactId, state);
+          await prisma.contact.update({
+            where: { id: params.contactId },
+            data: { automationPaused: true },
+          });
+        }
+        await markDone(key);
+        return 'stopped';
+      }
 
       case 'condition': {
         const passed = await evaluateCondition(action, { client, context, state });
@@ -513,18 +766,28 @@ async function runActions(params: {
         state = params.state;
         await markDone(key);
         if (result === 'waiting_input') return 'waiting_input';
+        if (result === 'stopped') return 'stopped';
         break;
       }
 
       case 'ask_input': {
         if (!context.userId || !action.prompt || !action.saveKey) break;
-        await client.sendMessage(context.userId, action.prompt);
-        await trackOutbound(action.prompt, 'ask_input', `ask:${action.saveKey}`);
+        const askPrompt = interpolateTemplate(action.prompt, liveVars());
+        await client.sendMessage(context.userId, askPrompt);
+        await trackOutbound(askPrompt, 'ask_input', `ask:${action.saveKey}`);
         state.customData._pendingInput = {
           automationId: automation.id,
           saveKey: action.saveKey,
           fieldType: action.fieldType || 'text',
           expiresAt: Date.now() + 1000 * 60 * 60 * 24,
+          context: {
+            commentId: context.commentId,
+            commentText: context.commentText,
+            messageText: context.messageText,
+            userId: context.userId,
+            username: context.username,
+            source: context.source,
+          },
         };
         await saveContactState(params.contactId, state);
         await markDone(key);
@@ -550,7 +813,7 @@ export async function executeAutomation(
   }
 
   const triggeredBy = context.commentId || context.userId || null;
-  if (context.commentId) {
+  if (context.commentId && !context.resume) {
     const duplicate = await prisma.automationExecution.findFirst({
       where: {
         automationId: automation.id,
@@ -567,6 +830,11 @@ export async function executeAutomation(
       });
       return;
     }
+  }
+
+  if (!context.resume) {
+    const { bumpAutomationStat } = await import('@/lib/automation/stats');
+    await bumpAutomationStat(automation.id, 'triggers');
   }
 
   if (!automation.igAccount.igUserId) {
@@ -594,6 +862,8 @@ export async function executeAutomation(
 
     let contactId = '';
     let state: ContactState = { tags: [], customData: {} };
+    let contactFullName: string | null = null;
+    let contactUsername: string | null = context.username || null;
     let automationPaused = false;
     if (context.userId) {
       const contact = await getOrCreateContact({
@@ -607,6 +877,8 @@ export async function executeAutomation(
       });
       contactId = contact.id;
       state = readContactState(contact);
+      contactFullName = contact.fullName;
+      contactUsername = contact.igUsername || context.username || null;
       const { isAutomationTemporarilyPaused, clearInboxAutomationSuspend } = await import(
         '@/lib/inbox/settings'
       );
@@ -633,7 +905,15 @@ export async function executeAutomation(
       return;
     }
 
-    await runActions({
+    const templateVars = buildTemplateVars({
+      fullName: contactFullName,
+      igUsername: contactUsername,
+      commentText: context.commentText,
+      messageText: context.messageText,
+      customData: state.customData,
+    });
+
+    const runResult = await runActions({
       actions,
       automation: {
         id: automation.id,
@@ -649,13 +929,16 @@ export async function executeAutomation(
       },
       contactId,
       state,
+      templateVars,
       executionId: execution.id,
       completedActions,
     });
 
     await prisma.automationExecution.update({
       where: { id: execution.id },
-      data: { status: 'completed' },
+      data: {
+        status: runResult === 'waiting_input' ? 'waiting_input' : 'completed',
+      },
     });
   } catch (error) {
     await prisma.automationExecution.update({
@@ -667,6 +950,17 @@ export async function executeAutomation(
     });
     throw error;
   }
+}
+
+async function applyHandoffPause(contactId: string, state: ContactState, automationId: string) {
+  state.customData._automationPausedUntil = 'until_closed';
+  state.customData._handoffAt = new Date().toISOString();
+  state.customData._handoffAutomationId = automationId;
+  await saveContactState(contactId, state);
+  await prisma.contact.update({
+    where: { id: contactId },
+    data: { automationPaused: true },
+  });
 }
 
 export async function executeFollowGatePostback(params: {
@@ -733,21 +1027,94 @@ export async function executeFollowGatePostback(params: {
     const state = readContactState(contact);
     const follows = await client.isUserFollowBusiness(params.senderId);
     const businessIgUserId = automation.igAccount.igUserId!;
+    const vars = buildTemplateVars({
+      fullName: contact.fullName,
+      igUsername: contact.igUsername,
+      customData: state.customData,
+    });
+    const pickMode: VariantPickMode =
+      gate.textPickMode === 'sequential' ? 'sequential' : 'random';
 
-    if (follows === true) {
+    if (follows === null) {
+      const unsure =
+        'Não consegui verificar se você segue agora. Toca de novo em alguns segundos.';
+      const recheckLabel =
+        !gate.recheckButtonLabel || gate.recheckButtonLabel === 'Verificar de novo'
+          ? DEFAULT_FOLLOW_RECHECK_LABEL
+          : gate.recheckButtonLabel;
+      await client.sendMessageWithButtons(params.senderId, unsure, [
+        {
+          title: recheckLabel.slice(0, 20),
+          payload: followRecheckPayload(automation.id),
+        },
+      ]);
+      await logDm({
+        userId: automation.userId,
+        igAccountId: automation.igAccountId,
+        contactId: contact.id,
+        text: unsure,
+        messageType: 'follow_gate_unknown',
+      });
+      await recordOutboundInbox({
+        userId: automation.userId,
+        igAccountId: automation.igAccountId,
+        contactId: contact.id,
+        businessIgUserId,
+        recipientIgUserId: params.senderId,
+        text: unsure,
+        messageType: 'follow_gate_unknown',
+        dedupeKey: `out:${automation.id}:${params.senderId}:follow-null:${Date.now()}`,
+        automationId: automation.id,
+        automationName: automation.name,
+        buttons: [{ title: recheckLabel.slice(0, 20), type: 'postback' }],
+      });
+    } else if (follows === true) {
       const nudgeKey = `_followNudge:${automation.id}`;
       if (nudgeKey in state.customData) {
         delete state.customData[nudgeKey];
         await saveContactState(contact.id, state);
       }
-      const reward = gate.rewardText || '';
-      if (reward) {
-        await client.sendMessage(params.senderId, reward);
+      const rewardSlot = `follow_gate:${automation.id}:reward`;
+      const reward = resolveCopy(
+        { ...gate, textPickMode: pickMode },
+        vars,
+        {
+          pool: 'reward',
+          sequence: readVariantSequence(state, automation.id, rewardSlot),
+        }
+      );
+      if (reward.text || gate.imageUrl || gate.imageAttachmentId || gate.audioUrl || gate.audioAttachmentId) {
+        await sendActionMedia({
+          client,
+          recipientId: params.senderId,
+          automationId: automation.id,
+          imageUrl: gate.imageUrl?.trim() || undefined,
+          imageAttachmentId: gate.imageAttachmentId?.trim() || undefined,
+          audioUrl: gate.audioUrl?.trim() || undefined,
+          audioAttachmentId: gate.audioAttachmentId?.trim() || undefined,
+        });
+        if (reward.text) {
+          await client.sendMessage(params.senderId, reward.text);
+        }
+        await persistVariantSequence(
+          contact.id,
+          state,
+          automation.id,
+          rewardSlot,
+          reward.nextSequence
+        );
+        const rewardLabel =
+          reward.text ||
+          (gate.audioUrl || gate.audioAttachmentId
+            ? '[áudio]'
+            : gate.imageUrl || gate.imageAttachmentId
+              ? '[imagem]'
+              : '');
         await logDm({
           userId: automation.userId,
           igAccountId: automation.igAccountId,
           contactId: contact.id,
-          text: reward,
+          text: rewardLabel,
           messageType: 'follow_gate_reward',
         });
         await recordOutboundInbox({
@@ -756,7 +1123,7 @@ export async function executeFollowGatePostback(params: {
           contactId: contact.id,
           businessIgUserId,
           recipientIgUserId: params.senderId,
-          text: reward,
+          text: rewardLabel,
           messageType: 'follow_gate_reward',
           dedupeKey: `out:${automation.id}:${params.senderId}:reward:${Date.now()}`,
           automationId: automation.id,
@@ -766,7 +1133,17 @@ export async function executeFollowGatePostback(params: {
     } else {
       const nudgeKey = `_followNudge:${automation.id}`;
       const attempt = Number(state.customData[nudgeKey] || 0);
-      const ask = pickFollowNudgeMessage(attempt, gate.notFollowingText);
+      const notFollowingPool = resolveCopy(
+        { ...gate, textPickMode: pickMode },
+        vars,
+        {
+          pool: 'notFollowing',
+          sequence: attempt,
+        }
+      );
+      const ask =
+        notFollowingPool.text ||
+        interpolateTemplate(pickFollowNudgeMessage(attempt, gate.notFollowingText), vars);
       state.customData[nudgeKey] = attempt + 1;
       await saveContactState(contact.id, state);
 
@@ -819,6 +1196,33 @@ export async function executeFollowGatePostback(params: {
   }
 }
 
+function collectActionsDeep(actions: ActionConfig[]): ActionConfig[] {
+  const out: ActionConfig[] = [];
+  for (const action of actions) {
+    out.push(action);
+    if (action.then?.length) out.push(...collectActionsDeep(action.then));
+    if (action.else?.length) out.push(...collectActionsDeep(action.else));
+  }
+  return out;
+}
+
+function findButtonByIndex(
+  actions: ActionConfig[],
+  index: number
+): { button: NonNullable<ActionConfig['buttons']>[number]; parent: ActionConfig } | null {
+  for (const action of collectActionsDeep(actions)) {
+    if (action.type !== 'send_dm') continue;
+    const fromButtons = action.buttons?.[index];
+    if (fromButtons) {
+      if (fromButtons.url?.trim()) return null;
+      return { button: fromButtons, parent: action };
+    }
+    const fromQr = action.quickReplies?.[index];
+    if (fromQr) return { button: fromQr, parent: action };
+  }
+  return null;
+}
+
 export async function executeButtonPostback(params: {
   automationId: string;
   senderId: string;
@@ -831,14 +1235,9 @@ export async function executeButtonPostback(params: {
   if (!automation || !automation.isActive) return;
 
   const actions = parseActions(automation.actionsConfig);
-  const withButtons = actions.find(
-    (action) =>
-      (action.type === 'send_dm' && (action.buttons?.length || action.quickReplies?.length)) ||
-      false
-  );
-  const button =
-    withButtons?.buttons?.[params.index] || withButtons?.quickReplies?.[params.index];
-  if (!button) return;
+  const found = findButtonByIndex(actions, params.index);
+  if (!found) return;
+  const { button, parent: withButtons } = found;
 
   const accessToken = decrypt(automation.igAccount.accessToken);
   const client = createInstagramClient(accessToken, automation.igAccount.igUserId);
@@ -864,13 +1263,54 @@ export async function executeButtonPostback(params: {
 
   const state = readContactState(contact);
   const businessIgUserId = automation.igAccount.igUserId!;
+  const vars = buildTemplateVars({
+    fullName: contact.fullName,
+    igUsername: contact.igUsername,
+    customData: state.customData,
+  });
+  const pickMode: VariantPickMode =
+    withButtons?.textPickMode === 'sequential' ? 'sequential' : 'random';
 
   if (button.requireFollow) {
     const follows = await client.isUserFollowBusiness(params.senderId);
-    if (follows !== true) {
+    if (follows === null) {
+      const unsure =
+        'Não consegui verificar se você segue agora. Toca de novo em alguns segundos.';
+      await client.sendMessageWithButtons(params.senderId, unsure, [
+        {
+          title: DEFAULT_FOLLOW_RECHECK_LABEL,
+          payload: buttonPayload(automation.id, params.index),
+        },
+      ]);
+      await logDm({
+        userId: automation.userId,
+        igAccountId: automation.igAccountId,
+        contactId: contact.id,
+        text: unsure,
+        messageType: 'button_follow_unknown',
+      });
+      await recordOutboundInbox({
+        userId: automation.userId,
+        igAccountId: automation.igAccountId,
+        contactId: contact.id,
+        businessIgUserId,
+        recipientIgUserId: params.senderId,
+        text: unsure,
+        messageType: 'button_follow_unknown',
+        dedupeKey: `out:${automation.id}:${params.senderId}:btn-null:${params.index}:${Date.now()}`,
+        automationId: automation.id,
+        automationName: automation.name,
+        buttons: [{ title: DEFAULT_FOLLOW_RECHECK_LABEL, type: 'postback' }],
+      });
+      return;
+    }
+    if (follows === false) {
       const nudgeKey = `_followNudgeBtn:${automation.id}:${params.index}`;
       const attempt = Number(state.customData[nudgeKey] || 0);
-      const ask = pickFollowNudgeMessage(attempt, button.notFollowingText);
+      const picked = pickButtonText(button, 'notFollowing', pickMode, attempt);
+      const ask =
+        interpolateTemplate(picked.text, vars) ||
+        interpolateTemplate(pickFollowNudgeMessage(attempt, button.notFollowingText), vars);
       state.customData[nudgeKey] = attempt + 1;
       await saveContactState(contact.id, state);
 
@@ -910,19 +1350,41 @@ export async function executeButtonPostback(params: {
     }
   }
 
+  const { bumpAutomationStat } = await import('@/lib/automation/stats');
+  await bumpAutomationStat(automation.id, 'taps');
+
   if (button.addTag && !state.tags.includes(button.addTag)) {
     state.tags.push(button.addTag);
     await saveContactState(contact.id, state);
+    await bumpAutomationStat(automation.id, 'tags');
   }
 
-  if (button.responseText) {
-    await client.sendMessage(params.senderId, button.responseText);
+  const responseSlot = `btn:${automation.id}:${params.index}:response`;
+  const response = pickButtonText(
+    button,
+    'response',
+    pickMode,
+    readVariantSequence(state, automation.id, responseSlot)
+  );
+  let responseText = interpolateTemplate(response.text, vars);
+  if (button.handoff && !responseText) {
+    responseText = 'Um atendente vai te responder em breve.';
+  }
+  if (responseText) {
+    await client.sendMessage(params.senderId, responseText);
+    await persistVariantSequence(
+      contact.id,
+      state,
+      automation.id,
+      responseSlot,
+      response.nextSequence
+    );
     await logDm({
       userId: automation.userId,
       igAccountId: automation.igAccountId,
       contactId: contact.id,
-      text: button.responseText,
-      messageType: 'button_response',
+      text: responseText,
+      messageType: button.handoff ? 'human_handoff' : 'button_response',
     });
     await recordOutboundInbox({
       userId: automation.userId,
@@ -930,12 +1392,16 @@ export async function executeButtonPostback(params: {
       contactId: contact.id,
       businessIgUserId,
       recipientIgUserId: params.senderId,
-      text: button.responseText,
-      messageType: 'button_response',
+      text: responseText,
+      messageType: button.handoff ? 'human_handoff' : 'button_response',
       dedupeKey: `out:${automation.id}:${params.senderId}:btn:${params.index}:${Date.now()}`,
       automationId: automation.id,
       automationName: automation.name,
     });
+  }
+
+  if (button.handoff) {
+    await applyHandoffPause(contact.id, state, automation.id);
   }
 }
 
@@ -952,7 +1418,13 @@ export async function handlePendingInputReply(params: {
 
   const state = readContactState(contact);
   const pending = state.customData._pendingInput as
-    | { automationId: string; saveKey: string; fieldType?: string; expiresAt?: number }
+    | {
+        automationId: string;
+        saveKey: string;
+        fieldType?: string;
+        expiresAt?: number;
+        context?: AutomationContext;
+      }
     | undefined;
 
   if (!pending?.saveKey || !pending.automationId) return false;
@@ -977,8 +1449,23 @@ export async function handlePendingInputReply(params: {
   delete state.customData._pendingInput;
   await saveContactState(contact.id, state);
 
-  const client = createInstagramClient(decrypt(account.accessToken), account.igUserId);
-  await client.sendMessage(params.senderId, 'Recebido, obrigado!');
+  const resumeContext: AutomationContext = {
+    ...(pending.context || {}),
+    userId: params.senderId,
+    messageText: value,
+    resume: true,
+  };
+
+  try {
+    await executeAutomation(pending.automationId, resumeContext);
+  } catch (error) {
+    console.error('resume after ask_input failed', {
+      automationId: pending.automationId,
+      error: error instanceof Error ? error.message : error,
+    });
+    const client = createInstagramClient(decrypt(account.accessToken), account.igUserId);
+    await client.sendMessage(params.senderId, 'Recebido, obrigado!');
+  }
   return true;
 }
 

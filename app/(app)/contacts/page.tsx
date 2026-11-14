@@ -58,6 +58,7 @@ export default async function ContactsPage({
     q?: string;
     account?: string;
     automation?: string;
+    tag?: string;
   }>;
 }) {
   const session = await readSession();
@@ -69,8 +70,9 @@ export default async function ContactsPage({
   const q = firstParam(params.q);
   const account = firstParam(params.account);
   const automation = firstParam(params.automation);
+  const tag = firstParam(params.tag);
 
-  const [accounts, automationRows, livingAutomations] = await Promise.all([
+  const [accounts, automationRows, livingAutomations, tagRows] = await Promise.all([
     prisma.instagramAccount.findMany({
       where: { userId: session.userId },
       select: { id: true, igUsername: true },
@@ -89,6 +91,14 @@ export default async function ContactsPage({
       where: { userId: session.userId },
       select: { id: true },
     }),
+    prisma.contact.findMany({
+      where: {
+        userId: session.userId,
+        tags: { not: null },
+      },
+      select: { tags: true },
+      take: 2000,
+    }),
   ]);
 
   const livingIds = livingAutomations.map((a) => a.id);
@@ -96,6 +106,14 @@ export default async function ContactsPage({
   const automationNames = automationRows
     .map((row) => row.sourceAutomationName?.trim())
     .filter((name): name is string => Boolean(name));
+
+  const tagSet = new Set<string>();
+  for (const row of tagRows) {
+    for (const value of parseTags(row.tags)) {
+      tagSet.add(value);
+    }
+  }
+  const availableTags = [...tagSet].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
   const where: Prisma.ContactWhereInput = {
     userId: session.userId,
@@ -130,10 +148,15 @@ export default async function ContactsPage({
     where.igAccountId = account;
   }
 
+  if (tag) {
+    // tags is a JSON string array; match quoted value to avoid partial collisions.
+    where.tags = { contains: `"${tag.replace(/"/g, '')}"` };
+  }
+
   const totalItems = await prisma.contact.count({ where });
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const safePage = Math.min(page, totalPages);
-  const hasFilters = Boolean(q || account || automation);
+  const hasFilters = Boolean(q || account || automation || tag);
 
   const contacts = await prisma.contact.findMany({
     where,
@@ -169,6 +192,7 @@ export default async function ContactsPage({
     q: q || undefined,
     account: account || undefined,
     automation: automation || undefined,
+    tag: tag || undefined,
   };
 
   return (
@@ -190,9 +214,10 @@ export default async function ContactsPage({
 
       <div className="mb-4">
         <ContactsFilters
-          values={{ q, account, automation }}
+          values={{ q, account, automation, tag }}
           accounts={accounts}
           automations={automationNames}
+          tags={availableTags}
         />
       </div>
 
@@ -216,7 +241,7 @@ export default async function ContactsPage({
         <Card className="overflow-hidden">
           <CardContent className="p-0">
             <ContactsBulkList
-              key={`${q}|${account}|${automation}|${safePage}`}
+              key={`${q}|${account}|${automation}|${tag}|${safePage}`}
               contacts={listItems}
             />
             <PaginationNav

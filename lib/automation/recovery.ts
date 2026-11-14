@@ -1,10 +1,14 @@
 import { recoverFailedCommentAutomations } from '@/lib/automation/engine';
 import { recoverPendingCommentEvents } from '@/lib/instagram/webhook';
+import { refreshExpiringTokens } from '@/lib/instagram/token-refresh';
 
 const RECOVERY_INTERVAL_MS = 45_000;
+/** Token refresh roughly every ~30 recovery passes (~22 min). */
+const TOKEN_REFRESH_EVERY_N_PASSES = 30;
 
 let recoveryTimer: NodeJS.Timeout | null = null;
 let running = false;
+let passCount = 0;
 
 export async function runCommentRecoveryPass() {
   if (running) return;
@@ -14,6 +18,14 @@ export async function runCommentRecoveryPass() {
     const failed = await recoverFailedCommentAutomations(40);
     if (events.scanned || failed.scanned) {
       console.log('[RECOVERY] comment pass', { events, failed });
+    }
+
+    passCount += 1;
+    if (passCount === 1 || passCount % TOKEN_REFRESH_EVERY_N_PASSES === 0) {
+      const tokens = await refreshExpiringTokens(10);
+      if (tokens.scanned) {
+        console.log('[RECOVERY] token refresh', tokens);
+      }
     }
   } catch (error) {
     console.error('[RECOVERY] comment pass failed', error);

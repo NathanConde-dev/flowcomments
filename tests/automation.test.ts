@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateCommentTrigger } from '@/lib/automation/engine';
 import type { CommentTriggerConfig } from '@/lib/automation/engine';
+import {
+  interpolateTemplate,
+  pickActionText,
+  buildTemplateVars,
+} from '@/lib/automation/types';
 
 describe('Automation Engine', () => {
   describe('evaluateCommentTrigger', () => {
@@ -55,6 +60,42 @@ describe('Automation Engine', () => {
       };
 
       expect(await evaluateCommentTrigger({ text: 'promoção aqui' }, configInsensitive)).toBe(true);
+    });
+  });
+
+  describe('pickActionText', () => {
+    it('uses text when no variants', () => {
+      expect(pickActionText({ text: 'olá' }).text).toBe('olá');
+    });
+
+    it('picks from texts pool', () => {
+      const pool = ['a', 'b', 'c'];
+      const picked = pickActionText({ text: 'a', texts: pool });
+      expect(pool).toContain(picked.text);
+    });
+
+    it('rotates sequentially', () => {
+      const action = {
+        text: 'a',
+        texts: ['a', 'b', 'c'],
+        textPickMode: 'sequential' as const,
+      };
+      expect(pickActionText(action, { sequence: 0 }).text).toBe('a');
+      expect(pickActionText(action, { sequence: 1 }).text).toBe('b');
+      expect(pickActionText(action, { sequence: 2 }).nextSequence).toBe(3);
+    });
+  });
+
+  describe('interpolateTemplate', () => {
+    it('replaces known vars', () => {
+      const vars = buildTemplateVars({
+        fullName: 'Ana Silva',
+        igUsername: 'ana.s',
+        commentText: 'quero',
+      });
+      expect(
+        interpolateTemplate('Oi {{primeiro_nome}} (@{{username}}) — {{comentario}}', vars)
+      ).toBe('Oi Ana (@ana.s) — quero');
     });
   });
 });

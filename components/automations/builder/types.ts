@@ -9,8 +9,10 @@ export type FlowNodeId =
   | 'dmNotFollowing'
   | 'delay'
   | 'condition'
+  | 'conditionElse'
   | 'addTag'
-  | 'askInput';
+  | 'askInput'
+  | 'handoff';
 
 export type BuilderStep = 'setup' | 'post' | 'flow';
 
@@ -53,12 +55,20 @@ export interface InstagramMediaPost {
 
 export type NodePosition = { x: number; y: number };
 
+export type VariantPickMode = 'random' | 'sequential';
+
+export type DelayUnit = 'seconds' | 'minutes' | 'days';
+
 export interface DmButtonDraft {
   title: string;
-  responseText: string;
+  /** HTTPS link → Meta web_url (abre o link; sem postback). */
+  url: string;
+  responseVariants: string[];
   addTag: string;
   requireFollow: boolean;
-  notFollowingText: string;
+  notFollowingVariants: string[];
+  /** Pausa a automação e espera atendimento humano. */
+  handoff: boolean;
 }
 
 export interface AutomationDraft {
@@ -71,18 +81,30 @@ export interface AutomationDraft {
   matchType: MatchType;
   caseSensitive: boolean;
   replyEnabled: boolean;
-  replyComment: string;
+  /** Reply variants (one picked per send). */
+  replyVariants: string[];
   dmEnabled: boolean;
-  sendDm: string;
+  /** DM / reward variants (one picked per send). */
+  dmVariants: string[];
+  /** Public image URL attached to the DM. */
+  dmImageUrl: string;
+  dmImageAttachmentId: string;
+  /** Public audio URL / Meta attachment for DM. */
+  dmAudioUrl: string;
+  dmAudioAttachmentId: string;
+  dmAudioName: string;
+  /** How to rotate text variants. */
+  variantPickMode: VariantPickMode;
   dmDelay: number;
   dmButtons: DmButtonDraft[];
   followCheckEnabled: boolean;
-  gatePrompt: string;
+  gatePromptVariants: string[];
   gateButtonLabel: string;
-  dmIfNotFollowing: string;
+  dmIfNotFollowingVariants: string[];
   recheckButtonLabel: string;
   delayEnabled: boolean;
-  delaySeconds: number;
+  delayAmount: number;
+  delayUnit: DelayUnit;
   conditionEnabled: boolean;
   conditionRule: ConditionRule;
   conditionTag: string;
@@ -94,6 +116,8 @@ export interface AutomationDraft {
   askInputPrompt: string;
   askInputSaveKey: string;
   askInputFieldType: 'text' | 'email' | 'phone';
+  handoffEnabled: boolean;
+  handoffText: string;
   nodePositions: Record<FlowNodeId, NodePosition>;
 }
 
@@ -103,9 +127,11 @@ export const DEFAULT_NODE_POSITIONS: Record<FlowNodeId, NodePosition> = {
   reply: { x: 260, y: 300 },
   delay: { x: 260, y: 420 },
   condition: { x: 260, y: 540 },
+  conditionElse: { x: 480, y: 680 },
   followCheck: { x: 260, y: 540 },
   addTag: { x: 60, y: 680 },
   askInput: { x: 260, y: 680 },
+  handoff: { x: 260, y: 920 },
   dm: { x: 80, y: 820 },
   dmNotFollowing: { x: 440, y: 820 },
 };
@@ -129,18 +155,25 @@ export const defaultAutomationDraft = (): AutomationDraft => ({
   matchType: 'contains',
   caseSensitive: false,
   replyEnabled: false,
-  replyComment: '',
+  replyVariants: [''],
   dmEnabled: false,
-  sendDm: '',
+  dmVariants: [''],
+  dmImageUrl: '',
+  dmImageAttachmentId: '',
+  dmAudioUrl: '',
+  dmAudioAttachmentId: '',
+  dmAudioName: '',
+  variantPickMode: 'random',
   dmDelay: 0,
   dmButtons: [],
   followCheckEnabled: false,
-  gatePrompt: '',
+  gatePromptVariants: [''],
   gateButtonLabel: 'Já sigo',
-  dmIfNotFollowing: '',
+  dmIfNotFollowingVariants: [''],
   recheckButtonLabel: 'Já segui',
   delayEnabled: false,
-  delaySeconds: 3,
+  delayAmount: 3,
+  delayUnit: 'seconds',
   conditionEnabled: false,
   conditionRule: 'has_tag',
   conditionTag: '',
@@ -152,6 +185,8 @@ export const defaultAutomationDraft = (): AutomationDraft => ({
   askInputPrompt: '',
   askInputSaveKey: 'email',
   askInputFieldType: 'email',
+  handoffEnabled: false,
+  handoffText: 'Um atendente vai te responder em breve.',
   nodePositions: { ...DEFAULT_NODE_POSITIONS },
 });
 
@@ -175,13 +210,17 @@ export function applyAutomationTemplate(
       keywords: ['quero', 'link'],
       matchType: 'contains',
       replyEnabled: true,
-      replyComment: 'Te mandei no direct ✉️',
+      replyVariants: ['Te mandei no direct ✉️', 'Te chamei no direct!', 'Mandei pra você no privado ✉️'],
       followCheckEnabled: true,
-      gatePrompt: 'Toque abaixo pra receber o link — precisa estar me seguindo.',
+      gatePromptVariants: [
+        'Toque abaixo pra receber o link — precisa estar me seguindo.',
+      ],
       gateButtonLabel: 'Já sigo',
       dmEnabled: true,
-      sendDm: 'Aqui está o link: https://seu-link.com',
-      dmIfNotFollowing: 'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
+      dmVariants: ['Aqui está o link: https://seu-link.com'],
+      dmIfNotFollowingVariants: [
+        'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
+      ],
       recheckButtonLabel: 'Já segui',
       nodePositions: { ...DEFAULT_NODE_POSITIONS },
     };
@@ -195,14 +234,16 @@ export function applyAutomationTemplate(
       keywords: ['link', 'info'],
       matchType: 'contains',
       dmEnabled: true,
-      sendDm: 'Oi! Aqui está o que você pediu: https://seu-link.com',
+      dmVariants: ['Oi! Aqui está o que você pediu: https://seu-link.com'],
       dmButtons: [
         {
           title: 'Quero mais',
-          responseText: 'Perfeito — me conta o que precisa.',
+          url: '',
+          responseVariants: ['Perfeito — me conta o que precisa.'],
           addTag: 'interessado',
           requireFollow: false,
-          notFollowingText: '',
+          notFollowingVariants: [''],
+          handoff: false,
         },
       ],
       nodePositions: {
@@ -220,7 +261,9 @@ export function applyAutomationTemplate(
       keywords: [],
       matchType: 'any',
       dmEnabled: true,
-      sendDm: 'Oi! Recebi sua mensagem. Em breve te respondo — ou digite MENU para opções.',
+      dmVariants: [
+        'Oi! Recebi sua mensagem. Em breve te respondo — ou digite MENU para opções.',
+      ],
       nodePositions: {
         ...DEFAULT_NODE_POSITIONS,
         dm: { x: 260, y: 320 },
@@ -236,7 +279,7 @@ export function applyAutomationTemplate(
       keywords: [],
       matchType: 'any',
       dmEnabled: true,
-      sendDm: 'Obrigado por me marcar no story! 💛',
+      dmVariants: ['Obrigado por me marcar no story! 💛'],
       addTagEnabled: true,
       tagToAdd: 'mencionou',
       nodePositions: {
@@ -255,7 +298,7 @@ export function applyAutomationTemplate(
       keywords: ['dúvida', 'ajuda', 'faq'],
       matchType: 'contains',
       dmEnabled: true,
-      sendDm: 'Oi! Me conta sua dúvida que eu te ajudo por aqui.',
+      dmVariants: ['Oi! Me conta sua dúvida que eu te ajudo por aqui.'],
       askInputEnabled: true,
       askInputPrompt: 'Se quiser, deixa seu e-mail pra eu te enviar o material:',
       askInputSaveKey: 'email',
@@ -275,14 +318,51 @@ export function applyAutomationTemplate(
     keywords: ['preço', 'info'],
     matchType: 'contains',
     replyEnabled: true,
-    replyComment: 'Te enviei os detalhes no direct!',
+    replyVariants: [
+      'Te enviei os detalhes no direct!',
+      'Mandei as infos no privado ✉️',
+      'Olha o direct — te expliquei por lá!',
+    ],
     dmEnabled: true,
-    sendDm: 'Oi! Vi seu comentário — aqui estão as informações.',
+    dmVariants: ['Oi! Vi seu comentário — aqui estão as informações.'],
     nodePositions: {
       ...DEFAULT_NODE_POSITIONS,
       dm: { x: 260, y: 450 },
     },
   };
+}
+
+export function firstVariant(variants: string[] | undefined): string {
+  return (variants || []).find((v) => v.trim())?.trim() || '';
+}
+
+export function filledVariants(variants: string[] | undefined): string[] {
+  return (variants || []).map((v) => v.trim()).filter(Boolean);
+}
+
+export function delayToSeconds(amount: number, unit: DelayUnit): number {
+  const safe = Math.max(0, Math.floor(amount) || 0);
+  if (unit === 'days') return safe * 86400;
+  if (unit === 'minutes') return safe * 60;
+  return safe;
+}
+
+export function splitDelaySeconds(seconds: number): { amount: number; unit: DelayUnit } {
+  const safe = Math.max(0, Math.floor(seconds) || 0);
+  if (safe >= 86400 && safe % 86400 === 0) {
+    return { amount: safe / 86400, unit: 'days' };
+  }
+  if (safe >= 60 && safe % 60 === 0) {
+    return { amount: safe / 60, unit: 'minutes' };
+  }
+  return { amount: safe || 3, unit: 'seconds' };
+}
+
+export function formatDelayLabel(amount: number, unit: DelayUnit): string {
+  const n = Math.max(0, amount || 0);
+  if (unit === 'days') return n === 1 ? '1 dia' : `${n} dias`;
+  if (unit === 'minutes') return n === 1 ? '1 min' : `${n} min`;
+  return n === 1 ? '1s' : `${n}s`;
 }
 
 export function relativeTimePt(iso: string): string {

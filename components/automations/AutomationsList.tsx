@@ -30,6 +30,12 @@ export type AutomationListItem = {
   keywords: string[];
   mediaScope: 'specific' | 'any';
   mediaIds: string[];
+  stats: {
+    triggers: number;
+    dms: number;
+    taps: number;
+    tags: number;
+  };
 };
 
 type AutomationsListProps = {
@@ -231,6 +237,15 @@ export function AutomationsList({ initialItems }: AutomationsListProps) {
                             ? ` · ${cover.caption.slice(0, 56)}${cover.caption.length > 56 ? '…' : ''}`
                             : ''}
                     </p>
+                    {(item.stats.triggers > 0 ||
+                      item.stats.dms > 0 ||
+                      item.stats.taps > 0) && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {item.stats.triggers} disparos · {item.stats.dms} DMs ·{' '}
+                        {item.stats.taps} taps
+                        {item.stats.tags > 0 ? ` · ${item.stats.tags} tags` : ''}
+                      </p>
+                    )}
                   </div>
                   {item.keywords.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">

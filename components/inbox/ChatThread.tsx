@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { ArrowLeft, Instagram, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { contactDisplayName, contactInitial } from '@/lib/inbox/contacts';
 import { toast } from '@/lib/ui/toast';
 import { Composer } from './Composer';
 import { ConversationToolbar } from './ConversationToolbar';
@@ -83,12 +84,12 @@ export function ChatThread({
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-sm font-semibold">
-                {conversation.contact.igUsername[0]?.toUpperCase()}
+                {contactInitial(conversation.contact)}
               </div>
             )}
           </div>
           <div className="min-w-0">
-            <p className="truncate font-semibold">@{conversation.contact.igUsername}</p>
+            <p className="truncate font-semibold">{contactDisplayName(conversation.contact)}</p>
             <p className="truncate text-xs text-muted-foreground">
               {isClosed ? 'Fechada' : 'Aberta'}
               {conversation.contact.automationPaused ? ' · automação pausada' : ''}

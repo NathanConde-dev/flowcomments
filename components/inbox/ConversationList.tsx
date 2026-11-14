@@ -3,6 +3,7 @@
 import { Search, Star } from 'lucide-react';
 import { InstagramDirectIcon } from '@/components/icons/InstagramDirectIcon';
 import { InboxListRowsSkeleton } from '@/components/ui/skeletons';
+import { contactDisplayName, contactInitial } from '@/lib/inbox/contacts';
 import { formatRelativePt } from './relative-time';
 import type { InboxFilter, InboxListItem } from './types';
 
@@ -62,6 +63,9 @@ export function ConversationList({
             </button>
           ))}
         </div>
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
+          Só aparecem conversas que vieram de automações criadas. Mensagens fora disso ficam fora da inbox.
+        </p>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -70,7 +74,10 @@ export function ConversationList({
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
             <InstagramDirectIcon className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Nenhuma conversa</p>
+            <p className="text-sm font-medium text-foreground">Nenhuma conversa de automação</p>
+            <p className="max-w-[16rem] text-xs leading-relaxed text-muted-foreground">
+              O chat só mostra mensagens que vieram de automações criadas.
+            </p>
           </div>
         ) : (
           items.map((item) => {
@@ -95,7 +102,7 @@ export function ConversationList({
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-muted-foreground">
-                      {item.contact.igUsername[0]?.toUpperCase()}
+                      {contactInitial(item.contact)}
                     </div>
                   )}
                   {item.unreadCount > 0 && (
@@ -104,7 +111,7 @@ export function ConversationList({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-sm font-semibold">@{item.contact.igUsername}</p>
+                    <p className="truncate text-sm font-semibold">{contactDisplayName(item.contact)}</p>
                     {item.isFavorite && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />}
                     <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
                       {formatRelativePt(item.lastMessageAt)}

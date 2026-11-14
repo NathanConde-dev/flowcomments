@@ -10,16 +10,19 @@ export type ContactsFilterValues = {
   q: string;
   account: string;
   automation: string;
+  tag: string;
 };
 
 export function ContactsFilters({
   values,
   accounts,
   automations,
+  tags,
 }: {
   values: ContactsFilterValues;
   accounts: Array<{ id: string; igUsername: string }>;
   automations: string[];
+  tags: string[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -30,9 +33,11 @@ export function ContactsFilters({
     const q = String(data.get('q') || '').trim();
     const account = String(data.get('account') || '').trim();
     const automation = String(data.get('automation') || '').trim();
+    const tag = String(data.get('tag') || '').trim();
     if (q) params.set('q', q);
     if (account) params.set('account', account);
     if (automation) params.set('automation', automation);
+    if (tag) params.set('tag', tag);
     const qs = params.toString();
     startTransition(() => {
       router.push(qs ? `/contacts?${qs}` : '/contacts');
@@ -43,7 +48,7 @@ export function ContactsFilters({
     startTransition(() => router.push('/contacts'));
   };
 
-  const hasFilters = Boolean(values.q || values.account || values.automation);
+  const hasFilters = Boolean(values.q || values.account || values.automation || values.tag);
 
   return (
     <form
@@ -96,6 +101,22 @@ export function ContactsFilters({
             {automations.map((name) => (
               <option key={name} value={name}>
                 {name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="w-full space-y-1.5 lg:w-44">
+          <span className="text-xs font-semibold text-muted-foreground">Tag</span>
+          <select
+            name="tag"
+            defaultValue={values.tag}
+            className="flex h-10 w-full rounded-xl border border-border bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <option value="">Todas</option>
+            {tags.map((tag) => (
+              <option key={tag} value={tag}>
+                {tag}
               </option>
             ))}
           </select>

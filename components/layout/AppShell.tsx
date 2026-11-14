@@ -36,8 +36,10 @@ import { MobileBottomNav } from './MobileBottomNav';
 import { MobileTopBar } from './MobileTopBar';
 
 const GITHUB_REPO_URL = 'https://github.com/NathanConde-dev/flowcomments';
-/** Set NEXT_PUBLIC_WHATSAPP_GROUP_URL when the community invite is ready. */
-const WHATSAPP_GROUP_URL = (process.env.NEXT_PUBLIC_WHATSAPP_GROUP_URL || '').trim();
+/** Landing that redirects to the community invite (override with NEXT_PUBLIC_WHATSAPP_GROUP_URL). */
+const COMMUNITY_URL =
+  (process.env.NEXT_PUBLIC_WHATSAPP_GROUP_URL || '').trim() ||
+  'https://www.nathanconde.com/comunidade';
 
 interface AppShellProps {
   username: string;
@@ -408,38 +410,22 @@ function HelpMenu({
               </span>
             </span>
           </a>
-          {WHATSAPP_GROUP_URL ? (
-            <a
-              href={WHATSAPP_GROUP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
-            >
-              <MessageCircle className="h-4 w-4 shrink-0 text-emerald-600" />
-              <span className="min-w-0">
-                <span className="block font-medium">Grupo no WhatsApp</span>
-                <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                  IA, Tech e Open Source
-                </span>
+          <a
+            href={COMMUNITY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+          >
+            <MessageCircle className="h-4 w-4 shrink-0 text-emerald-600" />
+            <span className="min-w-0">
+              <span className="block font-medium">Grupo no WhatsApp</span>
+              <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                IA, Tech e Open Source
               </span>
-            </a>
-          ) : (
-            <div
-              role="menuitem"
-              aria-disabled="true"
-              className="flex items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-sm text-muted-foreground"
-            >
-              <MessageCircle className="h-4 w-4 shrink-0 text-emerald-600/70" />
-              <span className="min-w-0">
-                <span className="block font-medium text-foreground/80">Grupo no WhatsApp</span>
-                <span className="mt-0.5 block text-[11px]">
-                  Em breve — IA, Tech e Open Source
-                </span>
-              </span>
-            </div>
-          )}
+            </span>
+          </a>
         </div>
       )}
     </div>

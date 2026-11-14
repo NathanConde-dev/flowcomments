@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
+import { automationLinkedConversationWhere, contactDisplayName } from '@/lib/inbox/contacts';
 import { getInboxSettings } from '@/lib/inbox/settings';
 
 export async function GET() {
@@ -13,6 +14,7 @@ export async function GET() {
         userId: session.userId,
         unreadCount: { gt: 0 },
         status: 'open',
+        AND: [automationLinkedConversationWhere],
       },
       orderBy: { lastMessageAt: 'desc' },
       take: 20,
@@ -23,6 +25,7 @@ export async function GET() {
         contact: {
           select: {
             igUsername: true,
+            fullName: true,
             profilePic: true,
           },
         },
@@ -50,7 +53,7 @@ export async function GET() {
         id: c.id,
         unreadCount: c.unreadCount,
         lastMessageAt: c.lastMessageAt?.toISOString() || null,
-        contactUsername: c.contact.igUsername,
+        contactUsername: contactDisplayName(c.contact),
         profilePic: c.contact.profilePic,
         preview: c.messages[0]?.text || null,
         previewFromPage: c.messages[0]?.isFromPage || false,

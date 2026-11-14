@@ -17,6 +17,7 @@ import { Instagram } from 'lucide-react';
 import { AccountRowSkeleton } from '@/components/ui/skeletons';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from '@/lib/ui/toast';
+import { IceBreakersEditor } from '@/components/settings/IceBreakersEditor';
 
 interface IGAccount {
   id: string;
@@ -33,6 +34,7 @@ export default function InstagramSettingsPage() {
   const [connecting, setConnecting] = useState(false);
   const [metaConfigured, setMetaConfigured] = useState(false);
   const [expiryInfoAccount, setExpiryInfoAccount] = useState<IGAccount | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -86,6 +88,35 @@ export default function InstagramSettingsPage() {
     window.location.href = '/api/instagram/connect?returnUrl=/settings/instagram';
   };
 
+  const reloadAccounts = async () => {
+    const accountsRes = await fetch('/api/instagram/accounts');
+    if (accountsRes.ok) {
+      const data = await accountsRes.json();
+      setIgAccounts(data.accounts || []);
+    }
+  };
+
+  const handleRefreshToken = async (accountId: string, username: string) => {
+    setRefreshingId(accountId);
+    try {
+      const res = await fetch('/api/instagram/refresh-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Falha ao renovar');
+      }
+      toast.success(`Token de @${username} renovado`);
+      await reloadAccounts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erro ao renovar token');
+    } finally {
+      setRefreshingId(null);
+    }
+  };
+
   const handleDisconnect = async (accountId: string, username: string) => {
     if (!confirm(`Desconectar @${username}?`)) return;
 
@@ -98,11 +129,7 @@ export default function InstagramSettingsPage() {
 
       if (res.ok) {
         toast.success(`@${username} desconectada`);
-        const accountsRes = await fetch('/api/instagram/accounts');
-        if (accountsRes.ok) {
-          const data = await accountsRes.json();
-          setIgAccounts(data.accounts || []);
-        }
+        await reloadAccounts();
       } else {
         toast.error('Erro ao desconectar conta');
       }
@@ -210,13 +237,23 @@ export default function InstagramSettingsPage() {
                       </div>
                     </div>
                   </div>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDisconnect(account.id, account.igUsername)}
-                  >
-                    Desconectar
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={refreshingId === account.id}
+                      onClick={() => handleRefreshToken(account.id, account.igUsername)}
+                    >
+                      {refreshingId === account.id ? 'Renovando…' : 'Renovar token'}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDisconnect(account.id, account.igUsername)}
+                    >
+                      Desconectar
+                    </Button>
+                  </div>
                 </div>
               ))}
               <Button
@@ -235,6 +272,12 @@ export default function InstagramSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {!loading && igAccounts.length > 0 ? (
+        <IceBreakersEditor
+          accounts={igAccounts.map((a) => ({ id: a.id, igUsername: a.igUsername }))}
+        />
+      ) : null}
 
       <Dialog
         open={Boolean(expiryInfoAccount)}

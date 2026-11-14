@@ -18,16 +18,28 @@ export interface KeywordTriggerConfig {
   mediaScope?: 'specific' | 'any';
 }
 
+export type VariantPickMode = 'random' | 'sequential';
+
 export interface MessageButton {
   title: string;
-  /** Sent when the button is tapped. */
+  /**
+   * When set, Meta opens this URL (web_url). No postback / responseText.
+   * Prefer HTTPS checkout / landing links for creators who sell.
+   */
+  url?: string;
+  /** Sent when the button is tapped (postback only). */
   responseText?: string;
+  /** Random/sequential variants for the button response. */
+  responseTexts?: string[];
   /** Optional tag applied on tap. */
   addTag?: string;
+  /** Pause automations and wait for a human (inbox). */
+  handoff?: boolean;
   /** Only send responseText if the user follows the business. */
   requireFollow?: boolean;
   /** Sent (with recheck button) when requireFollow fails. */
   notFollowingText?: string;
+  notFollowingTexts?: string[];
 }
 
 export interface ActionConfig {
@@ -38,15 +50,30 @@ export interface ActionConfig {
     | 'follow_gate'
     | 'delay'
     | 'condition'
-    | 'ask_input';
+    | 'ask_input'
+    | 'human_handoff';
   text?: string;
+  /** Variants (ManyChat-style). One is picked per send; `text` kept as fallback/primary. */
+  texts?: string[];
+  /** How to pick among `texts` / `promptTexts` / etc. Default: random. */
+  textPickMode?: VariantPickMode;
   tag?: string;
   delay?: number;
   prompt?: string;
+  promptTexts?: string[];
   buttonLabel?: string;
   rewardText?: string;
   notFollowingText?: string;
+  notFollowingTexts?: string[];
   recheckButtonLabel?: string;
+  /** Public image URL sent as DM attachment (before text when both set). */
+  imageUrl?: string;
+  /** Meta reusable attachment id (preferred over imageUrl when present). */
+  imageAttachmentId?: string;
+  /** Public audio URL sent as DM voice/audio message. */
+  audioUrl?: string;
+  /** Meta reusable attachment id for audio. */
+  audioAttachmentId?: string;
   buttons?: MessageButton[];
   quickReplies?: MessageButton[];
   rule?: ConditionRule;
@@ -88,6 +115,148 @@ export function pickFollowNudgeMessage(attempt: number, custom?: string | null):
   if (trimmed) messages[0] = trimmed;
   const index = ((attempt % messages.length) + messages.length) % messages.length;
   return messages[index];
+}
+
+export function collectTextPool(
+  ...sources: Array<string | string[] | null | undefined>
+): string[] {
+  const out: string[] = [];
+  for (const source of sources) {
+    if (Array.isArray(source)) {
+      for (const item of source) {
+        const trimmed = item?.trim();
+        if (trimmed) out.push(trimmed);
+      }
+    } else if (typeof source === 'string') {
+      const trimmed = source.trim();
+      if (trimmed) out.push(trimmed);
+    }
+  }
+  return out;
+}
+
+export function normalizeTextVariants(
+  ...sources: Array<string | string[] | null | undefined>
+): string[] {
+  const pool = collectTextPool(...sources);
+  return pool.length > 0 ? pool : [''];
+}
+
+export type PickActionTextResult = {
+  text: string;
+  /** Next sequential counter to persist when mode is sequential. */
+  nextSequence?: number;
+};
+
+/** Resolve action copy: random or sequential among variants. */
+export function pickActionText(
+  action: Pick<ActionConfig, 'text' | 'texts' | 'textPickMode'> & {
+    prompt?: string;
+    promptTexts?: string[];
+    notFollowingText?: string;
+    notFollowingTexts?: string[];
+    rewardText?: string;
+  },
+  options?: {
+    pool?: 'text' | 'prompt' | 'notFollowing' | 'reward';
+    sequence?: number;
+  }
+): PickActionTextResult {
+  const poolKind = options?.pool || 'text';
+  let pool: string[] = [];
+  if (poolKind === 'prompt') {
+    pool = collectTextPool(action.promptTexts, action.prompt);
+  } else if (poolKind === 'notFollowing') {
+    pool = collectTextPool(action.notFollowingTexts, action.notFollowingText);
+  } else if (poolKind === 'reward') {
+    pool = collectTextPool(action.texts, action.rewardText, action.text);
+  } else {
+    pool = collectTextPool(action.texts, action.text);
+  }
+
+  if (pool.length === 0) return { text: '' };
+  if (pool.length === 1) return { text: pool[0] };
+
+  const mode = action.textPickMode === 'sequential' ? 'sequential' : 'random';
+  if (mode === 'sequential') {
+    const seq = Math.max(0, options?.sequence ?? 0);
+    const index = seq % pool.length;
+    return { text: pool[index], nextSequence: seq + 1 };
+  }
+
+  return { text: pool[Math.floor(Math.random() * pool.length)] };
+}
+
+export function pickButtonText(
+  button: Pick<MessageButton, 'responseText' | 'responseTexts' | 'notFollowingText' | 'notFollowingTexts'>,
+  kind: 'response' | 'notFollowing',
+  mode: VariantPickMode = 'random',
+  sequence = 0
+): PickActionTextResult {
+  const pool =
+    kind === 'response'
+      ? collectTextPool(button.responseTexts, button.responseText)
+      : collectTextPool(button.notFollowingTexts, button.notFollowingText);
+  if (pool.length === 0) return { text: '' };
+  if (pool.length === 1) return { text: pool[0] };
+  if (mode === 'sequential') {
+    const index = sequence % pool.length;
+    return { text: pool[index], nextSequence: sequence + 1 };
+  }
+  return { text: pool[Math.floor(Math.random() * pool.length)] };
+}
+
+/** Replace `{{var}}` placeholders. Unknown keys are left intact. */
+export function interpolateTemplate(
+  template: string,
+  vars: Record<string, string | null | undefined>
+): string {
+  if (!template) return '';
+  return template.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (match, key: string) => {
+    const raw = vars[key] ?? vars[key.toLowerCase()];
+    if (raw == null || raw === '') return match;
+    return String(raw);
+  });
+}
+
+export const TEMPLATE_VARIABLE_HINTS: Array<{ key: string; label: string }> = [
+  { key: 'nome', label: 'Nome completo' },
+  { key: 'primeiro_nome', label: 'Primeiro nome' },
+  { key: 'username', label: '@username' },
+  { key: 'comentario', label: 'Texto do comentário' },
+  { key: 'mensagem', label: 'Texto da DM' },
+];
+
+export function buildTemplateVars(params: {
+  fullName?: string | null;
+  igUsername?: string | null;
+  commentText?: string | null;
+  messageText?: string | null;
+  customData?: Record<string, unknown>;
+}): Record<string, string> {
+  const fullName = (params.fullName || '').trim();
+  const firstName = fullName.split(/\s+/)[0] || '';
+  const username = (params.igUsername || '').replace(/^@/, '').trim();
+  const vars: Record<string, string> = {
+    nome: fullName,
+    name: fullName,
+    primeiro_nome: firstName,
+    first_name: firstName,
+    username,
+    usuario: username,
+    comentario: (params.commentText || '').trim(),
+    comment: (params.commentText || '').trim(),
+    mensagem: (params.messageText || '').trim(),
+    message: (params.messageText || '').trim(),
+  };
+
+  for (const [key, value] of Object.entries(params.customData || {})) {
+    if (key.startsWith('_')) continue;
+    if (value == null) continue;
+    vars[key] = String(value);
+  }
+
+  return vars;
 }
 
 export function followCheckPayload(automationId: string) {

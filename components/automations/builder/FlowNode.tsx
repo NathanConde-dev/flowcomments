@@ -11,6 +11,7 @@ import {
   Tag,
   TextCursorInput,
   UserRoundCheck,
+  Headphones,
   type LucideIcon,
 } from 'lucide-react';
 import type { FlowNodeId } from './types';
@@ -74,6 +75,12 @@ const nodeMeta: Record<
     well: 'bg-indigo-500',
     iconClass: 'text-white',
   },
+  conditionElse: {
+    title: 'Senão (Não)',
+    icon: Filter,
+    well: 'bg-zinc-400',
+    iconClass: 'text-white',
+  },
   addTag: {
     title: 'Adicionar tag',
     icon: Tag,
@@ -84,6 +91,12 @@ const nodeMeta: Record<
     title: 'Pedir dado',
     icon: TextCursorInput,
     well: 'bg-teal-500',
+    iconClass: 'text-white',
+  },
+  handoff: {
+    title: 'Falar com humano',
+    icon: Headphones,
+    well: 'bg-fuchsia-600',
     iconClass: 'text-white',
   },
 };

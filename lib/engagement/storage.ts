@@ -22,7 +22,6 @@ export const ENGAGEMENT_EVENT = 'fc:engagement';
 
 const MAX_ENGAGEMENT_WAKES = 4;
 const SOFT_SNOOZE_MS = 48 * 60 * 60 * 1000; // 48h baseline
-const DONE_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90d
 
 function defaultState(): EngagementPromptState {
   return {
@@ -67,12 +66,8 @@ export function writeEngagementStore(store: EngagementStore) {
   }
 }
 
-function isDoneExpired(state: EngagementPromptState, now: number) {
-  return state.status === 'done' && now - state.updatedAt > DONE_TTL_MS;
-}
-
 export function isPromptEligible(state: EngagementPromptState, now = Date.now()) {
-  if (isDoneExpired(state, now)) return true;
+  // CTA click (`done`) is permanent — never show that prompt again.
   if (state.status === 'done') return false;
   if (state.status === 'pending') return true;
   if (state.status === 'snoozed') {
@@ -87,12 +82,7 @@ export function nextEligiblePrompt(
   now = Date.now()
 ): EngagementPromptId | null {
   for (const id of ENGAGEMENT_PROMPT_ORDER) {
-    const state = store[id];
-    // Expired done → treat as pending for selection
-    if (isDoneExpired(state, now)) {
-      return id;
-    }
-    if (isPromptEligible(state, now)) return id;
+    if (isPromptEligible(store[id], now)) return id;
   }
   return null;
 }
@@ -138,10 +128,10 @@ export function wakeOnEngagement(store: EngagementStore): {
 
   for (const id of ENGAGEMENT_PROMPT_ORDER) {
     const state = store[id];
-    if (state.status === 'done' && !isDoneExpired(state, now)) continue;
+    if (state.status === 'done') continue;
     if (!state.wakeOnEngagement) continue;
     if (state.engagementWakes >= MAX_ENGAGEMENT_WAKES) continue;
-    if (state.status === 'snoozed' || isDoneExpired(state, now)) {
+    if (state.status === 'snoozed') {
       next[id] = {
         ...state,
         status: 'pending',

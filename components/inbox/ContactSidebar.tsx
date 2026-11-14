@@ -5,6 +5,11 @@ import { Instagram, Pause, Play, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InboxLogsSkeleton } from '@/components/ui/skeletons';
 import { WithTooltip } from '@/components/ui/tooltip';
+import {
+  contactDisplayName,
+  contactInitial,
+  isNumericIgHandle,
+} from '@/lib/inbox/contacts';
 import { formatBrasiliaDateTime } from '@/lib/utils/datetime';
 import { toast } from '@/lib/ui/toast';
 import { cn } from '@/lib/utils/cn';
@@ -95,17 +100,19 @@ export function ContactSidebar({
               />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-muted-foreground">
-                {conversation.contact.igUsername[0]?.toUpperCase()}
+                {contactInitial(conversation.contact)}
               </div>
             )}
           </div>
           <div className="min-w-0">
             <p className="truncate font-semibold tracking-tight">
-              @{conversation.contact.igUsername}
+              {contactDisplayName(conversation.contact)}
             </p>
-            {conversation.contact.fullName && (
+            {conversation.contact.igUsername &&
+              !isNumericIgHandle(conversation.contact.igUsername) &&
+              conversation.contact.fullName && (
               <p className="truncate text-xs text-muted-foreground">
-                {conversation.contact.fullName}
+                @{conversation.contact.igUsername}
               </p>
             )}
             <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">

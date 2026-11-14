@@ -9,6 +9,7 @@ import {
   AutomationsList,
   type AutomationListItem,
 } from '@/components/automations/AutomationsList';
+import { parseAutomationStats } from '@/lib/automation/stats';
 import {
   DEFAULT_PAGE_SIZE,
   PaginationNav,
@@ -74,6 +75,7 @@ export default async function AutomationsPage({
       keywords,
       mediaScope,
       mediaIds,
+      stats: parseAutomationStats(automation.stats),
     };
   });
 

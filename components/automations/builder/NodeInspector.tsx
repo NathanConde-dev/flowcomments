@@ -4,15 +4,20 @@ import { X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ToggleSwitch } from '@/components/ui/toggle-switch';
+import { TEMPLATE_VARIABLE_HINTS } from '@/lib/automation/types';
 import {
   TRIGGER_KIND_LABELS,
+  firstVariant,
   needsKeywords,
   type AutomationDraft,
   type ConditionRule,
+  type DelayUnit,
   type FlowNodeId,
   type IGAccountOption,
   type MatchType,
+  type VariantPickMode,
 } from './types';
+import { DmMediaFields } from './DmMediaFields';
 
 interface NodeInspectorProps {
   selected: FlowNodeId;
@@ -25,7 +30,7 @@ interface NodeInspectorProps {
 const titles: Record<FlowNodeId, { title: string; description: string }> = {
   start: {
     title: 'Início',
-    description: 'Nome da automação e conta do Instagram.',
+    description: 'Resumo fixo do gatilho e do conteúdo escolhidos nos passos anteriores.',
   },
   trigger: {
     title: 'Gatilho',
@@ -54,7 +59,11 @@ const titles: Record<FlowNodeId, { title: string; description: string }> = {
   },
   condition: {
     title: 'Condição',
-    description: 'Ramifica o fluxo com base em tag, campo ou follow.',
+    description: 'Ramifica o fluxo: Sim continua, Não encerra.',
+  },
+  conditionElse: {
+    title: 'Senão (Não)',
+    description: 'Quando a condição falha, o fluxo para neste ramo.',
   },
   addTag: {
     title: 'Adicionar tag',
@@ -64,7 +73,146 @@ const titles: Record<FlowNodeId, { title: string; description: string }> = {
     title: 'Pedir dado',
     description: 'Pergunta algo no DM e salva a resposta no contato.',
   },
+  handoff: {
+    title: 'Falar com humano',
+    description:
+      'Envia uma mensagem e pausa a automação até alguém retomar no Inbox.',
+  },
 };
+
+function VariableHints({
+  onInsert,
+  disabled,
+}: {
+  onInsert: (token: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {TEMPLATE_VARIABLE_HINTS.map((item) => (
+        <button
+          key={item.key}
+          type="button"
+          disabled={disabled}
+          onClick={() => onInsert(`{{${item.key}}}`)}
+          className="rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground transition hover:border-zinc-400 hover:text-foreground disabled:opacity-50"
+          title={item.label}
+        >
+          {`{{${item.key}}}`}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TextVariantsEditor({
+  label,
+  hint,
+  variants,
+  disabled,
+  placeholder,
+  onChange,
+  compact,
+}: {
+  label: string;
+  hint: string;
+  variants: string[];
+  disabled?: boolean;
+  placeholder: string;
+  onChange: (next: string[]) => void;
+  compact?: boolean;
+}) {
+  const list = variants.length > 0 ? variants : [''];
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="mb-1 block text-sm font-semibold text-foreground">{label}</label>
+        <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>
+      </div>
+      <VariableHints
+        disabled={disabled}
+        onInsert={(token) => {
+          const next = [...list];
+          const index = Math.max(0, next.length - 1);
+          next[index] = `${next[index] || ''}${token}`;
+          onChange(next);
+        }}
+      />
+      <div className="space-y-2">
+        {list.map((variant, index) => (
+          <div key={index} className="space-y-1.5 rounded-xl border border-border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Variante {index + 1}
+              </span>
+              {list.length > 1 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled}
+                  onClick={() => onChange(list.filter((_, i) => i !== index))}
+                >
+                  Remover
+                </Button>
+              ) : null}
+            </div>
+            <textarea
+              disabled={disabled}
+              className={`flex w-full rounded-md border border-border bg-white px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring ${
+                compact ? 'min-h-[72px]' : 'min-h-[100px]'
+              }`}
+              value={variant}
+              onChange={(e) => {
+                const next = [...list];
+                next[index] = e.target.value;
+                onChange(next);
+              }}
+              placeholder={placeholder}
+            />
+          </div>
+        ))}
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={disabled || list.length >= 8}
+        onClick={() => onChange([...list, ''])}
+      >
+        + Adicionar variante
+      </Button>
+    </div>
+  );
+}
+
+function VariantModeSelect({
+  value,
+  onChange,
+}: {
+  value: VariantPickMode;
+  onChange: (mode: VariantPickMode) => void;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-foreground">
+        Como escolher a variante
+      </label>
+      <select
+        className="flex h-10 w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        value={value}
+        onChange={(e) => onChange(e.target.value as VariantPickMode)}
+      >
+        <option value="random">Aleatória (ManyChat-style)</option>
+        <option value="sequential">Sequencial (roda na ordem)</option>
+      </select>
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        Sequencial lembra a última variante por contato e avança a cada envio.
+      </p>
+    </div>
+  );
+}
 
 export function NodeInspector({ selected, draft, accounts, onChange, onClose }: NodeInspectorProps) {
   const meta =
@@ -90,6 +238,8 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
     });
   };
 
+  const startAccount = accounts.find((a) => a.id === draft.igAccountId);
+
   return (
     <aside className="flex h-full w-full flex-col border-t border-border bg-card lg:w-[360px] lg:border-l lg:border-t-0">
       <div className="border-b border-border px-5 py-4">
@@ -114,33 +264,68 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
       <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
         {selected === 'start' && (
           <>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">
-                Nome da automação
-              </label>
-              <Input
-                value={draft.name}
-                onChange={(e) => onChange({ ...draft, name: e.target.value })}
-                placeholder="Ex: Resposta para preço"
-              />
+            <div className="rounded-xl border border-border bg-muted/50 p-3 text-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Tipo de automação
+              </p>
+              <p className="mt-1 font-semibold text-foreground">
+                {TRIGGER_KIND_LABELS[draft.triggerKind]}
+              </p>
             </div>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">
+
+            <div className="rounded-xl border border-border bg-muted/50 p-3 text-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Conta do Instagram
-              </label>
-              <select
-                className="flex h-10 w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                value={draft.igAccountId}
-                onChange={(e) => onChange({ ...draft, igAccountId: e.target.value })}
-              >
-                <option value="">Selecione uma conta</option>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    @{account.igUsername}
-                  </option>
-                ))}
-              </select>
+              </p>
+              <p className="mt-1 font-semibold text-foreground">
+                {startAccount ? `@${startAccount.igUsername}` : 'Conta não definida'}
+              </p>
             </div>
+
+            {(draft.triggerKind === 'comment' || draft.triggerKind === 'live_comment') && (
+              <div className="rounded-xl border border-border bg-muted/50 p-3 text-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Conteúdo
+                </p>
+                {draft.mediaScope === 'any' ? (
+                  <p className="mt-1 font-semibold text-foreground">Qualquer publicação ou Reel</p>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      {draft.selectedPosts.length} selecionada
+                      {draft.selectedPosts.length === 1 ? '' : 's'}
+                    </p>
+                    {draft.selectedPosts.slice(0, 4).map((post) => (
+                      <div key={post.id} className="flex items-center gap-2">
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+                          {post.thumbnailUrl || post.mediaUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={post.thumbnailUrl || post.mediaUrl || ''}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : null}
+                        </div>
+                        <p className="line-clamp-2 text-xs text-foreground">
+                          {post.caption?.trim() || post.id}
+                        </p>
+                      </div>
+                    ))}
+                    {draft.selectedPosts.length > 4 ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        +{draft.selectedPosts.length - 4} mais
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Este bloco é fixo. Para mudar conta, tipo ou posts, use Voltar nos passos anteriores.
+              O nome da automação fica no topo da página.
+            </p>
           </>
         )}
 
@@ -232,34 +417,56 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
               onCheckedChange={(replyEnabled) => onChange({ ...draft, replyEnabled })}
               label="Ativar resposta no comentário"
             />
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">
-                Texto da resposta
-              </label>
-              <textarea
-                disabled={!draft.replyEnabled}
-                className="flex min-h-[140px] w-full rounded-md border border-border bg-white px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                value={draft.replyComment}
-                onChange={(e) => onChange({ ...draft, replyComment: e.target.value })}
-                placeholder="Ex: Olá! Enviei os detalhes no seu direct"
-              />
-            </div>
+            <VariantModeSelect
+              value={draft.variantPickMode}
+              onChange={(variantPickMode) => onChange({ ...draft, variantPickMode })}
+            />
+            <TextVariantsEditor
+              label="Texto da resposta"
+              hint="Use {{nome}}, {{username}}, {{comentario}}… Com várias variantes, uma é escolhida a cada envio."
+              disabled={!draft.replyEnabled}
+              variants={draft.replyVariants}
+              placeholder="Ex: Oi {{primeiro_nome}}! Enviei os detalhes no direct"
+              onChange={(replyVariants) => onChange({ ...draft, replyVariants })}
+            />
           </>
         )}
 
         {selected === 'delay' && (
-          <div>
-            <label className="mb-2 block text-sm font-semibold text-foreground">
-              Segundos de espera
-            </label>
-            <Input
-              type="number"
-              min={0}
-              value={draft.delaySeconds}
-              onChange={(e) =>
-                onChange({ ...draft, delaySeconds: Math.max(0, Number(e.target.value) || 0) })
-              }
-            />
+          <div className="space-y-3">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-foreground">
+                Tempo de espera
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  value={draft.delayAmount}
+                  onChange={(e) =>
+                    onChange({
+                      ...draft,
+                      delayAmount: Math.max(0, Number(e.target.value) || 0),
+                    })
+                  }
+                  className="flex-1"
+                />
+                <select
+                  className="flex h-10 w-[9.5rem] shrink-0 rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={draft.delayUnit}
+                  onChange={(e) =>
+                    onChange({ ...draft, delayUnit: e.target.value as DelayUnit })
+                  }
+                >
+                  <option value="seconds">Segundos</option>
+                  <option value="minutes">Minutos</option>
+                  <option value="days">Dias</option>
+                </select>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              O fluxo pausa por esse intervalo antes de seguir para a próxima ação.
+            </p>
           </div>
         )}
 
@@ -301,10 +508,17 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              Se passar, continua o fluxo; se falhar, pula ações seguintes até o próximo ramo
-              explícito (then/else no runtime).
+              No canvas: ramo <strong>Sim</strong> continua o fluxo; ramo <strong>Não</strong>{' '}
+              encerra (nó “Senão”).
             </p>
           </>
+        )}
+
+        {selected === 'conditionElse' && (
+          <div className="rounded-xl border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
+            Este ramo representa a falha da condição. Hoje ele só encerra o fluxo — sem ações
+            extras. O ramo Sim leva para DM, tags, follow gate, etc.
+          </div>
         )}
 
         {selected === 'addTag' && (
@@ -318,15 +532,40 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
           </div>
         )}
 
+        {selected === 'handoff' && (
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-foreground">
+              Mensagem ao transferir
+            </label>
+            <textarea
+              className="flex min-h-[100px] w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              value={draft.handoffText}
+              onChange={(e) => onChange({ ...draft, handoffText: e.target.value })}
+              placeholder="Um atendente vai te responder em breve."
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              A automação pausa até alguém retomar no Inbox.
+            </p>
+          </div>
+        )}
+
         {selected === 'askInput' && (
           <>
             <div>
               <label className="mb-2 block text-sm font-semibold text-foreground">Pergunta</label>
+              <VariableHints
+                onInsert={(token) =>
+                  onChange({
+                    ...draft,
+                    askInputPrompt: `${draft.askInputPrompt || ''}${token}`,
+                  })
+                }
+              />
               <textarea
-                className="flex min-h-[100px] w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="mt-2 flex min-h-[100px] w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 value={draft.askInputPrompt}
                 onChange={(e) => onChange({ ...draft, askInputPrompt: e.target.value })}
-                placeholder="Me envia seu e-mail:"
+                placeholder="Oi {{primeiro_nome}}, me envia seu e-mail:"
               />
             </div>
             <div>
@@ -361,17 +600,17 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
 
         {selected === 'followCheck' && (
           <>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">
-                Texto do private reply
-              </label>
-              <textarea
-                className="flex min-h-[120px] w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                value={draft.gatePrompt}
-                onChange={(e) => onChange({ ...draft, gatePrompt: e.target.value })}
-                placeholder="Toque abaixo pra receber o link — precisa estar me seguindo."
-              />
-            </div>
+            <VariantModeSelect
+              value={draft.variantPickMode}
+              onChange={(variantPickMode) => onChange({ ...draft, variantPickMode })}
+            />
+            <TextVariantsEditor
+              label="Texto do private reply"
+              hint="Variantes + variáveis {{nome}}, {{username}}…"
+              variants={draft.gatePromptVariants}
+              placeholder="Toque abaixo pra receber o link — precisa estar me seguindo."
+              onChange={(gatePromptVariants) => onChange({ ...draft, gatePromptVariants })}
+            />
             <div>
               <label className="mb-2 block text-sm font-semibold text-foreground">
                 Texto do botão
@@ -395,18 +634,23 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                 label="Ativar envio de DM"
               />
             )}
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">
-                {draft.followCheckEnabled ? 'Conteúdo / link liberado' : 'Texto da DM'}
-              </label>
-              <textarea
-                disabled={!draft.dmEnabled && !draft.followCheckEnabled}
-                className="flex min-h-[140px] w-full rounded-md border border-border bg-white px-3 py-2 text-sm disabled:bg-muted disabled:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                value={draft.sendDm}
-                onChange={(e) => onChange({ ...draft, sendDm: e.target.value })}
-                placeholder="Ex: Oi! O preço do produto é R$ 99,90."
-              />
-            </div>
+            <VariantModeSelect
+              value={draft.variantPickMode}
+              onChange={(variantPickMode) => onChange({ ...draft, variantPickMode })}
+            />
+            <TextVariantsEditor
+              label={draft.followCheckEnabled ? 'Conteúdo / link liberado' : 'Texto da DM'}
+              hint="Variáveis {{nome}}, {{username}}… e variantes rotativas."
+              disabled={!draft.dmEnabled && !draft.followCheckEnabled}
+              variants={draft.dmVariants}
+              placeholder="Ex: Oi {{primeiro_nome}}! O preço é R$ 99,90."
+              onChange={(dmVariants) => onChange({ ...draft, dmVariants })}
+            />
+            <DmMediaFields
+              draft={draft}
+              disabled={!draft.dmEnabled && !draft.followCheckEnabled}
+              onChange={onChange}
+            />
 
             {!draft.followCheckEnabled && (
               <div className="space-y-3">
@@ -424,11 +668,14 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                           ...draft.dmButtons,
                           {
                             title: 'Receber link',
-                            responseText: '',
+                            url: '',
+                            responseVariants: [''],
                             addTag: '',
                             requireFollow: true,
-                            notFollowingText:
+                            notFollowingVariants: [
                               'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
+                            ],
+                            handoff: false,
                           },
                         ],
                       })
@@ -438,7 +685,7 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                   </Button>
                 </div>
                 {draft.dmButtons.map((button, index) => (
-                  <div key={index} className="space-y-2 rounded-xl border border-border p-3">
+                  <div key={index} className="space-y-3 rounded-xl border border-border p-3">
                     <Input
                       value={button.title}
                       maxLength={20}
@@ -449,55 +696,98 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                       }}
                       placeholder="Título do botão"
                     />
-                    <textarea
-                      className="flex min-h-[72px] w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                      value={button.responseText}
-                      onChange={(e) => {
-                        const dmButtons = [...draft.dmButtons];
-                        dmButtons[index] = { ...button, responseText: e.target.value };
-                        onChange({ ...draft, dmButtons });
-                      }}
-                      placeholder="Resposta liberada ao tocar"
-                    />
-                    <ToggleSwitch
-                      checked={Boolean(button.requireFollow)}
-                      onCheckedChange={(requireFollow) => {
-                        const dmButtons = [...draft.dmButtons];
-                        dmButtons[index] = {
-                          ...button,
-                          requireFollow,
-                          notFollowingText:
-                            button.notFollowingText ||
-                            'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
-                        };
-                        onChange({ ...draft, dmButtons });
-                      }}
-                      label="Só libera se seguir"
-                    />
-                    {button.requireFollow && (
-                      <textarea
-                        className="flex min-h-[72px] w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                        value={button.notFollowingText || ''}
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                        Link (abre URL — ideal p/ checkout)
+                      </label>
+                      <Input
+                        value={button.url || ''}
                         onChange={(e) => {
                           const dmButtons = [...draft.dmButtons];
-                          dmButtons[index] = {
-                            ...button,
-                            notFollowingText: e.target.value,
-                          };
+                          dmButtons[index] = { ...button, url: e.target.value };
                           onChange({ ...draft, dmButtons });
                         }}
-                        placeholder="Mensagem se ainda não segue"
+                        placeholder="https://seu-checkout.com/..."
                       />
+                    </div>
+                    {!button.url?.trim() && (
+                      <>
+                        <TextVariantsEditor
+                          label="Resposta ao tocar"
+                          hint="Variantes da resposta do botão."
+                          compact
+                          variants={button.responseVariants}
+                          placeholder="Resposta liberada ao tocar"
+                          onChange={(responseVariants) => {
+                            const dmButtons = [...draft.dmButtons];
+                            dmButtons[index] = { ...button, responseVariants };
+                            onChange({ ...draft, dmButtons });
+                          }}
+                        />
+                        <ToggleSwitch
+                          checked={Boolean(button.handoff)}
+                          onCheckedChange={(handoff) => {
+                            const dmButtons = [...draft.dmButtons];
+                            dmButtons[index] = {
+                              ...button,
+                              handoff,
+                              requireFollow: handoff ? false : button.requireFollow,
+                            };
+                            onChange({ ...draft, dmButtons });
+                          }}
+                          label="Transferir para humano"
+                        />
+                        {!button.handoff && (
+                          <>
+                            <ToggleSwitch
+                              checked={Boolean(button.requireFollow)}
+                              onCheckedChange={(requireFollow) => {
+                                const dmButtons = [...draft.dmButtons];
+                                dmButtons[index] = {
+                                  ...button,
+                                  requireFollow,
+                                  notFollowingVariants: firstVariant(
+                                    button.notFollowingVariants
+                                  )
+                                    ? button.notFollowingVariants
+                                    : [
+                                        'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
+                                      ],
+                                };
+                                onChange({ ...draft, dmButtons });
+                              }}
+                              label="Só libera se seguir"
+                            />
+                            {button.requireFollow && (
+                              <TextVariantsEditor
+                                label="Se ainda não segue"
+                                hint="Variantes do pedido pra seguir."
+                                compact
+                                variants={button.notFollowingVariants}
+                                placeholder="Mensagem se ainda não segue"
+                                onChange={(notFollowingVariants) => {
+                                  const dmButtons = [...draft.dmButtons];
+                                  dmButtons[index] = {
+                                    ...button,
+                                    notFollowingVariants,
+                                  };
+                                  onChange({ ...draft, dmButtons });
+                                }}
+                              />
+                            )}
+                          </>
+                        )}
+                        <Input
+                          value={button.addTag}
+                          onChange={(e) => {
+                            const dmButtons = [...draft.dmButtons];
+                            dmButtons[index] = { ...button, addTag: e.target.value };
+                            onChange({ ...draft, dmButtons });
+                          }}
+                          placeholder="Tag opcional ao liberar"
+                        />
+                      </>
                     )}
-                    <Input
-                      value={button.addTag}
-                      onChange={(e) => {
-                        const dmButtons = [...draft.dmButtons];
-                        dmButtons[index] = { ...button, addTag: e.target.value };
-                        onChange({ ...draft, dmButtons });
-                      }}
-                      placeholder="Tag opcional ao liberar"
-                    />
                     <Button
                       type="button"
                       variant="ghost"
@@ -520,21 +810,15 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
 
         {selected === 'dmNotFollowing' && (
           <>
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-foreground">
-                Mensagem se ainda não segue
-              </label>
-              <textarea
-                className="flex min-h-[140px] w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                value={draft.dmIfNotFollowing}
-                onChange={(e) => onChange({ ...draft, dmIfNotFollowing: e.target.value })}
-                placeholder="Hum, olhei aqui e ainda não seguiu. Segue que te mando o link."
-              />
-              <p className="mt-2 text-xs text-muted-foreground">
-                Se a pessoa tocar em Já segui e ainda não seguir, a gente troca entre algumas
-                mensagens pra não parecer robô.
-              </p>
-            </div>
+            <TextVariantsEditor
+              label="Mensagem se ainda não segue"
+              hint="Variantes usadas quando o follow check falha."
+              variants={draft.dmIfNotFollowingVariants}
+              placeholder="Hum, olhei aqui e ainda não seguiu. Segue que te mando o link."
+              onChange={(dmIfNotFollowingVariants) =>
+                onChange({ ...draft, dmIfNotFollowingVariants })
+              }
+            />
             <div>
               <label className="mb-2 block text-sm font-semibold text-foreground">
                 Botão de rechecagem

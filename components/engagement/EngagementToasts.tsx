@@ -20,8 +20,10 @@ import {
 
 const DONATE_URL = 'https://flowcomments.com/donate';
 const REPO_URL = 'https://github.com/NathanConde-dev/flowcomments';
-/** Set NEXT_PUBLIC_WHATSAPP_GROUP_URL when the community invite is ready. */
-const WHATSAPP_URL = (process.env.NEXT_PUBLIC_WHATSAPP_GROUP_URL || '').trim();
+/** Landing that redirects to the community invite (override with NEXT_PUBLIC_WHATSAPP_GROUP_URL). */
+const COMMUNITY_URL =
+  (process.env.NEXT_PUBLIC_WHATSAPP_GROUP_URL || '').trim() ||
+  'https://www.nathanconde.com/comunidade';
 
 const INITIAL_DELAY_MS = 7000;
 const ENGAGEMENT_SHOW_DELAY_MS = 1800;
@@ -56,8 +58,8 @@ const PROMPTS: PromptCopy[] = [
     id: 'whatsapp',
     title: 'Entre no grupo open source',
     body: 'IA, Tech e Open Source — outros projetos e novidades da comunidade.',
-    cta: WHATSAPP_URL ? 'Entrar no WhatsApp' : 'Em breve no WhatsApp',
-    href: WHATSAPP_URL || null,
+    cta: 'Entrar na comunidade',
+    href: COMMUNITY_URL,
     icon: 'whatsapp',
   },
 ];

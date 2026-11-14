@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'node:crypto';
 import { requireEncryptionKey } from '@/lib/utils/encryption-key';
 
 const ALGORITHM = 'aes-256-gcm';
