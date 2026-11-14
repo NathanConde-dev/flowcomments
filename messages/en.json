@@ -17,7 +17,12 @@
     "open": "Open",
     "language": "Language",
     "english": "English",
-    "portuguese": "Portuguese"
+    "portuguese": "Portuguese",
+    "notFoundTitle": "Page not found",
+    "notFoundCode": "404",
+    "notFoundBody": "This route does not exist or was moved. Head home or open the dashboard.",
+    "notFoundHome": "Go home",
+    "notFoundDashboard": "Open dashboard"
   },
   "nav": {
     "dashboard": "Dashboard",

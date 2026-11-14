@@ -17,7 +17,12 @@
     "open": "Open",
     "language": "Deutsch",
     "english": "English",
-    "portuguese": "Portuguese"
+    "portuguese": "Portuguese",
+    "notFoundTitle": "Seite nicht gefunden",
+    "notFoundCode": "404",
+    "notFoundBody": "Diese Route existiert nicht oder wurde verschoben. Zur Startseite oder zum Dashboard.",
+    "notFoundHome": "Zur Startseite",
+    "notFoundDashboard": "Dashboard öffnen"
   },
   "nav": {
     "dashboard": "Dashboard",

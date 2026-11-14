@@ -17,7 +17,12 @@
     "open": "Abrir",
     "language": "Idioma",
     "english": "Inglês",
-    "portuguese": "Português"
+    "portuguese": "Português",
+    "notFoundTitle": "Página não encontrada",
+    "notFoundCode": "404",
+    "notFoundBody": "Essa rota não existe ou foi movida. Volte ao início ou abra o painel.",
+    "notFoundHome": "Ir para o início",
+    "notFoundDashboard": "Abrir painel"
   },
   "nav": {
     "dashboard": "Dashboard",

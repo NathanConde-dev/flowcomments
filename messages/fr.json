@@ -17,7 +17,12 @@
     "open": "Open",
     "language": "Français",
     "english": "English",
-    "portuguese": "Portuguese"
+    "portuguese": "Portuguese",
+    "notFoundTitle": "Page introuvable",
+    "notFoundCode": "404",
+    "notFoundBody": "Cette route n’existe pas ou a été déplacée. Retournez à l’accueil ou ouvrez le tableau de bord.",
+    "notFoundHome": "Accueil",
+    "notFoundDashboard": "Tableau de bord"
   },
   "nav": {
     "dashboard": "Dashboard",

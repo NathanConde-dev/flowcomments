@@ -17,7 +17,12 @@
     "open": "Open",
     "language": "Italiano",
     "english": "English",
-    "portuguese": "Portuguese"
+    "portuguese": "Portuguese",
+    "notFoundTitle": "Pagina non trovata",
+    "notFoundCode": "404",
+    "notFoundBody": "Questo percorso non esiste o è stato spostato. Torna alla home o apri la dashboard.",
+    "notFoundHome": "Vai alla home",
+    "notFoundDashboard": "Apri dashboard"
   },
   "nav": {
     "dashboard": "Dashboard",
