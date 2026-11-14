@@ -189,22 +189,14 @@ Inspirar-se em `openreply` (referência apenas, não copiar):
 - Access Token Debugger para ver scopes e validade do token
 - Webhook Tester para simular eventos
 
-## 🐛 Issues Conhecidos
+## 🐛 Issues conhecidos (histórico)
 
-1. **Worker sem Redis**: Se REDIS_URL não for definido, o worker vai crashar ao tentar conectar. Adicionar:
-   ```typescript
-   if (!process.env.REDIS_URL) {
-     console.log('REDIS_URL not set, skipping worker startup');
-     process.exit(0);
-   }
-   ```
+> Nota: este arquivo é rascunho interno antigo. O estado atual do produto está no [CHANGELOG.md](../CHANGELOG.md), [README](../README.md) e docs oficiais em flowcomments.com/docs.
 
-2. **Prisma migrations**: Na primeira execução precisa rodar `npx prisma migrate dev` ou `npx prisma db push`. O Dockerfile já faz `prisma migrate deploy`.
-
-3. **ENCRYPTION_KEY**: Se não definido, algumas operações vão falhar. Considerar gerar automaticamente na primeira execução se não existir.
+1. **Redis**: obrigatório em produção (filas, delays longos, recovery, token refresh). Sem `REDIS_URL`, o worker encerra limpo e o app degrada.
+2. **Mídia**: use volume em `FLOWCOMMENTS_UPLOAD_DIR=/app/data/uploads`.
+3. **Meta Live / App Review**: necessário para audiência real (fora de testadores).
 
 ---
 
-**Status**: MVP funcional, mas requer implementação do OAuth do Instagram para conectar contas reais.
-
-**Próximo passo crítico**: Implementar `/api/instagram/connect` e `/api/instagram/callback`.
+**Status (2026-11):** self-host `0.2.0` liberado para uso. Cloud conta/signup em breve. Foco: star → doar → comunidade.

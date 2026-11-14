@@ -19,7 +19,7 @@
 <p align="center">
   <a href="https://flowcomments.com"><img src="https://img.shields.io/badge/website-flowcomments.com-111111" alt="Website" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Sustainable%20Use-blue" alt="License" /></a>
-  <a href="./CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.1.0-green" alt="Version" /></a>
+  <a href="./CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.2.0-green" alt="Version" /></a>
   <a href="./CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs welcome" /></a>
   <a href="https://github.com/NathanConde-dev/flowcomments/stargazers"><img src="https://img.shields.io/github/stars/NathanConde-dev/flowcomments?style=flat&label=stars" alt="GitHub stars" /></a>
 </p>
@@ -28,21 +28,19 @@
 > See [LICENSE](./LICENSE) and [flowcomments.com/docs/license](https://flowcomments.com/docs/license).  
 > Self-host for your own use: allowed. Copying to resell / competing SaaS / white-label: **not allowed**.
 
-**Official site / Cloud:** [flowcomments.com](https://flowcomments.com) · **ManyChat alternative:** [flowcomments.com/alternatives/manychat](https://flowcomments.com/alternatives/manychat)
+**Site:** [flowcomments.com](https://flowcomments.com) · **ManyChat alternative:** [flowcomments.com/alternatives/manychat](https://flowcomments.com/alternatives/manychat) · **Cloud:** coming soon
 
-### ⭐ If Flowcomments helps you, star the repo
+## How to support the project
 
-Stars improve discovery and support the public self-host core:
+Self-host is **free**. The loop that sustains Flowcomments:
 
-**[Star NathanConde-dev/flowcomments →](https://github.com/NathanConde-dev/flowcomments)**
-
-## Support the project (donate)
-
-Self-host is **free** on your own infrastructure. If Flowcomments helps you, a one-time Stripe donation keeps docs, updates, and the public core going:
-
-**[Donate on the official site →](https://flowcomments.com/donate)**
-
-Suggested amounts: $5 · $15 · $50 (Stripe Checkout). Hosted Cloud: [R$ 197/mo](https://flowcomments.com/signup) (BR) · $49/mo (intl).
+1. **Use it** — deploy on Railway / Docker / your VPS  
+2. **Star the repo** — helps discovery and signals the public core is alive  
+   **[★ Star NathanConde-dev/flowcomments →](https://github.com/NathanConde-dev/flowcomments)**  
+3. **Donate** (optional) — one-time Stripe donation for docs, updates, and the public core  
+   **[Donate →](https://flowcomments.com/donate)** · suggested $5 · $15 · $50  
+4. **Join the community** — more content, projects, and open-source builds  
+   **[nathanconde.com/comunidade →](https://www.nathanconde.com/comunidade)**
 
 ## What is Flowcomments?
 
@@ -99,15 +97,17 @@ Step-by-step (human + AI): [docs/ai/SETUP_PROMPT.md](./docs/ai/SETUP_PROMPT.md) 
 
 ## Updates and announcements
 
-This repo is **the product only** (no marketing landing). The official landing lives on Cloud.
+This repo is **the product** (self-host app). Marketing lives on [flowcomments.com](https://flowcomments.com).
 
-In the dashboard: **What's new** — GitHub changelog, update opt-in ([docs/UPDATES.md](./docs/UPDATES.md)), and announcements via `FLOWCOMMENTS_CONTROL_PLANE_URL`.
+In the dashboard: **What's new** — changelog, update opt-in ([docs/UPDATES.md](./docs/UPDATES.md)), and announcements via `FLOWCOMMENTS_CONTROL_PLANE_URL`.
+
+Production tip: keep **Redis** and a **volume** at `/app/data/uploads` (see [docs/RAILWAY_TEMPLATE.md](./docs/RAILWAY_TEMPLATE.md)).
 
 Anonymous install telemetry (install id, version, host, IG account count) reports to the control plane by default. Opt out with `FLOWCOMMENTS_TELEMETRY=false`.
 
-SaaS + landing: [flowcomments.com](https://flowcomments.com). Details: [docs/CLOUD_VS_SELFHOST.md](./docs/CLOUD_VS_SELFHOST.md).
+Cloud hosted accounts: **coming soon**. Today the path is self-host + star / donate / community. Details: [docs/CLOUD_VS_SELFHOST.md](./docs/CLOUD_VS_SELFHOST.md).
 
-> Self-host for your own use: allowed. Reselling as competing SaaS/subscription: **prohibited** by the [LICENSE](./LICENSE).
+> Self-host for your own use: allowed. Reselling as competing SaaS: **prohibited** by the [LICENSE](./LICENSE). Keep “Powered by Flowcomments” visible.
 
 ## Development
 
@@ -170,10 +170,12 @@ openssl rand -hex 32
 ✅ Own use / self-host / modify / agency work without charging for the software itself  
 ❌ Competing SaaS / white-label / removing branding — without a commercial license
 
-Official Cloud: [flowcomments.com/signup](https://flowcomments.com/signup) · **contato@nathanconde.com**
+Cloud: **coming soon** on [flowcomments.com](https://flowcomments.com) · **contato@nathanconde.com**
 
 ## Support
 
+- Community: [nathanconde.com/comunidade](https://www.nathanconde.com/comunidade)
+- Donate: [flowcomments.com/donate](https://flowcomments.com/donate)
 - Email: [contato@nathanconde.com](mailto:contato@nathanconde.com)
 - Issues: [GitHub Issues](https://github.com/NathanConde-dev/flowcomments/issues)
 - Docs: [flowcomments.com/docs](https://flowcomments.com/docs)
