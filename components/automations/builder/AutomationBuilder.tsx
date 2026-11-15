@@ -403,6 +403,7 @@ export function AutomationBuilder({ automationId }: AutomationBuilderProps) {
   const [loadingAutomation, setLoadingAutomation] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [templateApplied, setTemplateApplied] = useState(false);
+  const [followMetaReady, setFollowMetaReady] = useState<boolean | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -424,6 +425,32 @@ export function AutomationBuilder({ automationId }: AutomationBuilderProps) {
     };
     load();
   }, [isEdit]);
+
+  useEffect(() => {
+    if (!draft.igAccountId) {
+      setFollowMetaReady(null);
+      return;
+    }
+    let cancelled = false;
+    setFollowMetaReady(null);
+    const load = async () => {
+      try {
+        const res = await fetch(
+          `/api/instagram/follow-ready?accountId=${encodeURIComponent(draft.igAccountId)}`
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled) {
+          setFollowMetaReady(res.ok ? Boolean(data.ready) : true);
+        }
+      } catch {
+        if (!cancelled) setFollowMetaReady(true);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.igAccountId]);
 
   useEffect(() => {
     if (isEdit || templateApplied) return;
@@ -558,12 +585,21 @@ export function AutomationBuilder({ automationId }: AutomationBuilderProps) {
         body: JSON.stringify(payload),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || (isEdit ? 'Erro ao atualizar automação' : 'Erro ao criar automação'));
+        const docs = typeof data.docsUrl === 'string' ? ` ${data.docsUrl}` : '';
+        throw new Error(
+          `${data.error || (isEdit ? 'Erro ao atualizar automação' : 'Erro ao criar automação')}${docs}`
+        );
       }
 
-      toast.success(isEdit ? 'Automação atualizada' : 'Automação criada');
+      if (data.warning) {
+        toast.error(
+          `${data.hint || data.warning}${data.docsUrl ? ` ${data.docsUrl}` : ''}`
+        );
+      } else {
+        toast.success(isEdit ? 'Automação atualizada' : 'Automação criada');
+      }
       signalEngagement({ source: isEdit ? 'automation-update' : 'automation-create' });
       router.push('/automations');
     } catch (err) {
@@ -681,6 +717,7 @@ export function AutomationBuilder({ automationId }: AutomationBuilderProps) {
             selected={selected}
             onSelect={setSelected}
             onChange={setDraft}
+            followMetaReady={followMetaReady}
           />
         </div>
 
@@ -691,6 +728,7 @@ export function AutomationBuilder({ automationId }: AutomationBuilderProps) {
             accounts={accounts}
             onChange={setDraft}
             onClose={() => setSelected(null)}
+            followMetaReady={followMetaReady}
           />
         ) : null}
       </div>

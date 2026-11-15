@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
+import {
+  actionsRequireFollowCheck,
+  checkAccountFollowReady,
+  followCheckBlockedResponse,
+} from '@/lib/instagram/follow-ready';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -12,10 +17,39 @@ async function getOwnedAutomation(userId: string, id: string) {
         select: {
           id: true,
           igUsername: true,
+          igUserId: true,
+          facebookPageId: true,
+          accessToken: true,
         },
       },
     },
   });
+}
+
+async function blockIfFollowNotReady(params: {
+  actionsConfig: unknown;
+  igAccount: {
+    id: string;
+    igUserId: string;
+    facebookPageId?: string | null;
+    accessToken: string;
+  };
+  activating: boolean;
+}) {
+  if (!params.activating || !actionsRequireFollowCheck(params.actionsConfig)) {
+    return null;
+  }
+  const status = await checkAccountFollowReady(params.igAccount);
+  if (status.ready) {
+    if (status.pageId && status.pageId !== params.igAccount.facebookPageId) {
+      await prisma.instagramAccount.update({
+        where: { id: params.igAccount.id },
+        data: { facebookPageId: status.pageId },
+      });
+    }
+    return null;
+  }
+  return NextResponse.json(followCheckBlockedResponse(), { status: 400 });
 }
 
 export async function GET(_request: Request, context: RouteContext) {
@@ -63,6 +97,12 @@ export async function PUT(request: Request, context: RouteContext) {
         id: igAccountId,
         userId: session.userId,
       },
+      select: {
+        id: true,
+        igUserId: true,
+        facebookPageId: true,
+        accessToken: true,
+      },
     });
 
     if (!igAccount) {
@@ -81,6 +121,14 @@ export async function PUT(request: Request, context: RouteContext) {
       typeof triggerType === 'string' && allowedTriggers.has(triggerType)
         ? triggerType
         : existing.triggerType || 'comment';
+
+    const nextActive = typeof isActive === 'boolean' ? isActive : existing.isActive;
+    const blocked = await blockIfFollowNotReady({
+      actionsConfig,
+      igAccount,
+      activating: nextActive,
+    });
+    if (blocked) return blocked;
 
     const automation = await prisma.automation.update({
       where: { id },
@@ -115,6 +163,21 @@ export async function PATCH(request: Request, context: RouteContext) {
     const existing = await getOwnedAutomation(session.userId, id);
     if (!existing) {
       return NextResponse.json({ error: 'Automação não encontrada' }, { status: 404 });
+    }
+
+    if (isActive) {
+      let actionsConfig: unknown = existing.actionsConfig;
+      try {
+        actionsConfig = JSON.parse(existing.actionsConfig);
+      } catch {
+        /* keep raw */
+      }
+      const blocked = await blockIfFollowNotReady({
+        actionsConfig,
+        igAccount: existing.igAccount,
+        activating: true,
+      });
+      if (blocked) return blocked;
     }
 
     const automation = await prisma.automation.update({

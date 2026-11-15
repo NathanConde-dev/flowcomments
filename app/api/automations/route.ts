@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/client';
+import {
+  actionsRequireFollowCheck,
+  checkAccountFollowReady,
+  followCheckBlockedResponse,
+} from '@/lib/instagram/follow-ready';
 
 export async function GET() {
   try {
@@ -59,6 +64,12 @@ export async function POST(request: Request) {
         id: igAccountId,
         userId: session.userId,
       },
+      select: {
+        id: true,
+        igUserId: true,
+        facebookPageId: true,
+        accessToken: true,
+      },
     });
 
     if (!igAccount) {
@@ -66,6 +77,23 @@ export async function POST(request: Request) {
         { error: 'Conta do Instagram não encontrada' },
         { status: 404 }
       );
+    }
+
+    let isActive = true;
+    let followWarning: ReturnType<typeof followCheckBlockedResponse> | null = null;
+    if (actionsRequireFollowCheck(actionsConfig)) {
+      const status = await checkAccountFollowReady(igAccount);
+      if (!status.ready) {
+        isActive = false;
+        followWarning = followCheckBlockedResponse({
+          hint: 'Automação salva pausada. Configure o Meta e ative depois.',
+        });
+      } else if (status.pageId && status.pageId !== igAccount.facebookPageId) {
+        await prisma.instagramAccount.update({
+          where: { id: igAccount.id },
+          data: { facebookPageId: status.pageId },
+        });
+      }
     }
 
     const automation = await prisma.automation.create({
@@ -76,11 +104,21 @@ export async function POST(request: Request) {
         triggerType: resolvedTriggerType,
         triggerConfig: JSON.stringify(triggerConfig),
         actionsConfig: JSON.stringify(actionsConfig),
-        isActive: true,
+        isActive,
       },
     });
 
-    return NextResponse.json({ automation });
+    return NextResponse.json({
+      automation,
+      ...(followWarning
+        ? {
+            warning: followWarning.error,
+            code: followWarning.code,
+            docsUrl: followWarning.docsUrl,
+            hint: followWarning.hint,
+          }
+        : {}),
+    });
   } catch (error) {
     console.error('Error creating automation:', error);
     return NextResponse.json(

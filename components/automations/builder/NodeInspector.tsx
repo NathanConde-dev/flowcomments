@@ -19,6 +19,7 @@ import {
 } from './types';
 import { DmMediaFields } from './DmMediaFields';
 import { InspectorAccordion } from './InspectorAccordion';
+import { FollowMetaSetupBanner } from './FollowMetaSetupBanner';
 
 interface NodeInspectorProps {
   selected: FlowNodeId;
@@ -26,6 +27,7 @@ interface NodeInspectorProps {
   accounts: IGAccountOption[];
   onChange: (next: AutomationDraft) => void;
   onClose?: () => void;
+  followMetaReady?: boolean | null;
 }
 
 const titles: Record<FlowNodeId, { title: string; description: string }> = {
@@ -215,7 +217,15 @@ function VariantModeSelect({
   );
 }
 
-export function NodeInspector({ selected, draft, accounts, onChange, onClose }: NodeInspectorProps) {
+export function NodeInspector({
+  selected,
+  draft,
+  accounts,
+  onChange,
+  onClose,
+  followMetaReady = true,
+}: NodeInspectorProps) {
+  const followMetaBlocked = followMetaReady === false;
   const meta =
     selected === 'dm' && draft.followCheckEnabled
       ? {
@@ -494,18 +504,25 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
 
         {selected === 'condition' && (
           <>
+            {followMetaBlocked && draft.conditionRule === 'follows' ? (
+              <FollowMetaSetupBanner compact />
+            ) : null}
             <div>
               <label className="mb-2 block text-sm font-semibold text-foreground">Regra</label>
               <select
                 className="flex h-10 w-full rounded-md border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 value={draft.conditionRule}
-                onChange={(e) =>
-                  onChange({ ...draft, conditionRule: e.target.value as ConditionRule })
-                }
+                onChange={(e) => {
+                  const next = e.target.value as ConditionRule;
+                  if (next === 'follows' && followMetaBlocked) return;
+                  onChange({ ...draft, conditionRule: next });
+                }}
               >
                 <option value="has_tag">Tem tag</option>
                 <option value="field_equals">Campo igual a</option>
-                <option value="follows">Segue a conta</option>
+                <option value="follows" disabled={followMetaBlocked}>
+                  Segue a conta{followMetaBlocked ? ' (configure Meta)' : ''}
+                </option>
               </select>
             </div>
             {draft.conditionRule === 'has_tag' && (
@@ -626,6 +643,7 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
 
         {selected === 'followCheck' && (
           <>
+            {followMetaBlocked ? <FollowMetaSetupBanner compact /> : null}
             <InspectorAccordion
               title="Pedido pra seguir"
               summary={
@@ -834,9 +852,14 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                   />
                   {!button.handoff && (
                     <>
+                      {followMetaBlocked ? (
+                        <FollowMetaSetupBanner compact className="mb-1" />
+                      ) : null}
                       <ToggleSwitch
                         checked={Boolean(button.requireFollow)}
+                        disabled={followMetaBlocked && !button.requireFollow}
                         onCheckedChange={(requireFollow) => {
+                          if (requireFollow && followMetaBlocked) return;
                           const dmButtons = [...draft.dmButtons];
                           dmButtons[index] = {
                             ...button,

@@ -12,6 +12,8 @@ import {
   formatDelayLabel,
 } from './types';
 import { cn } from '@/lib/utils/cn';
+import { draftRequiresFollowCheck } from '@/lib/instagram/follow-ready';
+import { FollowMetaSetupBanner } from './FollowMetaSetupBanner';
 
 interface FlowCanvasProps {
   draft: AutomationDraft;
@@ -19,6 +21,8 @@ interface FlowCanvasProps {
   selected: FlowNodeId | null;
   onSelect: (id: FlowNodeId | null) => void;
   onChange: (draft: AutomationDraft) => void;
+  /** null = still loading follow readiness for the selected IG account */
+  followMetaReady?: boolean | null;
 }
 
 type ContextMenuState = {
@@ -284,8 +288,17 @@ function dropPosition(
   return clampPos(point.x - 140, point.y - 40);
 }
 
-export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: FlowCanvasProps) {
+export function FlowCanvas({
+  draft,
+  accounts,
+  selected,
+  onSelect,
+  onChange,
+  followMetaReady = true,
+}: FlowCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const needsFollowMeta = draftRequiresFollowCheck(draft);
+  const showFollowMetaWarning = needsFollowMeta && followMetaReady === false;
   const draftRef = useRef(draft);
   const zoomRef = useRef(ZOOM_DEFAULT);
   const panRef = useRef<{
@@ -997,6 +1010,9 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
                 }`
               : ''}
           </p>
+          {showFollowMetaWarning ? (
+            <p className="text-[11px] font-semibold text-amber-700">Meta: configurar Page</p>
+          ) : null}
         </div>
       );
     }
@@ -1066,6 +1082,11 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
 
   return (
     <div className="relative flex h-full min-h-[520px] flex-1">
+      {showFollowMetaWarning ? (
+        <div className="pointer-events-auto absolute left-14 right-3 top-3 z-30 max-w-xl sm:left-[232px]">
+          <FollowMetaSetupBanner />
+        </div>
+      ) : null}
       <aside
         className={cn(
           'z-20 flex shrink-0 flex-col border-r border-border bg-white/95 backdrop-blur-sm transition-[width] duration-200 ease-out',

@@ -102,7 +102,8 @@ export function AutomationsList({ initialItems }: AutomationsListProps) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Falha ao atualizar');
+        const docs = typeof data.docsUrl === 'string' ? ` ${data.docsUrl}` : '';
+        throw new Error(`${data.error || 'Falha ao atualizar'}${docs}`);
       }
       toast.success(nextActive ? 'Automação ativada' : 'Automação pausada');
     } catch (err) {
