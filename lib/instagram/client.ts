@@ -365,7 +365,7 @@ export class InstagramClient {
   async sendPrivateReply(
     commentId: string,
     message: string
-  ): Promise<{ id: string }> {
+  ): Promise<{ id: string; recipientId?: string }> {
     const auth = await this.messagingAuth();
     const payload = {
       recipient: { comment_id: commentId },
@@ -389,7 +389,10 @@ export class InstagramClient {
         id: result.id || result.message_id,
         recipientId: result.recipient_id,
       });
-      return { id: result.id || result.message_id || '' };
+      return {
+        id: result.id || result.message_id || '',
+        recipientId: result.recipient_id || undefined,
+      };
     } catch (error) {
       if (!(error instanceof InstagramAPIError)) throw error;
       console.error('sendPrivateReply failed', {
@@ -426,9 +429,13 @@ export class InstagramClient {
     commentId: string,
     text: string,
     buttons: Array<{ title: string; payload?: string; url?: string }>
-  ): Promise<{ id: string }> {
+  ): Promise<{ id: string; recipientId?: string }> {
     const auth = await this.messagingAuth();
-    return this.request<{ id: string }>(
+    const result = await this.request<{
+      id?: string;
+      recipient_id?: string;
+      message_id?: string;
+    }>(
       auth.path,
       {
         method: 'POST',
@@ -449,6 +456,10 @@ export class InstagramClient {
       },
       auth.baseUrl
     );
+    return {
+      id: result.id || result.message_id || '',
+      recipientId: result.recipient_id || undefined,
+    };
   }
 
   async sendMessageWithButtons(

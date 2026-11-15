@@ -10,6 +10,8 @@ import {
   followRecheckPayload,
   buildTemplateVars,
   interpolateTemplate,
+  isDirectWebUrlButton,
+  mapButtonsForMeta,
   pickActionText,
   pickButtonText,
   pickFollowNudgeMessage,
@@ -397,22 +399,19 @@ async function sendOutboundDm(params: {
 
   const hasMedia = Boolean(imageUrl || imageAttachmentId || audioUrl || audioAttachmentId);
   const privateReply = canUsePrivateReply(context);
+  const mappedButtons =
+    buttons && buttons.length > 0 ? mapButtonsForMeta(buttons, automationId) : [];
 
   // Comment → DM must open via private reply first. Messaging API (media/user id)
   // fails with (#10) outside the 24h window and used to run BEFORE private reply.
-  //
-  // Meta private replies only support plain text as the opener (not button templates).
-  // Templates/media need the 24h window after the user replies to the private reply.
+  // Button templates work on private reply (same path as follow_gate).
   if (privateReply) {
     let opener = text.trim();
-    if (!opener && buttons && buttons.length > 0) {
-      const labels = buttons
-        .slice(0, 3)
-        .map((button) => button.title?.trim())
-        .filter(Boolean);
+    if (!opener && mappedButtons.length > 0) {
+      const labels = mappedButtons.map((button) => button.title?.trim()).filter(Boolean);
       opener = labels.length
-        ? `Olá! Responda esta mensagem para continuar (${labels.join(' / ')}).`
-        : 'Olá! Responda esta mensagem para continuar.';
+        ? `Olá! Toque abaixo pra continuar (${labels.join(' / ')}).`
+        : 'Olá! Toque abaixo pra continuar.';
     }
     if (!opener) {
       opener = 'Olá! Vi seu comentário e te enviei esta mensagem.';
@@ -421,11 +420,42 @@ async function sendOutboundDm(params: {
     console.log('sendOutboundDm private reply opener', {
       automationId,
       commentId: context.commentId,
-      hasButtons: Boolean(buttons?.length),
+      hasButtons: mappedButtons.length > 0,
       hasMedia,
       openerLength: opener.length,
     });
-    await client.sendPrivateReply(context.commentId!, opener);
+
+    let recipientId = context.userId;
+    try {
+      if (mappedButtons.length > 0) {
+        const sent = await client.sendPrivateReplyWithButtons(
+          context.commentId!,
+          opener,
+          mappedButtons
+        );
+        recipientId = sent.recipientId || recipientId;
+      } else {
+        const sent = await client.sendPrivateReply(context.commentId!, opener);
+        recipientId = sent.recipientId || recipientId;
+      }
+    } catch (error) {
+      // Some accounts reject button templates on private reply — fall back to text.
+      if (mappedButtons.length > 0) {
+        console.warn('sendOutboundDm private reply with buttons failed; falling back to text', {
+          automationId,
+          commentId: context.commentId,
+          error: error instanceof Error ? error.message : error,
+        });
+        const sent = await client.sendPrivateReply(context.commentId!, opener);
+        recipientId = sent.recipientId || recipientId;
+      } else {
+        throw error;
+      }
+    }
+
+    if (recipientId && !context.userId) {
+      context.userId = recipientId;
+    }
 
     if (hasMedia && context.userId) {
       try {
@@ -466,19 +496,9 @@ async function sendOutboundDm(params: {
     return;
   }
 
-  if (buttons && buttons.length > 0) {
-    const mapped = buttons.slice(0, 3).map((button, index) => {
-      const url = button.url?.trim();
-      if (url) {
-        return { title: button.title, url };
-      }
-      return {
-        title: button.title,
-        payload: buttonPayload(automationId, index),
-      };
-    });
+  if (mappedButtons.length > 0) {
     if (context.userId) {
-      await client.sendMessageWithButtons(context.userId, text || ' ', mapped);
+      await client.sendMessageWithButtons(context.userId, text || ' ', mappedButtons);
     }
     return;
   }
@@ -789,7 +809,7 @@ async function runActions(params: {
             `dm:${(picked.text || mediaLabel).slice(0, 24)}`,
             action.buttons?.map((b) => ({
               title: b.title,
-              type: (b.url?.trim() ? 'web_url' : 'postback') as 'postback' | 'web_url',
+              type: (isDirectWebUrlButton(b) ? 'web_url' : 'postback') as 'postback' | 'web_url',
             })) ||
               action.quickReplies?.map((b) => ({
                 title: b.title,
@@ -891,10 +911,22 @@ async function runActions(params: {
       }
 
       case 'ask_input': {
-        if (!context.userId || !action.prompt || !action.saveKey) break;
+        if (!action.prompt || !action.saveKey) break;
         const askPrompt = interpolateTemplate(action.prompt, liveVars());
-        await client.sendMessage(context.userId, askPrompt);
+        if (context.userId) {
+          await client.sendMessage(context.userId, askPrompt);
+        } else if (canUsePrivateReply(context)) {
+          const sent = await client.sendPrivateReply(context.commentId!, askPrompt);
+          if (sent.recipientId) context.userId = sent.recipientId;
+        } else {
+          break;
+        }
         await trackOutbound(askPrompt, 'ask_input', `ask:${action.saveKey}`);
+        if (!context.userId) {
+          // Without IGSID we cannot resume on the next DM — skip pending state.
+          await markDone(key);
+          break;
+        }
         state.customData._pendingInput = {
           automationId: automation.id,
           saveKey: action.saveKey,
@@ -1287,7 +1319,15 @@ export async function executeFollowGatePostback(params: {
           sequence: readVariantSequence(state, automation.id, rewardSlot),
         }
       );
-      if (reward.text || gate.imageUrl || gate.imageAttachmentId || gate.audioUrl || gate.audioAttachmentId) {
+      const rewardButtons = gate.buttons?.filter((b) => b.title?.trim()) || [];
+      if (
+        reward.text ||
+        rewardButtons.length ||
+        gate.imageUrl ||
+        gate.imageAttachmentId ||
+        gate.audioUrl ||
+        gate.audioAttachmentId
+      ) {
         await sendActionMedia({
           client,
           recipientId: params.senderId,
@@ -1297,7 +1337,13 @@ export async function executeFollowGatePostback(params: {
           audioUrl: gate.audioUrl?.trim() || undefined,
           audioAttachmentId: gate.audioAttachmentId?.trim() || undefined,
         });
-        if (reward.text) {
+        if (rewardButtons.length > 0) {
+          await client.sendMessageWithButtons(
+            params.senderId,
+            reward.text || 'Pronto! Toque abaixo:',
+            mapButtonsForMeta(rewardButtons, automation.id)
+          );
+        } else if (reward.text) {
           await client.sendMessage(params.senderId, reward.text);
         }
         await persistVariantSequence(
@@ -1313,7 +1359,9 @@ export async function executeFollowGatePostback(params: {
             ? '[áudio]'
             : gate.imageUrl || gate.imageAttachmentId
               ? '[imagem]'
-              : '');
+              : rewardButtons.length
+                ? '[botões]'
+                : '');
         await logDm({
           userId: automation.userId,
           igAccountId: automation.igAccountId,
@@ -1332,6 +1380,11 @@ export async function executeFollowGatePostback(params: {
           dedupeKey: `out:${automation.id}:${params.senderId}:reward:${Date.now()}`,
           automationId: automation.id,
           automationName: automation.name,
+          buttons: rewardButtons.map((b) => ({
+            title: b.title,
+            type: isDirectWebUrlButton(b) ? ('web_url' as const) : ('postback' as const),
+            url: b.url,
+          })),
         });
       }
     } else {
@@ -1415,14 +1468,17 @@ function findButtonByIndex(
   index: number
 ): { button: NonNullable<ActionConfig['buttons']>[number]; parent: ActionConfig } | null {
   for (const action of collectActionsDeep(actions)) {
-    if (action.type !== 'send_dm') continue;
+    if (action.type !== 'send_dm' && action.type !== 'follow_gate') continue;
     const fromButtons = action.buttons?.[index];
     if (fromButtons) {
-      if (fromButtons.url?.trim()) return null;
+      // Pure web_url buttons never post back — ignore them for postback handling.
+      if (isDirectWebUrlButton(fromButtons)) continue;
       return { button: fromButtons, parent: action };
     }
-    const fromQr = action.quickReplies?.[index];
-    if (fromQr) return { button: fromQr, parent: action };
+    if (action.type === 'send_dm') {
+      const fromQr = action.quickReplies?.[index];
+      if (fromQr) return { button: fromQr, parent: action };
+    }
   }
   return null;
 }
@@ -1578,7 +1634,43 @@ export async function executeButtonPostback(params: {
   if (button.handoff && !responseText) {
     responseText = 'Um atendente vai te responder em breve.';
   }
-  if (responseText) {
+
+  const rewardUrl = button.url?.trim();
+  const messageType = button.handoff ? 'human_handoff' : 'button_response';
+
+  if (rewardUrl) {
+    const linkCopy = responseText || 'Pronto! Toque no botão pra abrir o link:';
+    await client.sendMessageWithButtons(params.senderId, linkCopy, [
+      { title: (button.title || 'Abrir link').slice(0, 20), url: rewardUrl },
+    ]);
+    await persistVariantSequence(
+      contact.id,
+      state,
+      automation.id,
+      responseSlot,
+      response.nextSequence
+    );
+    await logDm({
+      userId: automation.userId,
+      igAccountId: automation.igAccountId,
+      contactId: contact.id,
+      text: `${linkCopy} ${rewardUrl}`,
+      messageType,
+    });
+    await recordOutboundInbox({
+      userId: automation.userId,
+      igAccountId: automation.igAccountId,
+      contactId: contact.id,
+      businessIgUserId,
+      recipientIgUserId: params.senderId,
+      text: linkCopy,
+      messageType,
+      dedupeKey: `out:${automation.id}:${params.senderId}:btn:${params.index}:${Date.now()}`,
+      automationId: automation.id,
+      automationName: automation.name,
+      buttons: [{ title: (button.title || 'Abrir link').slice(0, 20), type: 'web_url', url: rewardUrl }],
+    });
+  } else if (responseText) {
     await client.sendMessage(params.senderId, responseText);
     await persistVariantSequence(
       contact.id,
@@ -1592,7 +1684,7 @@ export async function executeButtonPostback(params: {
       igAccountId: automation.igAccountId,
       contactId: contact.id,
       text: responseText,
-      messageType: button.handoff ? 'human_handoff' : 'button_response',
+      messageType,
     });
     await recordOutboundInbox({
       userId: automation.userId,
@@ -1601,7 +1693,7 @@ export async function executeButtonPostback(params: {
       businessIgUserId,
       recipientIgUserId: params.senderId,
       text: responseText,
-      messageType: button.handoff ? 'human_handoff' : 'button_response',
+      messageType,
       dedupeKey: `out:${automation.id}:${params.senderId}:btn:${params.index}:${Date.now()}`,
       automationId: automation.id,
       automationName: automation.name,
@@ -1647,7 +1739,7 @@ export async function handlePendingInputReply(params: {
     where: { id: params.igAccountId },
   });
 
-  if (pending.fieldType === 'email' && !value.includes('@')) {
+  if (pending.fieldType === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
     const client = createInstagramClient(
       decrypt(account.accessToken),
       account.igUserId,
@@ -1657,7 +1749,25 @@ export async function handlePendingInputReply(params: {
     return true;
   }
 
-  state.customData[pending.saveKey] = value;
+  let storedValue = value;
+  if (pending.fieldType === 'phone') {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length < 10 || digits.length > 15) {
+      const client = createInstagramClient(
+        decrypt(account.accessToken),
+        account.igUserId,
+        account.facebookPageId
+      );
+      await client.sendMessage(
+        params.senderId,
+        'Envie um telefone válido com DDD (só números também serve).'
+      );
+      return true;
+    }
+    storedValue = digits;
+  }
+
+  state.customData[pending.saveKey] = storedValue;
   delete state.customData._pendingInput;
   await saveContactState(contact.id, state);
 

@@ -1054,9 +1054,7 @@ export function FlowCanvas({ draft, accounts, selected, onSelect, onChange }: Fl
           <p className="text-[11px] font-medium text-primary-600">
             {draft.dmButtons.length} botão(ões)
             {draft.dmButtons.some((b) => b.url?.trim()) ? ' · com link' : ''}
-            {draft.dmButtons.some((b) => !b.url?.trim() && b.requireFollow)
-              ? ' · exige follow'
-              : ''}
+            {draft.dmButtons.some((b) => b.requireFollow) ? ' · exige follow' : ''}
           </p>
         )}
         {draft.followCheckEnabled && (

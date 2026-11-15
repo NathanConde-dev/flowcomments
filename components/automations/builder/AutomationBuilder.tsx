@@ -183,7 +183,7 @@ function draftFromAutomation(automation: {
           ? 'sequential'
           : 'random',
       dmDelay: typeof dm?.delay === 'number' ? dm.delay : 0,
-      dmButtons: (dm?.buttons || []).map((b) => ({
+      dmButtons: (dm?.buttons || followGate?.buttons || []).map((b) => ({
         title: b.title || '',
         url: b.url || '',
         responseVariants: normalizeTextVariants(b.responseTexts, b.responseText),
@@ -295,6 +295,43 @@ function buildActions(draft: AutomationDraft): ActionConfig[] {
     ...(audioAttachmentId ? { audioAttachmentId } : {}),
   };
   const hasMedia = Boolean(imageUrl || imageAttachmentId || audioUrl || audioAttachmentId);
+  const mappedButtons = draft.dmButtons
+    .filter((b) => b.title.trim())
+    .map((b) => {
+      const url = b.url.trim();
+      const responseTexts = filledVariants(b.responseVariants);
+      const notFollowing = filledVariants(b.notFollowingVariants);
+      const needsPostback = Boolean(
+        b.requireFollow || b.handoff || responseTexts.length > 0 || b.addTag.trim()
+      );
+
+      // Pure checkout link → Meta web_url (opens immediately).
+      if (url && !needsPostback) {
+        return {
+          title: b.title.trim().slice(0, 20),
+          url,
+        };
+      }
+
+      return {
+        title: b.title.trim().slice(0, 20),
+        ...(url ? { url } : {}),
+        responseText: responseTexts[0] || undefined,
+        ...(responseTexts.length > 1 ? { responseTexts } : {}),
+        addTag: b.addTag.trim() || undefined,
+        handoff: b.handoff || undefined,
+        requireFollow: b.handoff ? undefined : b.requireFollow || undefined,
+        notFollowingText:
+          !b.handoff && b.requireFollow
+            ? notFollowing[0] ||
+              'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.'
+            : undefined,
+        ...(!b.handoff && b.requireFollow && notFollowing.length > 1
+          ? { notFollowingTexts: notFollowing }
+          : {}),
+      };
+    });
+
   if (draft.followCheckEnabled) {
     deliveryActions.push(
       withPickMode(
@@ -309,11 +346,12 @@ function buildActions(draft: AutomationDraft): ActionConfig[] {
           ...(notFollowingTexts.length > 1 ? { notFollowingTexts } : {}),
           recheckButtonLabel: (draft.recheckButtonLabel.trim() || 'Já segui').slice(0, 20),
           ...mediaFields,
+          ...(mappedButtons.length ? { buttons: mappedButtons } : {}),
         },
         draft.variantPickMode
       )
     );
-  } else if (draft.dmEnabled && (dmTexts.length > 0 || hasMedia)) {
+  } else if (draft.dmEnabled && (dmTexts.length > 0 || hasMedia || mappedButtons.length > 0)) {
     deliveryActions.push(
       withPickMode(
         {
@@ -322,35 +360,7 @@ function buildActions(draft: AutomationDraft): ActionConfig[] {
           ...(dmTexts.length > 1 ? { texts: dmTexts } : {}),
           delay: draft.dmDelay,
           ...mediaFields,
-          buttons: draft.dmButtons
-            .filter((b) => b.title.trim())
-            .map((b) => {
-              const url = b.url.trim();
-              if (url) {
-                return {
-                  title: b.title.trim().slice(0, 20),
-                  url,
-                };
-              }
-              const responseTexts = filledVariants(b.responseVariants);
-              const notFollowing = filledVariants(b.notFollowingVariants);
-              return {
-                title: b.title.trim().slice(0, 20),
-                responseText: responseTexts[0] || undefined,
-                ...(responseTexts.length > 1 ? { responseTexts } : {}),
-                addTag: b.addTag.trim() || undefined,
-                handoff: b.handoff || undefined,
-                requireFollow: b.handoff ? undefined : b.requireFollow || undefined,
-                notFollowingText:
-                  !b.handoff && b.requireFollow
-                    ? notFollowing[0] ||
-                      'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.'
-                    : undefined,
-                ...(!b.handoff && b.requireFollow && notFollowing.length > 1
-                  ? { notFollowingTexts: notFollowing }
-                  : {}),
-              };
-            }),
+          buttons: mappedButtons,
         },
         draft.variantPickMode
       )

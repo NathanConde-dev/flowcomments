@@ -61,7 +61,10 @@ export type DelayUnit = 'seconds' | 'minutes' | 'days';
 
 export interface DmButtonDraft {
   title: string;
-  /** HTTPS link → Meta web_url (abre o link; sem postback). */
+  /**
+   * HTTPS link. Alone → Meta web_url. With requireFollow/response/handoff →
+   * postback first, then the link is sent after unlock.
+   */
   url: string;
   responseVariants: string[];
   addTag: string;

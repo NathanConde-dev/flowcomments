@@ -616,6 +616,10 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
                 <option value="email">E-mail</option>
                 <option value="phone">Telefone</option>
               </select>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                E-mail e telefone são validados na resposta. O fluxo continua depois que a
+                pessoa responder na DM.
+              </p>
             </div>
           </>
         )}
@@ -711,182 +715,186 @@ export function NodeInspector({ selected, draft, accounts, onChange, onClose }: 
               />
             </InspectorAccordion>
 
-            {!draft.followCheckEnabled && (
-              <InspectorAccordion
-                title="Botões"
-                summary={
-                  draft.dmButtons.length
-                    ? draft.dmButtons
-                        .map((b) => b.title.trim() || 'Sem título')
-                        .join(', ')
-                    : 'Até 3 botões (link, resposta, handoff)'
-                }
-                defaultOpen={draft.dmButtons.length > 0}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">Máximo 3 botões</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={draft.dmButtons.length >= 3}
-                    onClick={() =>
-                      onChange({
-                        ...draft,
-                        dmButtons: [
-                          ...draft.dmButtons,
-                          {
-                            title: 'Receber link',
-                            url: '',
-                            responseVariants: [''],
-                            addTag: '',
-                            requireFollow: true,
-                            notFollowingVariants: [
-                              'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
-                            ],
-                            handoff: false,
-                          },
-                        ],
-                      })
-                    }
-                  >
-                    + Botão
-                  </Button>
-                </div>
-                {draft.dmButtons.map((button, index) => (
-                  <InspectorAccordion
-                    key={index}
-                    title={button.title.trim() || `Botão ${index + 1}`}
-                    summary={
-                      button.url?.trim()
-                        ? 'Link'
-                        : button.handoff
-                          ? 'Handoff'
-                          : button.requireFollow
-                            ? 'Exige follow'
+            <InspectorAccordion
+              title="Botões"
+              summary={
+                draft.dmButtons.length
+                  ? draft.dmButtons
+                      .map((b) => b.title.trim() || 'Sem título')
+                      .join(', ')
+                  : draft.followCheckEnabled
+                    ? 'Links/botões no conteúdo liberado após follow'
+                    : 'Até 3 botões (link, follow, handoff)'
+              }
+              defaultOpen={draft.dmButtons.length > 0}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-muted-foreground">Máximo 3 botões</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={draft.dmButtons.length >= 3}
+                  onClick={() =>
+                    onChange({
+                      ...draft,
+                      dmButtons: [
+                        ...draft.dmButtons,
+                        {
+                          title: 'Receber link',
+                          url: '',
+                          responseVariants: [''],
+                          addTag: '',
+                          requireFollow: false,
+                          notFollowingVariants: [
+                            'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
+                          ],
+                          handoff: false,
+                        },
+                      ],
+                    })
+                  }
+                >
+                  + Botão
+                </Button>
+              </div>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Só link = abre direto. Link + “Só libera se seguir” = verifica follow e
+                depois envia o link.
+              </p>
+              {draft.dmButtons.map((button, index) => (
+                <InspectorAccordion
+                  key={index}
+                  title={button.title.trim() || `Botão ${index + 1}`}
+                  summary={
+                    button.handoff
+                      ? 'Handoff'
+                      : button.requireFollow && button.url?.trim()
+                        ? 'Link após follow'
+                        : button.requireFollow
+                          ? 'Exige follow'
+                          : button.url?.trim()
+                            ? 'Link direto'
                             : firstVariant(button.responseVariants) || 'Postback'
-                    }
-                    defaultOpen={index === 0}
-                  >
+                  }
+                  defaultOpen={index === 0}
+                >
+                  <Input
+                    value={button.title}
+                    maxLength={20}
+                    onChange={(e) => {
+                      const dmButtons = [...draft.dmButtons];
+                      dmButtons[index] = { ...button, title: e.target.value };
+                      onChange({ ...draft, dmButtons });
+                    }}
+                    placeholder="Título do botão"
+                  />
+                  <div>
+                    <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                      Link (https://…)
+                    </label>
                     <Input
-                      value={button.title}
-                      maxLength={20}
+                      value={button.url || ''}
                       onChange={(e) => {
                         const dmButtons = [...draft.dmButtons];
-                        dmButtons[index] = { ...button, title: e.target.value };
+                        dmButtons[index] = { ...button, url: e.target.value };
                         onChange({ ...draft, dmButtons });
                       }}
-                      placeholder="Título do botão"
+                      placeholder="https://seu-checkout.com/..."
                     />
-                    <div>
-                      <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                        Link (abre URL — ideal p/ checkout)
-                      </label>
-                      <Input
-                        value={button.url || ''}
-                        onChange={(e) => {
+                  </div>
+                  <TextVariantsEditor
+                    label="Resposta ao tocar"
+                    hint={
+                      button.url?.trim()
+                        ? 'Opcional. Se vazio e houver link, usamos um texto padrão + botão do link.'
+                        : 'Variantes da resposta do botão.'
+                    }
+                    compact
+                    variants={button.responseVariants}
+                    placeholder="Resposta liberada ao tocar"
+                    onChange={(responseVariants) => {
+                      const dmButtons = [...draft.dmButtons];
+                      dmButtons[index] = { ...button, responseVariants };
+                      onChange({ ...draft, dmButtons });
+                    }}
+                  />
+                  <ToggleSwitch
+                    checked={Boolean(button.handoff)}
+                    onCheckedChange={(handoff) => {
+                      const dmButtons = [...draft.dmButtons];
+                      dmButtons[index] = {
+                        ...button,
+                        handoff,
+                        requireFollow: handoff ? false : button.requireFollow,
+                      };
+                      onChange({ ...draft, dmButtons });
+                    }}
+                    label="Transferir para humano"
+                  />
+                  {!button.handoff && (
+                    <>
+                      <ToggleSwitch
+                        checked={Boolean(button.requireFollow)}
+                        onCheckedChange={(requireFollow) => {
                           const dmButtons = [...draft.dmButtons];
-                          dmButtons[index] = { ...button, url: e.target.value };
+                          dmButtons[index] = {
+                            ...button,
+                            requireFollow,
+                            notFollowingVariants: firstVariant(button.notFollowingVariants)
+                              ? button.notFollowingVariants
+                              : [
+                                  'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
+                                ],
+                          };
                           onChange({ ...draft, dmButtons });
                         }}
-                        placeholder="https://seu-checkout.com/..."
+                        label="Só libera se seguir"
                       />
-                    </div>
-                    {!button.url?.trim() && (
-                      <>
+                      {button.requireFollow && (
                         <TextVariantsEditor
-                          label="Resposta ao tocar"
-                          hint="Variantes da resposta do botão."
+                          label="Se ainda não segue"
+                          hint="Variantes do pedido pra seguir."
                           compact
-                          variants={button.responseVariants}
-                          placeholder="Resposta liberada ao tocar"
-                          onChange={(responseVariants) => {
-                            const dmButtons = [...draft.dmButtons];
-                            dmButtons[index] = { ...button, responseVariants };
-                            onChange({ ...draft, dmButtons });
-                          }}
-                        />
-                        <ToggleSwitch
-                          checked={Boolean(button.handoff)}
-                          onCheckedChange={(handoff) => {
+                          variants={button.notFollowingVariants}
+                          placeholder="Mensagem se ainda não segue"
+                          onChange={(notFollowingVariants) => {
                             const dmButtons = [...draft.dmButtons];
                             dmButtons[index] = {
                               ...button,
-                              handoff,
-                              requireFollow: handoff ? false : button.requireFollow,
+                              notFollowingVariants,
                             };
                             onChange({ ...draft, dmButtons });
                           }}
-                          label="Transferir para humano"
                         />
-                        {!button.handoff && (
-                          <>
-                            <ToggleSwitch
-                              checked={Boolean(button.requireFollow)}
-                              onCheckedChange={(requireFollow) => {
-                                const dmButtons = [...draft.dmButtons];
-                                dmButtons[index] = {
-                                  ...button,
-                                  requireFollow,
-                                  notFollowingVariants: firstVariant(
-                                    button.notFollowingVariants
-                                  )
-                                    ? button.notFollowingVariants
-                                    : [
-                                        'Hum, olhei aqui e ainda não seguiu. Segue que te mando o link.',
-                                      ],
-                                };
-                                onChange({ ...draft, dmButtons });
-                              }}
-                              label="Só libera se seguir"
-                            />
-                            {button.requireFollow && (
-                              <TextVariantsEditor
-                                label="Se ainda não segue"
-                                hint="Variantes do pedido pra seguir."
-                                compact
-                                variants={button.notFollowingVariants}
-                                placeholder="Mensagem se ainda não segue"
-                                onChange={(notFollowingVariants) => {
-                                  const dmButtons = [...draft.dmButtons];
-                                  dmButtons[index] = {
-                                    ...button,
-                                    notFollowingVariants,
-                                  };
-                                  onChange({ ...draft, dmButtons });
-                                }}
-                              />
-                            )}
-                          </>
-                        )}
-                        <Input
-                          value={button.addTag}
-                          onChange={(e) => {
-                            const dmButtons = [...draft.dmButtons];
-                            dmButtons[index] = { ...button, addTag: e.target.value };
-                            onChange({ ...draft, dmButtons });
-                          }}
-                          placeholder="Tag opcional ao liberar"
-                        />
-                      </>
-                    )}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        onChange({
-                          ...draft,
-                          dmButtons: draft.dmButtons.filter((_, i) => i !== index),
-                        })
-                      }
-                    >
-                      Remover
-                    </Button>
-                  </InspectorAccordion>
-                ))}
-              </InspectorAccordion>
-            )}
+                      )}
+                    </>
+                  )}
+                  <Input
+                    value={button.addTag}
+                    onChange={(e) => {
+                      const dmButtons = [...draft.dmButtons];
+                      dmButtons[index] = { ...button, addTag: e.target.value };
+                      onChange({ ...draft, dmButtons });
+                    }}
+                    placeholder="Tag opcional ao liberar"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      onChange({
+                        ...draft,
+                        dmButtons: draft.dmButtons.filter((_, i) => i !== index),
+                      })
+                    }
+                  >
+                    Remover
+                  </Button>
+                </InspectorAccordion>
+              ))}
+            </InspectorAccordion>
           </>
         )}
 

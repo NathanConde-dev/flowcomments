@@ -23,8 +23,8 @@ export type VariantPickMode = 'random' | 'sequential';
 export interface MessageButton {
   title: string;
   /**
-   * When set, Meta opens this URL (web_url). No postback / responseText.
-   * Prefer HTTPS checkout / landing links for creators who sell.
+   * HTTPS link. Pure link (no follow/response/handoff/tag) → Meta `web_url`.
+   * With requireFollow / response / handoff → postback first; URL is sent after unlock.
    */
   url?: string;
   /** Sent when the button is tapped (postback only). */
@@ -35,11 +35,35 @@ export interface MessageButton {
   addTag?: string;
   /** Pause automations and wait for a human (inbox). */
   handoff?: boolean;
-  /** Only send responseText if the user follows the business. */
+  /** Only unlock response / link if the user follows the business. */
   requireFollow?: boolean;
   /** Sent (with recheck button) when requireFollow fails. */
   notFollowingText?: string;
   notFollowingTexts?: string[];
+}
+
+/** True when the button should open the URL immediately (Meta web_url). */
+export function isDirectWebUrlButton(button: MessageButton): boolean {
+  if (!button.url?.trim()) return false;
+  if (button.requireFollow || button.handoff) return false;
+  if (button.addTag?.trim()) return false;
+  if (button.responseText?.trim()) return false;
+  if (button.responseTexts?.some((t) => Boolean(t?.trim()))) return false;
+  return true;
+}
+
+/** Map stored buttons to Meta template buttons (web_url vs postback). */
+export function mapButtonsForMeta(
+  buttons: MessageButton[],
+  automationId: string
+): Array<{ title: string; payload?: string; url?: string }> {
+  return buttons.slice(0, 3).map((button, index) => {
+    const title = button.title.slice(0, 20);
+    if (isDirectWebUrlButton(button)) {
+      return { title, url: button.url!.trim() };
+    }
+    return { title, payload: buttonPayload(automationId, index) };
+  });
 }
 
 export interface ActionConfig {

@@ -3,6 +3,8 @@ import { evaluateCommentTrigger } from '@/lib/automation/engine';
 import type { CommentTriggerConfig } from '@/lib/automation/engine';
 import {
   interpolateTemplate,
+  isDirectWebUrlButton,
+  mapButtonsForMeta,
   pickActionText,
   buildTemplateVars,
 } from '@/lib/automation/types';
@@ -105,6 +107,41 @@ describe('Automation Engine', () => {
       });
       expect(interpolateTemplate('Oi {{nome}}!', vars)).toBe('Oi joao.ig!');
       expect(interpolateTemplate('Oi {{primeiro_nome}}!', vars)).toBe('Oi joao.ig!');
+    });
+  });
+
+  describe('DM buttons', () => {
+    it('treats url-only as direct web_url', () => {
+      expect(
+        isDirectWebUrlButton({ title: 'Comprar', url: 'https://pay.example/x' })
+      ).toBe(true);
+    });
+
+    it('keeps postback when url + requireFollow', () => {
+      expect(
+        isDirectWebUrlButton({
+          title: 'Comprar',
+          url: 'https://pay.example/x',
+          requireFollow: true,
+        })
+      ).toBe(false);
+    });
+
+    it('maps mixed buttons for Meta', () => {
+      const mapped = mapButtonsForMeta(
+        [
+          { title: 'Checkout', url: 'https://pay.example/x' },
+          {
+            title: 'Liberar',
+            url: 'https://pay.example/y',
+            requireFollow: true,
+            responseText: 'ok',
+          },
+        ],
+        'auto-1'
+      );
+      expect(mapped[0]).toEqual({ title: 'Checkout', url: 'https://pay.example/x' });
+      expect(mapped[1]).toEqual({ title: 'Liberar', payload: 'fc:btn:auto-1:1' });
     });
   });
 });
