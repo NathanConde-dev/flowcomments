@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "InstagramAccount" ADD COLUMN "profilePictureUrl" TEXT;
+ALTER TABLE "InstagramAccount" ADD COLUMN IF NOT EXISTS "profilePictureUrl" TEXT;

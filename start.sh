@@ -10,27 +10,41 @@ echo "📁 Media uploads: $UPLOAD_DIR"
 # Run migrations (failure is fatal, with light recovery for known P3009)
 echo "📦 Running database migrations..."
 MIGRATE_LOG="$(mktemp)"
+recover_failed_migration() {
+  migration_name="$1"
+  ensure_sql="$2"
+  echo "⚠️  Recovering failed migration: $migration_name"
+  if [ -n "$ensure_sql" ]; then
+    printf '%s\n' "$ensure_sql" | npx prisma db execute --stdin || true
+  fi
+  if npx prisma migrate resolve --applied "$migration_name"; then
+    if npx prisma migrate deploy; then
+      echo "✅ Migrations recovered ($migration_name)"
+      return 0
+    fi
+  fi
+  return 1
+}
+
 if ! npx prisma migrate deploy >"$MIGRATE_LOG" 2>&1; then
   cat "$MIGRATE_LOG"
-  if grep -q "P3009" "$MIGRATE_LOG" && grep -q "20261111193000_user_timezone" "$MIGRATE_LOG"; then
-    echo "⚠️  Recovering failed user_timezone migration if column already exists..."
-    if npx prisma migrate resolve --applied "20261111193000_user_timezone"; then
-      if npx prisma migrate deploy; then
-        echo "✅ Migrations recovered"
-        rm -f "$MIGRATE_LOG"
-      else
-        echo "❌ Migration failed after resolve"
-        rm -f "$MIGRATE_LOG"
-        exit 1
+  recovered=0
+  if grep -q "P3009" "$MIGRATE_LOG"; then
+    if grep -q "20261115020000_ig_profile_picture" "$MIGRATE_LOG"; then
+      if recover_failed_migration \
+        "20261115020000_ig_profile_picture" \
+        'ALTER TABLE "InstagramAccount" ADD COLUMN IF NOT EXISTS "profilePictureUrl" TEXT;'; then
+        recovered=1
       fi
-    else
-      echo "❌ Migration failed"
-      rm -f "$MIGRATE_LOG"
-      exit 1
+    elif grep -q "20261111193000_user_timezone" "$MIGRATE_LOG"; then
+      if recover_failed_migration "20261111193000_user_timezone" ""; then
+        recovered=1
+      fi
     fi
-  else
+  fi
+  rm -f "$MIGRATE_LOG"
+  if [ "$recovered" -ne 1 ]; then
     echo "❌ Migration failed"
-    rm -f "$MIGRATE_LOG"
     exit 1
   fi
 else
