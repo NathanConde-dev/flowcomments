@@ -43,11 +43,18 @@ export async function GET() {
 
       let scopes: string[] = [];
       let tokenValid: boolean | undefined;
+      let tokenType: string | undefined;
+      let granular: Array<{ scope?: string; targets: number }> = [];
       if (config?.appId && config?.appSecret) {
         try {
           const debug = await debugToken(accessToken, `${config.appId}|${config.appSecret}`);
           scopes = debug.data?.scopes || [];
           tokenValid = debug.data?.is_valid;
+          tokenType = debug.data?.type;
+          granular = (debug.data.granular_scopes || []).map((item) => ({
+            scope: item.scope,
+            targets: item.target_ids?.length || 0,
+          }));
         } catch {
           /* ignore */
         }
@@ -58,30 +65,69 @@ export async function GET() {
       );
       const accountsBody = await accountsRes.json().catch(() => ({}));
 
+      const requiredPageScopes = [
+        'pages_show_list',
+        'pages_read_engagement',
+        'pages_manage_metadata',
+      ] as const;
+      const missingPageScopes = requiredPageScopes.filter((scope) => !scopes.includes(scope));
+
+      let pageTokenProbe: { ok: boolean; error?: string } | null = null;
+      const probePageId = resolved.pageId || account.facebookPageId;
+      if (probePageId) {
+        try {
+          const probeRes = await fetch(
+            `${GRAPH_API_BASE}/${probePageId}?fields=access_token&access_token=${encodeURIComponent(accessToken)}`
+          );
+          const probeBody = await probeRes.json().catch(() => ({}));
+          pageTokenProbe = probeRes.ok && probeBody.access_token
+            ? { ok: true }
+            : {
+                ok: false,
+                error: probeBody.error?.message || `HTTP ${probeRes.status}`,
+              };
+        } catch (error) {
+          pageTokenProbe = {
+            ok: false,
+            error: error instanceof Error ? error.message : 'probe failed',
+          };
+        }
+      }
+
       results.push({
         igUsername: account.igUsername,
         igUserId: account.igUserId,
         storedPageId: account.facebookPageId,
         resolvedPageId: resolved.pageId,
         pageTokenResolved: resolved.accessToken !== accessToken,
+        pageTokenProbe,
         tokenPrefix: accessToken.slice(0, 3),
         tokenValid,
+        tokenType,
         scopes,
+        granular,
+        missingPageScopes,
         hasPagesMessaging: scopes.includes('pages_messaging'),
         hasPagesShowList: scopes.includes('pages_show_list'),
         meAccountsCount: Array.isArray(accountsBody.data) ? accountsBody.data.length : 0,
         meAccountsError: accountsBody.error?.message || null,
         lastSyncAt: account.lastSyncAt,
+        readyForFollowCheck:
+          Boolean(resolved.pageId && resolved.accessToken !== accessToken) ||
+          Boolean(pageTokenProbe?.ok) ||
+          accessToken.startsWith('IG'),
         readyForPrivateReply: Boolean(resolved.pageId) || accessToken.startsWith('IG'),
       });
     }
 
+    const needsFollowFix = results.some((item) => !item.readyForFollowCheck);
     return NextResponse.json({
-      ok: results.every((item) => item.readyForPrivateReply),
+      ok: results.every((item) => item.readyForFollowCheck),
+      configId: config?.configId || null,
       results,
-      hint: results.some((item) => !item.readyForPrivateReply)
-        ? 'Sem Page ID: no Meta adicione pages_messaging na Login Configuration, reconecte o Instagram com a conta Facebook admin da Page ligada ao @IG, e abra este endpoint de novo.'
-        : 'Page OK — comente com outra conta para testar o DM.',
+      hint: needsFollowFix
+        ? 'Follow check precisa de Page access token. Comentário/DM podem funcionar sem Page; is_user_follow_business não. No token atual faltam scopes de Page (veja missingPageScopes). Na Login Configuration do configId abaixo inclua pages_show_list, pages_read_engagement, pages_manage_metadata (+ business_management). Remova o app em facebook.com/settings?tab=business_tools, reconecte escolhendo a Página + o @IG, e rode este endpoint de novo até readyForFollowCheck=true.'
+        : 'Page token OK — reteste o botão Já segui no DM.',
     });
   } catch (error) {
     console.error('diagnose-messaging failed', error);

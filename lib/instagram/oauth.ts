@@ -154,6 +154,7 @@ export async function debugToken(
     is_valid: boolean;
     scopes: string[];
     user_id: string;
+    type?: string;
     granular_scopes?: Array<{ scope: string; target_ids?: string[] }>;
   };
 }> {

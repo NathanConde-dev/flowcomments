@@ -912,6 +912,32 @@ export async function resolveFacebookPageMessaging(params: {
     console.warn('resolveFacebookPageMessaging failed', error);
   }
 
+  // Listing failed / empty (common with SYSTEM_USER) but we already know the Page —
+  // try minting a Page token directly.
+  if (params.facebookPageId) {
+    try {
+      const probe = await fetch(
+        `${GRAPH_API_BASE}/${params.facebookPageId}?fields=access_token,instagram_business_account&access_token=${encodeURIComponent(token)}`
+      );
+      const body = await probe.json().catch(() => ({}));
+      if (probe.ok && body.access_token) {
+        console.log('resolveFacebookPageMessaging page token via stored pageId', {
+          igUserId: params.igUserId,
+          pageId: params.facebookPageId,
+        });
+        return { accessToken: body.access_token, pageId: params.facebookPageId };
+      }
+      console.warn('resolveFacebookPageMessaging stored pageId probe failed', {
+        igUserId: params.igUserId,
+        pageId: params.facebookPageId,
+        status: probe.status,
+        error: body?.error?.message,
+      });
+    } catch (error) {
+      console.warn('resolveFacebookPageMessaging stored pageId probe error', error);
+    }
+  }
+
   return {
     accessToken: token,
     pageId: params.facebookPageId || null,

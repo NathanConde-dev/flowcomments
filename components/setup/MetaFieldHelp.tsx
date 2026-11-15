@@ -76,13 +76,16 @@ const helpContent: Record<
       'No app, abra Facebook Login for Business.',
       'Vá em Configurations / Configurações.',
       'Crie uma configuração (User access token) se ainda não existir.',
-      'Inclua na Login Configuration: instagram_basic, instagram_manage_comments, instagram_manage_messages, pages_show_list, pages_read_engagement, business_management. Com config_id, as permissões vêm só daqui — não peça scopes extras na URL.',
+      'Inclua na Login Configuration: instagram_basic, instagram_manage_comments, instagram_manage_messages, pages_show_list, pages_read_engagement, pages_manage_metadata, business_management. Com config_id, as permissões vêm só daqui — não peça scopes extras na URL.',
+      'Assets da config: habilite Facebook Pages + Instagram (não só Instagram).',
       'Copie o ID da configuração.',
     ],
     tips: [
       'A conta Instagram precisa ser Profissional (Business/Creator).',
       'O Instagram deve estar vinculado a uma Página do Facebook.',
       'Selecione Página + Instagram explicitamente no diálogo de login.',
+      'Comentário/DM podem funcionar sem Page token; validar follow exige Page access token.',
+      'Se o diagnose mostrar missingPageScopes, remova o app em Integrações empresariais e reconecte.',
     ],
   },
   igAppId: {
