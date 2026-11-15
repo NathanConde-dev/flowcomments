@@ -4,7 +4,7 @@ import { AlertTriangle, ExternalLink } from 'lucide-react';
 import {
   FOLLOW_CHECK_DOCS_URL,
   FOLLOW_CHECK_SETUP_ERROR,
-} from '@/lib/instagram/follow-ready';
+} from '@/lib/instagram/follow-check-shared';
 
 export function FollowMetaSetupBanner({
   compact = false,

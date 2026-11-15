@@ -12,7 +12,7 @@ import {
   formatDelayLabel,
 } from './types';
 import { cn } from '@/lib/utils/cn';
-import { draftRequiresFollowCheck } from '@/lib/instagram/follow-ready';
+import { draftRequiresFollowCheck } from '@/lib/instagram/follow-check-shared';
 import { FollowMetaSetupBanner } from './FollowMetaSetupBanner';
 
 interface FlowCanvasProps {
