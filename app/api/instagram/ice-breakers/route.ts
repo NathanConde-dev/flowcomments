@@ -67,7 +67,11 @@ export async function PUT(request: Request) {
         automationId: item.automationId.trim(),
       }));
 
-    const client = createInstagramClient(decrypt(account.accessToken), account.igUserId);
+    const client = createInstagramClient(
+      decrypt(account.accessToken),
+      account.igUserId,
+      account.facebookPageId
+    );
 
     if (cleaned.length === 0) {
       await client.clearIceBreakers();

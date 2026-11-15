@@ -45,23 +45,24 @@ export class InstagramAPIError extends Error {
 
 export class InstagramClient {
   private accessToken: string;
+  private messagingAuthCache: {
+    token: string;
+    path: string;
+    baseUrl: string;
+  } | null = null;
 
-  constructor(accessToken: string, private igUserId?: string) {
+  constructor(
+    accessToken: string,
+    private igUserId?: string,
+    /** Facebook Page id — required for private replies when using Facebook Login (EAA tokens). */
+    private pageId?: string | null
+  ) {
     this.accessToken = accessToken.trim();
   }
 
   /** Instagram Login tokens start with IG*; Facebook Login / Page tokens usually EAA*. */
   private isInstagramLoginToken() {
     return this.accessToken.startsWith('IG');
-  }
-
-  /**
-   * Instagram Login → graph.instagram.com
-   * Facebook Login / Page token → graph.facebook.com
-   * Mixing hosts causes Meta "Cannot parse access token".
-   */
-  private messagingBaseUrl() {
-    return this.isInstagramLoginToken() ? IG_GRAPH_API_BASE : GRAPH_API_BASE;
   }
 
   private async request<T>(
@@ -113,16 +114,51 @@ export class InstagramClient {
     return this.igUserId;
   }
 
-  private messagesPath() {
-    // Both Instagram Login and Facebook tokens use the IG professional account id.
-    // /me fails for System User tokens (Unsupported post request on 'me').
-    return `/${this.requireIgUserId()}/messages`;
+  /**
+   * Facebook Login private replies / DMs require PAGE_ID + Page access token.
+   * User long-lived tokens are kept for Graph calls; messaging resolves Page creds.
+   */
+  private async messagingAuth(): Promise<{
+    token: string;
+    path: string;
+    baseUrl: string;
+  }> {
+    if (this.messagingAuthCache) return this.messagingAuthCache;
+
+    if (this.isInstagramLoginToken()) {
+      this.messagingAuthCache = {
+        token: this.accessToken,
+        path: `/${this.requireIgUserId()}/messages`,
+        baseUrl: IG_GRAPH_API_BASE,
+      };
+      return this.messagingAuthCache;
+    }
+
+    const resolved = await resolveFacebookPageMessaging({
+      accessToken: this.accessToken,
+      igUserId: this.requireIgUserId(),
+      facebookPageId: this.pageId,
+    });
+
+    if (!resolved.pageId) {
+      console.warn(
+        'Facebook Login messaging without pageId — Meta expects /{PAGE_ID}/messages'
+      );
+    }
+
+    this.pageId = resolved.pageId || this.pageId;
+    this.messagingAuthCache = {
+      token: resolved.accessToken,
+      path: `/${resolved.pageId || this.requireIgUserId()}/messages`,
+      baseUrl: GRAPH_API_BASE,
+    };
+    return this.messagingAuthCache;
   }
 
-  private messagingHeaders() {
+  private messagingHeaders(token: string) {
     return {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${this.accessToken}`,
+      Authorization: `Bearer ${token}`,
     };
   }
 
@@ -197,17 +233,18 @@ export class InstagramClient {
   }
 
   async sendMessage(recipientId: string, message: string): Promise<{ id: string }> {
+    const auth = await this.messagingAuth();
     return this.request<{ id: string }>(
-      this.messagesPath(),
+      auth.path,
       {
         method: 'POST',
-        headers: this.messagingHeaders(),
+        headers: this.messagingHeaders(auth.token),
         body: JSON.stringify({
           recipient: { id: recipientId },
           message: { text: message },
         }),
       },
-      this.messagingBaseUrl()
+      auth.baseUrl
     );
   }
 
@@ -221,7 +258,8 @@ export class InstagramClient {
     filename: string;
     mimeType: string;
   }): Promise<{ attachment_id: string }> {
-    const igUserId = this.requireIgUserId();
+    const auth = await this.messagingAuth();
+    const ownerId = this.pageId || this.requireIgUserId();
     const form = new FormData();
     form.append(
       'message',
@@ -238,11 +276,11 @@ export class InstagramClient {
       params.filename
     );
 
-    const url = `${this.messagingBaseUrl()}/${igUserId}/message_attachments`;
+    const url = `${auth.baseUrl}/${ownerId}/message_attachments`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${auth.token}`,
       },
       body: form,
     });
@@ -263,11 +301,12 @@ export class InstagramClient {
     type: 'image' | 'audio' | 'video' | 'file',
     attachmentId: string
   ): Promise<{ id: string }> {
+    const auth = await this.messagingAuth();
     return this.request<{ id: string }>(
-      this.messagesPath(),
+      auth.path,
       {
         method: 'POST',
-        headers: this.messagingHeaders(),
+        headers: this.messagingHeaders(auth.token),
         body: JSON.stringify({
           recipient: { id: recipientId },
           message: {
@@ -278,7 +317,7 @@ export class InstagramClient {
           },
         }),
       },
-      this.messagingBaseUrl()
+      auth.baseUrl
     );
   }
 
@@ -288,11 +327,12 @@ export class InstagramClient {
     type: 'image' | 'audio' | 'video' | 'file',
     url: string
   ): Promise<{ id: string }> {
+    const auth = await this.messagingAuth();
     return this.request<{ id: string }>(
-      this.messagesPath(),
+      auth.path,
       {
         method: 'POST',
-        headers: this.messagingHeaders(),
+        headers: this.messagingHeaders(auth.token),
         body: JSON.stringify({
           recipient: { id: recipientId },
           message: {
@@ -303,7 +343,7 @@ export class InstagramClient {
           },
         }),
       },
-      this.messagingBaseUrl()
+      auth.baseUrl
     );
   }
 
@@ -311,32 +351,33 @@ export class InstagramClient {
     commentId: string,
     message: string
   ): Promise<{ id: string }> {
+    const auth = await this.messagingAuth();
     const body = JSON.stringify({
       recipient: { comment_id: commentId },
       message: { text: message },
     });
-    const primary = this.messagingBaseUrl();
     const fallback =
-      primary === IG_GRAPH_API_BASE ? GRAPH_API_BASE : IG_GRAPH_API_BASE;
+      auth.baseUrl === IG_GRAPH_API_BASE ? GRAPH_API_BASE : IG_GRAPH_API_BASE;
     try {
       return await this.request<{ id: string }>(
-        this.messagesPath(),
-        { method: 'POST', headers: this.messagingHeaders(), body },
-        primary
+        auth.path,
+        { method: 'POST', headers: this.messagingHeaders(auth.token), body },
+        auth.baseUrl
       );
     } catch (error) {
       if (!(error instanceof InstagramAPIError)) throw error;
       console.warn('sendPrivateReply primary host failed, trying fallback', {
         commentId,
-        primary,
+        primary: auth.baseUrl,
         fallback,
+        path: auth.path,
         code: error.code,
         subcode: error.subcode,
         message: error.message,
       });
       return this.request<{ id: string }>(
-        this.messagesPath(),
-        { method: 'POST', headers: this.messagingHeaders(), body },
+        auth.path,
+        { method: 'POST', headers: this.messagingHeaders(auth.token), body },
         fallback
       );
     }
@@ -364,11 +405,12 @@ export class InstagramClient {
     text: string,
     buttons: Array<{ title: string; payload?: string; url?: string }>
   ): Promise<{ id: string }> {
+    const auth = await this.messagingAuth();
     return this.request<{ id: string }>(
-      this.messagesPath(),
+      auth.path,
       {
         method: 'POST',
-        headers: this.messagingHeaders(),
+        headers: this.messagingHeaders(auth.token),
         body: JSON.stringify({
           recipient: { comment_id: commentId },
           message: {
@@ -383,7 +425,7 @@ export class InstagramClient {
           },
         }),
       },
-      this.messagingBaseUrl()
+      auth.baseUrl
     );
   }
 
@@ -392,11 +434,12 @@ export class InstagramClient {
     text: string,
     buttons: Array<{ title: string; payload?: string; url?: string }>
   ): Promise<{ id: string }> {
+    const auth = await this.messagingAuth();
     return this.request<{ id: string }>(
-      this.messagesPath(),
+      auth.path,
       {
         method: 'POST',
-        headers: this.messagingHeaders(),
+        headers: this.messagingHeaders(auth.token),
         body: JSON.stringify({
           recipient: { id: recipientId },
           message: {
@@ -411,7 +454,7 @@ export class InstagramClient {
           },
         }),
       },
-      this.messagingBaseUrl()
+      auth.baseUrl
     );
   }
 
@@ -420,11 +463,12 @@ export class InstagramClient {
     text: string,
     quickReplies: Array<{ title: string; payload: string }>
   ): Promise<{ id: string }> {
+    const auth = await this.messagingAuth();
     return this.request<{ id: string }>(
-      this.messagesPath(),
+      auth.path,
       {
         method: 'POST',
-        headers: this.messagingHeaders(),
+        headers: this.messagingHeaders(auth.token),
         body: JSON.stringify({
           recipient: { id: recipientId },
           message: {
@@ -437,18 +481,19 @@ export class InstagramClient {
           },
         }),
       },
-      this.messagingBaseUrl()
+      auth.baseUrl
     );
   }
 
   async setIceBreakers(
     items: Array<{ question: string; payload: string }>
   ): Promise<{ success?: boolean }> {
+    const auth = await this.messagingAuth();
     return this.request<{ success?: boolean }>(
       this.messengerProfilePath(),
       {
         method: 'POST',
-        headers: this.messagingHeaders(),
+        headers: this.messagingHeaders(auth.token),
         body: JSON.stringify({
           platform: 'instagram',
           ice_breakers: [
@@ -462,22 +507,23 @@ export class InstagramClient {
           ],
         }),
       },
-      this.messagingBaseUrl()
+      auth.baseUrl
     );
   }
 
   async clearIceBreakers(): Promise<{ success?: boolean }> {
+    const auth = await this.messagingAuth();
     return this.request<{ success?: boolean }>(
       this.messengerProfilePath(),
       {
         method: 'DELETE',
-        headers: this.messagingHeaders(),
+        headers: this.messagingHeaders(auth.token),
         body: JSON.stringify({
           platform: 'instagram',
           fields: ['ice_breakers'],
         }),
       },
-      this.messagingBaseUrl()
+      auth.baseUrl
     );
   }
 
@@ -530,7 +576,55 @@ export class InstagramClient {
 
 export function createInstagramClient(
   accessToken: string,
-  igUserId?: string
+  igUserId?: string,
+  pageId?: string | null
 ): InstagramClient {
-  return new InstagramClient(accessToken, igUserId);
+  return new InstagramClient(accessToken, igUserId, pageId);
+}
+
+/**
+ * Resolve Page id + Page token for Facebook Login messaging / private replies.
+ * Instagram Login tokens are returned unchanged.
+ * Always prefers Page access_token from /me/accounts — user tokens fail on /messages.
+ */
+export async function resolveFacebookPageMessaging(params: {
+  accessToken: string;
+  igUserId: string;
+  facebookPageId?: string | null;
+}): Promise<{ accessToken: string; pageId: string | null }> {
+  const token = params.accessToken.trim();
+  if (token.startsWith('IG')) {
+    return { accessToken: token, pageId: null };
+  }
+
+  try {
+    const response = await fetch(
+      `${GRAPH_API_BASE}/me/accounts?fields=instagram_business_account,access_token&access_token=${encodeURIComponent(token)}`
+    );
+    if (response.ok) {
+      const data = await response.json();
+      const pages: Array<{
+        id?: string;
+        access_token?: string;
+        instagram_business_account?: { id?: string };
+      }> = data.data || [];
+
+      const matched =
+        pages.find((item) => item.instagram_business_account?.id === params.igUserId) ||
+        (params.facebookPageId
+          ? pages.find((item) => item.id === params.facebookPageId)
+          : undefined);
+
+      if (matched?.id && matched?.access_token) {
+        return { accessToken: matched.access_token, pageId: matched.id };
+      }
+    }
+  } catch (error) {
+    console.warn('resolveFacebookPageMessaging failed', error);
+  }
+
+  return {
+    accessToken: token,
+    pageId: params.facebookPageId || null,
+  };
 }

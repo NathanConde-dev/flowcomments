@@ -1017,7 +1017,11 @@ export async function executeAutomation(
   try {
     const actions = parseActions(automation.actionsConfig);
     const accessToken = decrypt(automation.igAccount.accessToken);
-    const client = createInstagramClient(accessToken, automation.igAccount.igUserId);
+    const client = createInstagramClient(
+      accessToken,
+      automation.igAccount.igUserId,
+      automation.igAccount.facebookPageId
+    );
 
     let contactId = '';
     let state: ContactState = { tags: [], customData: {} };
@@ -1180,7 +1184,11 @@ export async function executeFollowGatePostback(params: {
 
   try {
     const accessToken = decrypt(automation.igAccount.accessToken);
-    const client = createInstagramClient(accessToken, automation.igAccount.igUserId);
+    const client = createInstagramClient(
+      accessToken,
+      automation.igAccount.igUserId,
+      automation.igAccount.facebookPageId
+    );
     const contact = await getOrCreateContact({
       userId: automation.userId,
       igAccountId: automation.igAccountId,
@@ -1426,7 +1434,11 @@ export async function executeButtonPostback(params: {
   const { button, parent: withButtons } = found;
 
   const accessToken = decrypt(automation.igAccount.accessToken);
-  const client = createInstagramClient(accessToken, automation.igAccount.igUserId);
+  const client = createInstagramClient(
+    accessToken,
+    automation.igAccount.igUserId,
+    automation.igAccount.facebookPageId
+  );
   const contact = await getOrCreateContact({
     userId: automation.userId,
     igAccountId: automation.igAccountId,
@@ -1626,7 +1638,11 @@ export async function handlePendingInputReply(params: {
   });
 
   if (pending.fieldType === 'email' && !value.includes('@')) {
-    const client = createInstagramClient(decrypt(account.accessToken), account.igUserId);
+    const client = createInstagramClient(
+      decrypt(account.accessToken),
+      account.igUserId,
+      account.facebookPageId
+    );
     await client.sendMessage(params.senderId, 'Envie um e-mail válido, por favor.');
     return true;
   }
@@ -1649,7 +1665,11 @@ export async function handlePendingInputReply(params: {
       automationId: pending.automationId,
       error: error instanceof Error ? error.message : error,
     });
-    const client = createInstagramClient(decrypt(account.accessToken), account.igUserId);
+    const client = createInstagramClient(
+      decrypt(account.accessToken),
+      account.igUserId,
+      account.facebookPageId
+    );
     await client.sendMessage(params.senderId, 'Recebido, obrigado!');
   }
   return true;

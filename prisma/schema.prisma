@@ -47,6 +47,7 @@ model InstagramAccount {
   igUsername           String
   profilePictureUrl    String?
   igBusinessAccountId  String?
+  facebookPageId       String?
   accessToken          String
   tokenExpiresAt       DateTime?
   scope                String?

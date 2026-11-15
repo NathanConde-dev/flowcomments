@@ -67,7 +67,11 @@ export async function POST(request: Request, { params }: Params) {
     }
 
     const accessToken = decrypt(conversation.igAccount.accessToken);
-    const client = createInstagramClient(accessToken, conversation.igAccount.igUserId);
+    const client = createInstagramClient(
+      accessToken,
+      conversation.igAccount.igUserId,
+      conversation.igAccount.facebookPageId
+    );
     const recipientId = conversation.contact.igUserId;
 
     let igMessageId = `manual:${conversation.id}:${Date.now()}`;
