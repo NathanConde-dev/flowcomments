@@ -981,16 +981,26 @@ export async function executeAutomation(
     });
   }
 
-  if (!context.resume) {
-    const { bumpAutomationStat } = await import('@/lib/automation/stats');
-    await bumpAutomationStat(automation.id, 'triggers');
-  }
-
   if (!automation.igAccount.igUserId) {
     throw new Error('Conta Instagram sem igUserId — reconecte a conta');
   }
 
   const completedActions = await loadCompletedActions(automation.id, triggeredBy);
+
+  // Disparo = 1 por comentário/remetente, não por retry de recovery/BullMQ.
+  if (!context.resume && triggeredBy) {
+    const prior = await prisma.automationExecution.findFirst({
+      where: { automationId: automation.id, triggeredBy },
+      select: { id: true },
+    });
+    if (!prior) {
+      const { bumpAutomationStat } = await import('@/lib/automation/stats');
+      await bumpAutomationStat(automation.id, 'triggers');
+    }
+  } else if (!context.resume && !triggeredBy) {
+    const { bumpAutomationStat } = await import('@/lib/automation/stats');
+    await bumpAutomationStat(automation.id, 'triggers');
+  }
 
   const execution = await prisma.automationExecution.create({
     data: {

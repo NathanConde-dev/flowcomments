@@ -9,7 +9,7 @@ import {
   AutomationsList,
   type AutomationListItem,
 } from '@/components/automations/AutomationsList';
-import { parseAutomationStats } from '@/lib/automation/stats';
+import { reconcileAutomationTriggerStats } from '@/lib/automation/stats';
 import {
   DEFAULT_PAGE_SIZE,
   PaginationNav,
@@ -49,35 +49,40 @@ export default async function AutomationsPage({
     take: pageSize,
   });
 
-  const items: AutomationListItem[] = automations.map((automation) => {
-    let keywords: string[] = [];
-    let mediaScope: 'specific' | 'any' = 'any';
-    let mediaIds: string[] = [];
+  const items: AutomationListItem[] = await Promise.all(
+    automations.map(async (automation) => {
+      let keywords: string[] = [];
+      let mediaScope: 'specific' | 'any' = 'any';
+      let mediaIds: string[] = [];
 
-    try {
-      const config = JSON.parse(automation.triggerConfig);
-      const trigger = config.trigger || {};
-      keywords = Array.isArray(trigger.keywords) ? trigger.keywords : [];
-      mediaIds = Array.isArray(trigger.mediaIds) ? trigger.mediaIds : [];
-      mediaScope =
-        trigger.mediaScope || (mediaIds.length > 0 ? 'specific' : 'any');
-    } catch {
-      // keep defaults
-    }
+      try {
+        const config = JSON.parse(automation.triggerConfig);
+        const trigger = config.trigger || {};
+        keywords = Array.isArray(trigger.keywords) ? trigger.keywords : [];
+        mediaIds = Array.isArray(trigger.mediaIds) ? trigger.mediaIds : [];
+        mediaScope =
+          trigger.mediaScope || (mediaIds.length > 0 ? 'specific' : 'any');
+      } catch {
+        // keep defaults
+      }
 
-    return {
-      id: automation.id,
-      name: automation.name,
-      isActive: automation.isActive,
-      triggerType: automation.triggerType,
-      igAccountId: automation.igAccount.id,
-      igUsername: automation.igAccount.igUsername,
-      keywords,
-      mediaScope,
-      mediaIds,
-      stats: parseAutomationStats(automation.stats),
-    };
-  });
+      // Heal inflated "disparos" from recovery retries of the same comment.
+      const stats = await reconcileAutomationTriggerStats(automation.id);
+
+      return {
+        id: automation.id,
+        name: automation.name,
+        isActive: automation.isActive,
+        triggerType: automation.triggerType,
+        igAccountId: automation.igAccount.id,
+        igUsername: automation.igAccount.igUsername,
+        keywords,
+        mediaScope,
+        mediaIds,
+        stats,
+      };
+    })
+  );
 
   return (
     <PageShell className="p-4 sm:p-6 md:p-8">

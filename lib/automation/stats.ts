@@ -51,3 +51,35 @@ export async function bumpAutomationStat(
     console.warn('[stats] bump failed', { automationId, key, error });
   }
 }
+
+/**
+ * Rebuild trigger count from distinct comment/sender ids.
+ * Fixes inflated counters caused by recovery/BullMQ retries.
+ */
+export async function reconcileAutomationTriggerStats(
+  automationId: string
+): Promise<AutomationStats> {
+  const automation = await prisma.automation.findUnique({
+    where: { id: automationId },
+    select: { id: true, stats: true },
+  });
+  if (!automation) return { ...EMPTY_STATS };
+
+  const grouped = await prisma.automationExecution.groupBy({
+    by: ['triggeredBy'],
+    where: {
+      automationId: automation.id,
+      triggeredBy: { not: null },
+    },
+  });
+  const triggers = grouped.filter((row) => Boolean(row.triggeredBy)).length;
+  const stats = parseAutomationStats(automation.stats);
+  if (stats.triggers !== triggers) {
+    stats.triggers = triggers;
+    await prisma.automation.update({
+      where: { id: automation.id },
+      data: { stats: JSON.stringify(stats) },
+    });
+  }
+  return stats;
+}
