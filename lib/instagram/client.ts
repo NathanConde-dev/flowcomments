@@ -311,18 +311,35 @@ export class InstagramClient {
     commentId: string,
     message: string
   ): Promise<{ id: string }> {
-    return this.request<{ id: string }>(
-      this.messagesPath(),
-      {
-        method: 'POST',
-        headers: this.messagingHeaders(),
-        body: JSON.stringify({
-          recipient: { comment_id: commentId },
-          message: { text: message },
-        }),
-      },
-      this.messagingBaseUrl()
-    );
+    const body = JSON.stringify({
+      recipient: { comment_id: commentId },
+      message: { text: message },
+    });
+    const primary = this.messagingBaseUrl();
+    const fallback =
+      primary === IG_GRAPH_API_BASE ? GRAPH_API_BASE : IG_GRAPH_API_BASE;
+    try {
+      return await this.request<{ id: string }>(
+        this.messagesPath(),
+        { method: 'POST', headers: this.messagingHeaders(), body },
+        primary
+      );
+    } catch (error) {
+      if (!(error instanceof InstagramAPIError)) throw error;
+      console.warn('sendPrivateReply primary host failed, trying fallback', {
+        commentId,
+        primary,
+        fallback,
+        code: error.code,
+        subcode: error.subcode,
+        message: error.message,
+      });
+      return this.request<{ id: string }>(
+        this.messagesPath(),
+        { method: 'POST', headers: this.messagingHeaders(), body },
+        fallback
+      );
+    }
   }
 
   private mapTemplateButtons(

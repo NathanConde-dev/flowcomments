@@ -3,6 +3,7 @@ import { decrypt } from '@/lib/crypto/encryption';
 
 const GRAPH_API_VERSION = process.env.META_GRAPH_API_VERSION || 'v21.0';
 const GRAPH_API_BASE = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
+const IG_GRAPH_API_BASE = `https://graph.instagram.com/${GRAPH_API_VERSION}`;
 
 export interface MetaConfig {
   appId: string;
@@ -411,30 +412,39 @@ export async function subscribeInstagramToWebhooks(
   igUserId: string,
   accessToken: string
 ): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const params = new URLSearchParams({
-      subscribed_fields: IG_WEBHOOK_FIELDS.join(','),
-      access_token: accessToken,
-    });
-    const response = await fetch(
-      `${GRAPH_API_BASE}/${igUserId}/subscribed_apps?${params.toString()}`,
-      { method: 'POST' }
-    );
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const message = data?.error?.message || `HTTP ${response.status}`;
-      console.error('IG webhook subscribe failed', { igUserId, data });
-      return { ok: false, error: message };
+  const token = accessToken.trim();
+  const isIgLogin = token.startsWith('IG');
+  // Instagram Login tokens must hit graph.instagram.com; Page/FB tokens use graph.facebook.com.
+  const bases = isIgLogin
+    ? [IG_GRAPH_API_BASE, GRAPH_API_BASE]
+    : [GRAPH_API_BASE, IG_GRAPH_API_BASE];
+
+  let lastError = 'subscribe failed';
+  for (const base of bases) {
+    try {
+      const params = new URLSearchParams({
+        subscribed_fields: IG_WEBHOOK_FIELDS.join(','),
+        access_token: token,
+      });
+      const response = await fetch(
+        `${base}/${igUserId}/subscribed_apps?${params.toString()}`,
+        { method: 'POST' }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        lastError = data?.error?.message || `HTTP ${response.status}`;
+        console.error('IG webhook subscribe failed', { igUserId, base, data });
+        continue;
+      }
+      console.log('IG webhook subscribed', { igUserId, base, data });
+      return { ok: true };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : 'subscribe failed';
+      console.error('Error subscribing IG account to webhooks:', { base, error });
     }
-    console.log('IG webhook subscribed', { igUserId, data });
-    return { ok: true };
-  } catch (error) {
-    console.error('Error subscribing IG account to webhooks:', error);
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : 'subscribe failed',
-    };
   }
+
+  return { ok: false, error: lastError };
 }
 
 export async function subscribePageToWebhooks(
