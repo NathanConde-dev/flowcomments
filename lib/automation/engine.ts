@@ -343,6 +343,33 @@ async function sendActionMedia(params: {
   }
 }
 
+function canUsePrivateReply(context: AutomationContext): boolean {
+  if (!context.commentId) return false;
+  const source = context.source;
+  return (
+    source !== 'dm_keyword' &&
+    source !== 'default_reply' &&
+    source !== 'story_reply' &&
+    source !== 'story_mention'
+  );
+}
+
+/** Meta #10 / outside messaging window — not worth retrying. */
+export function isPermanentMessagingError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error || '');
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? String((error as { code?: unknown }).code ?? '')
+      : '';
+  return (
+    code === '10' ||
+    /fora da janela permitida/i.test(message) ||
+    /outside (of )?the allowed window/i.test(message) ||
+    /this message is sent outside/i.test(message) ||
+    /message.*outside.*window/i.test(message)
+  );
+}
+
 async function sendOutboundDm(params: {
   client: InstagramClient;
   context: AutomationContext;
@@ -369,6 +396,50 @@ async function sendOutboundDm(params: {
   } = params;
 
   const hasMedia = Boolean(imageUrl || imageAttachmentId || audioUrl || audioAttachmentId);
+  const privateReply = canUsePrivateReply(context);
+
+  // Comment → DM must open via private reply first. Messaging API (media/user id)
+  // fails with (#10) outside the 24h window and used to run BEFORE private reply.
+  if (privateReply) {
+    if (buttons && buttons.length > 0) {
+      const mapped = buttons.slice(0, 3).map((button, index) => {
+        const url = button.url?.trim();
+        if (url) {
+          return { title: button.title, url };
+        }
+        return {
+          title: button.title,
+          payload: buttonPayload(automationId, index),
+        };
+      });
+      await client.sendPrivateReplyWithButtons(context.commentId!, text || ' ', mapped);
+    } else if (text.trim()) {
+      await client.sendPrivateReply(context.commentId!, text);
+    }
+
+    if (hasMedia && context.userId) {
+      try {
+        await sendActionMedia({
+          client,
+          recipientId: context.userId,
+          automationId,
+          imageUrl,
+          imageAttachmentId,
+          audioUrl,
+          audioAttachmentId,
+        });
+      } catch (error) {
+        // Private reply already delivered; media needs an open messaging window.
+        console.warn('send_dm media skipped after private reply', {
+          automationId,
+          commentId: context.commentId,
+          error: error instanceof Error ? error.message : error,
+        });
+      }
+    }
+    return;
+  }
+
   if (hasMedia && context.userId) {
     await sendActionMedia({
       client,
@@ -396,9 +467,7 @@ async function sendOutboundDm(params: {
         payload: buttonPayload(automationId, index),
       };
     });
-    if (context.commentId && context.source !== 'dm_keyword' && context.source !== 'default_reply') {
-      await client.sendPrivateReplyWithButtons(context.commentId, text || ' ', mapped);
-    } else if (context.userId) {
+    if (context.userId) {
       await client.sendMessageWithButtons(context.userId, text || ' ', mapped);
     }
     return;
@@ -418,9 +487,7 @@ async function sendOutboundDm(params: {
 
   if (!text.trim()) return;
 
-  if (context.commentId && (context.source === 'comment' || context.source === 'live_comment')) {
-    await client.sendPrivateReply(context.commentId, text);
-  } else if (context.userId) {
+  if (context.userId) {
     await client.sendMessage(context.userId, text);
   }
 }
@@ -873,6 +940,34 @@ export async function executeAutomation(
       });
       return;
     }
+
+    const permanentFail = await prisma.automationExecution.findFirst({
+      where: {
+        automationId: automation.id,
+        triggeredBy: context.commentId,
+        status: 'failed',
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, error: true },
+    });
+    if (permanentFail && isPermanentMessagingError(permanentFail.error)) {
+      await prisma.webhookEvent.updateMany({
+        where: {
+          externalId: `comment_${context.commentId}`,
+          processed: false,
+        },
+        data: {
+          processed: true,
+          error: permanentFail.error,
+        },
+      });
+      console.log('Skipping permanently failed automation execution', {
+        automationId,
+        commentId: context.commentId,
+        error: permanentFail.error,
+      });
+      return;
+    }
   }
 
   if (context.resume && triggeredBy) {
@@ -1000,13 +1095,35 @@ export async function executeAutomation(
       },
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
     await prisma.automationExecution.update({
       where: { id: execution.id },
       data: {
         status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: message,
       },
     });
+
+    // Stop recovery/BullMQ from infinitely retrying Meta messaging-window errors.
+    if (isPermanentMessagingError(error) && context.commentId) {
+      await prisma.webhookEvent.updateMany({
+        where: {
+          externalId: `comment_${context.commentId}`,
+          processed: false,
+        },
+        data: {
+          processed: true,
+          error: message,
+        },
+      });
+      console.error('automation permanently failed (messaging window)', {
+        automationId,
+        commentId: context.commentId,
+        error: message,
+      });
+      return;
+    }
+
     throw error;
   }
 }
@@ -1662,6 +1779,7 @@ export async function recoverFailedCommentAutomations(limit = 30): Promise<{
       automationId: true,
       triggeredBy: true,
       metadata: true,
+      error: true,
     },
   });
 
@@ -1670,6 +1788,7 @@ export async function recoverFailedCommentAutomations(limit = 30): Promise<{
   let queued = 0;
   for (const exec of failed) {
     if (!exec.triggeredBy) continue;
+    if (isPermanentMessagingError(exec.error)) continue;
     const key = `${exec.automationId}_${exec.triggeredBy}`;
     if (seen.has(key)) continue;
     seen.add(key);

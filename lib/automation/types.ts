@@ -206,16 +206,25 @@ export function pickButtonText(
   return { text: pool[Math.floor(Math.random() * pool.length)] };
 }
 
-/** Replace `{{var}}` placeholders. Unknown keys are left intact. */
+const NAME_KEYS = new Set(['nome', 'name', 'primeiro_nome', 'first_name']);
+
+/** Replace `{{var}}` placeholders. Empty name keys fall back to @username. */
 export function interpolateTemplate(
   template: string,
   vars: Record<string, string | null | undefined>
 ): string {
   if (!template) return '';
   return template.replace(/\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g, (match, key: string) => {
-    const raw = vars[key] ?? vars[key.toLowerCase()];
-    if (raw == null || raw === '') return match;
-    return String(raw);
+    const normalized = key.toLowerCase();
+    const raw = vars[key] ?? vars[normalized];
+    if (raw != null && raw !== '') return String(raw);
+    if (NAME_KEYS.has(normalized)) {
+      const username = vars.username || vars.usuario;
+      if (username) return String(username);
+      return '';
+    }
+    // Keep unknown placeholders visible so authors can spot typos.
+    return match;
   });
 }
 
@@ -234,9 +243,9 @@ export function buildTemplateVars(params: {
   messageText?: string | null;
   customData?: Record<string, unknown>;
 }): Record<string, string> {
-  const fullName = (params.fullName || '').trim();
-  const firstName = fullName.split(/\s+/)[0] || '';
   const username = (params.igUsername || '').replace(/^@/, '').trim();
+  const fullName = (params.fullName || '').trim() || username;
+  const firstName = fullName.split(/\s+/).filter(Boolean)[0] || username;
   const vars: Record<string, string> = {
     nome: fullName,
     name: fullName,

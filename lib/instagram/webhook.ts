@@ -313,9 +313,9 @@ async function handleCommentEvent(
         where: {
           automationId,
           triggeredBy: commentId,
-          status: { in: ['completed', 'waiting_input'] },
+          status: { in: ['completed', 'waiting_input', 'failed'] },
         },
-        select: { id: true },
+        select: { id: true, status: true, error: true },
       });
       if (!done) pendingAutomations.push(automationId);
     }
@@ -354,7 +354,12 @@ export async function recoverPendingCommentEvents(limit = 30): Promise<{
       processed: false,
       eventType: { in: ['comment', 'live_comment'] },
       createdAt: { gte: since },
-      attempts: { lt: 20 },
+      attempts: { lt: 8 },
+      NOT: {
+        error: {
+          contains: 'fora da janela permitida',
+        },
+      },
     },
     orderBy: { createdAt: 'asc' },
     take: limit,

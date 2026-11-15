@@ -97,5 +97,14 @@ describe('Automation Engine', () => {
         interpolateTemplate('Oi {{primeiro_nome}} (@{{username}}) — {{comentario}}', vars)
       ).toBe('Oi Ana (@ana.s) — quero');
     });
+
+    it('falls back nome to username when fullName is missing', () => {
+      const vars = buildTemplateVars({
+        fullName: null,
+        igUsername: 'joao.ig',
+      });
+      expect(interpolateTemplate('Oi {{nome}}!', vars)).toBe('Oi joao.ig!');
+      expect(interpolateTemplate('Oi {{primeiro_nome}}!', vars)).toBe('Oi joao.ig!');
+    });
   });
 });
