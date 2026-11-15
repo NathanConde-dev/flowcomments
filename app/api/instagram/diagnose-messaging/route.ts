@@ -42,13 +42,11 @@ export async function GET() {
       }
 
       let scopes: string[] = [];
-      let tokenType: string | undefined;
       let tokenValid: boolean | undefined;
       if (config?.appId && config?.appSecret) {
         try {
           const debug = await debugToken(accessToken, `${config.appId}|${config.appSecret}`);
           scopes = debug.data?.scopes || [];
-          tokenType = debug.data?.type;
           tokenValid = debug.data?.is_valid;
         } catch {
           /* ignore */
@@ -67,7 +65,6 @@ export async function GET() {
         resolvedPageId: resolved.pageId,
         pageTokenResolved: resolved.accessToken !== accessToken,
         tokenPrefix: accessToken.slice(0, 3),
-        tokenType,
         tokenValid,
         scopes,
         hasPagesMessaging: scopes.includes('pages_messaging'),
