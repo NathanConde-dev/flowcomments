@@ -51,24 +51,25 @@ export function buildOAuthURL(
     client_id: appId,
     redirect_uri: redirectUri,
     state,
-    // Private replies (comment → DM) need pages_messaging + a Page token from /me/accounts.
-    // Login Configuration (config_id) must also include these — URL scopes alone are not enough.
-    scope: [
-      'instagram_basic',
-      'instagram_manage_comments',
-      'instagram_manage_messages',
-      'pages_show_list',
-      'pages_read_engagement',
-      'pages_messaging',
-      'pages_manage_metadata',
-      'business_management',
-    ].join(','),
     response_type: 'code',
   });
 
-  // Facebook Login for Business requires the Login Configuration ID (not the App ID).
+  // Facebook Login for Business: permissions come ONLY from the Login Configuration.
+  // Passing scopes not in that config (e.g. pages_messaging) → "Invalid Scopes" dialog.
   if (configId) {
     params.set('config_id', configId);
+  } else {
+    params.set(
+      'scope',
+      [
+        'instagram_basic',
+        'instagram_manage_comments',
+        'instagram_manage_messages',
+        'pages_show_list',
+        'pages_read_engagement',
+        'business_management',
+      ].join(',')
+    );
   }
 
   return `${baseUrl}?${params.toString()}`;

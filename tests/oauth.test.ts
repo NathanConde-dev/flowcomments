@@ -26,10 +26,8 @@ describe('Instagram OAuth', () => {
       expect(url).toContain('redirect_uri=https%3A%2F%2Fexample.com%2Fcallback');
       expect(url).toContain('state=state123');
       expect(url).toContain('config_id=config_222');
-      expect(url).toContain('scope=instagram_basic');
-      expect(url).toContain('instagram_manage_comments');
-      expect(url).toContain('instagram_manage_messages');
-      expect(url).toContain('pages_messaging');
+      // Login Configuration owns permissions — do not send scope with config_id.
+      expect(url).not.toContain('scope=');
     });
 
     it('should build OAuth URL without config_id', () => {
@@ -39,6 +37,9 @@ describe('Instagram OAuth', () => {
       expect(url).toContain('client_id=app_111');
       expect(url).toContain('state=state123');
       expect(url).not.toContain('config_id=');
+      expect(url).toContain('scope=instagram_basic');
+      expect(url).toContain('instagram_manage_messages');
+      expect(url).not.toContain('pages_messaging');
     });
   });
 
