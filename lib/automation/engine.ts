@@ -1273,7 +1273,7 @@ export async function executeFollowGatePostback(params: {
 
     if (follows === null) {
       const unsure =
-        'Não consegui verificar se você segue agora. Toca de novo em alguns segundos.';
+        'Ainda não consegui confirmar se você me segue. Confere se está seguindo e toca de novo em alguns segundos.';
       const recheckLabel =
         !gate.recheckButtonLabel || gate.recheckButtonLabel === 'Verificar de novo'
           ? DEFAULT_FOLLOW_RECHECK_LABEL
@@ -1539,7 +1539,7 @@ export async function executeButtonPostback(params: {
     const follows = await client.isUserFollowBusiness(params.senderId);
     if (follows === null) {
       const unsure =
-        'Não consegui verificar se você segue agora. Toca de novo em alguns segundos.';
+        'Ainda não consegui confirmar se você me segue. Confere se está seguindo e toca de novo em alguns segundos.';
       await client.sendMessageWithButtons(params.senderId, unsure, [
         {
           title: DEFAULT_FOLLOW_RECHECK_LABEL,

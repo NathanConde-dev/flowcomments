@@ -560,19 +560,107 @@ export class InstagramClient {
     );
   }
 
+  /**
+   * User Profile API: whether the customer follows the business.
+   * Meta requires messaging consent (DM / icebreaker / menu / postback) and the
+   * correct host+token pair:
+   * - Instagram Login (IG*) → graph.instagram.com + IG user token
+   * - Facebook Login → graph.facebook.com + Page token (not raw USER/SYSTEM_USER)
+   */
   async isUserFollowBusiness(igsId: string): Promise<boolean | null> {
-    try {
-      const data = await this.request<{ is_user_follow_business?: boolean }>(
-        `/${igsId}?fields=is_user_follow_business&access_token=${this.accessToken}`
-      );
-      if (typeof data.is_user_follow_business === 'boolean') {
-        return data.is_user_follow_business;
+    const attempts = await this.followCheckAuthAttempts();
+    let lastError: unknown;
+
+    for (const attempt of attempts) {
+      try {
+        const data = await this.request<{ is_user_follow_business?: boolean }>(
+          `/${igsId}?fields=is_user_follow_business`,
+          { headers: { Authorization: `Bearer ${attempt.token}` } },
+          attempt.baseUrl
+        );
+        if (typeof data.is_user_follow_business === 'boolean') {
+          console.log('is_user_follow_business ok', {
+            igsId,
+            via: attempt.label,
+            follows: data.is_user_follow_business,
+          });
+          return data.is_user_follow_business;
+        }
+        console.warn('is_user_follow_business missing boolean field', {
+          igsId,
+          via: attempt.label,
+          data,
+        });
+      } catch (error) {
+        lastError = error;
+        console.warn('is_user_follow_business attempt failed', {
+          igsId,
+          via: attempt.label,
+          code: error instanceof InstagramAPIError ? error.code : undefined,
+          subcode: error instanceof InstagramAPIError ? error.subcode : undefined,
+          message: error instanceof Error ? error.message : error,
+        });
       }
-      return null;
-    } catch (error) {
-      console.warn('is_user_follow_business check failed:', error);
-      return null;
     }
+
+    console.warn('is_user_follow_business check failed:', lastError);
+    return null;
+  }
+
+  private async followCheckAuthAttempts(): Promise<
+    Array<{ token: string; baseUrl: string; label: string }>
+  > {
+    const attempts: Array<{ token: string; baseUrl: string; label: string }> = [];
+    const seen = new Set<string>();
+    const push = (token: string, baseUrl: string, label: string) => {
+      const key = `${baseUrl}|${token.slice(0, 16)}|${token.slice(-8)}`;
+      if (!token || seen.has(key)) return;
+      seen.add(key);
+      attempts.push({ token, baseUrl, label });
+    };
+
+    if (this.isInstagramLoginToken()) {
+      push(this.accessToken, IG_GRAPH_API_BASE, 'ig-login');
+      return attempts;
+    }
+
+    // Page token is what Meta documents for is_user_follow_business on Facebook graph.
+    try {
+      const resolved = await resolveFacebookPageMessaging({
+        accessToken: this.accessToken,
+        igUserId: this.requireIgUserId(),
+        facebookPageId: this.pageId,
+      });
+      if (resolved.pageId) this.pageId = resolved.pageId;
+      if (resolved.accessToken && resolved.pageId) {
+        push(resolved.accessToken, GRAPH_API_BASE, 'page-token');
+      }
+    } catch (error) {
+      console.warn('followCheckAuthAttempts page resolve failed', error);
+    }
+
+    // SYSTEM_USER / USER often can mint a Page token via /{page-id}?fields=access_token
+    if (this.pageId) {
+      try {
+        const pageToken = await this.fetchPageAccessToken(this.pageId);
+        if (pageToken) {
+          push(pageToken, GRAPH_API_BASE, 'page-token-direct');
+        }
+      } catch (error) {
+        console.warn('followCheckAuthAttempts page token fetch failed', error);
+      }
+    }
+
+    push(this.accessToken, GRAPH_API_BASE, 'stored-fb-graph');
+    push(this.accessToken, IG_GRAPH_API_BASE, 'stored-ig-graph');
+    return attempts;
+  }
+
+  private async fetchPageAccessToken(pageId: string): Promise<string | null> {
+    const data = await this.request<{ access_token?: string }>(
+      `/${pageId}?fields=access_token&access_token=${encodeURIComponent(this.accessToken)}`
+    );
+    return data.access_token?.trim() || null;
   }
 
   async getMedia(
