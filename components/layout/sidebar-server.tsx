@@ -19,17 +19,31 @@ export async function AppShellServer({ children }: { children: React.ReactNode }
     },
   });
 
-  const igAccounts = await prisma.instagramAccount.findMany({
-    where: { userId: session.userId, isActive: true },
-    select: {
-      id: true,
-      igUsername: true,
-      igUserId: true,
-      profilePictureUrl: true,
-      accessToken: true,
-    },
-    orderBy: { createdAt: 'asc' },
-  });
+  let igAccounts: Array<{
+    id: string;
+    igUsername: string;
+    igUserId: string;
+    profilePictureUrl: string | null;
+    accessToken: string;
+  }> = [];
+
+  try {
+    igAccounts = await prisma.instagramAccount.findMany({
+      where: { userId: session.userId, isActive: true },
+      select: {
+        id: true,
+        igUsername: true,
+        igUserId: true,
+        profilePictureUrl: true,
+        accessToken: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  } catch (err) {
+    // Avoid hard-crashing the whole app shell if a migration is lagging.
+    console.error('Failed to load Instagram accounts for sidebar:', err);
+    igAccounts = [];
+  }
 
   const enriched = await Promise.all(
     igAccounts.map(async (account) => {
