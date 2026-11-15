@@ -582,6 +582,64 @@ export function createInstagramClient(
   return new InstagramClient(accessToken, igUserId, pageId);
 }
 
+type PageAccountRow = {
+  id?: string;
+  name?: string;
+  access_token?: string;
+  instagram_business_account?: { id?: string };
+};
+
+async function fetchPagesForUserToken(token: string): Promise<{
+  pages: PageAccountRow[];
+  error?: string;
+  status?: number;
+}> {
+  const url = `${GRAPH_API_BASE}/me/accounts?fields=id,name,access_token,instagram_business_account{id}&access_token=${encodeURIComponent(token)}`;
+  const response = await fetch(url);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      pages: [],
+      status: response.status,
+      error: data?.error?.message || `HTTP ${response.status}`,
+    };
+  }
+  return { pages: data.data || [], status: response.status };
+}
+
+async function matchPageForIgUser(
+  pages: PageAccountRow[],
+  igUserId: string,
+  facebookPageId?: string | null
+): Promise<PageAccountRow | undefined> {
+  const direct =
+    pages.find((item) => item.instagram_business_account?.id === igUserId) ||
+    (facebookPageId ? pages.find((item) => item.id === facebookPageId) : undefined);
+  if (direct?.id && direct?.access_token) return direct;
+
+  // Some tokens return pages without embedded IBA — probe each page.
+  for (const page of pages) {
+    if (!page.id || !page.access_token) continue;
+    if (page.instagram_business_account?.id === igUserId) return page;
+    try {
+      const probe = await fetch(
+        `${GRAPH_API_BASE}/${page.id}?fields=instagram_business_account&access_token=${encodeURIComponent(page.access_token)}`
+      );
+      if (!probe.ok) continue;
+      const body = await probe.json();
+      if (body?.instagram_business_account?.id === igUserId) {
+        return {
+          ...page,
+          instagram_business_account: { id: igUserId },
+        };
+      }
+    } catch {
+      /* continue */
+    }
+  }
+  return undefined;
+}
+
 /**
  * Resolve Page id + Page token for Facebook Login messaging / private replies.
  * Instagram Login tokens are returned unchanged.
@@ -598,26 +656,34 @@ export async function resolveFacebookPageMessaging(params: {
   }
 
   try {
-    const response = await fetch(
-      `${GRAPH_API_BASE}/me/accounts?fields=instagram_business_account,access_token&access_token=${encodeURIComponent(token)}`
-    );
-    if (response.ok) {
-      const data = await response.json();
-      const pages: Array<{
-        id?: string;
-        access_token?: string;
-        instagram_business_account?: { id?: string };
-      }> = data.data || [];
-
-      const matched =
-        pages.find((item) => item.instagram_business_account?.id === params.igUserId) ||
-        (params.facebookPageId
-          ? pages.find((item) => item.id === params.facebookPageId)
-          : undefined);
-
+    const listed = await fetchPagesForUserToken(token);
+    if (listed.error) {
+      console.warn('resolveFacebookPageMessaging me/accounts error', {
+        igUserId: params.igUserId,
+        status: listed.status,
+        error: listed.error,
+      });
+    } else {
+      const matched = await matchPageForIgUser(
+        listed.pages,
+        params.igUserId,
+        params.facebookPageId
+      );
       if (matched?.id && matched?.access_token) {
+        console.log('resolveFacebookPageMessaging matched page', {
+          igUserId: params.igUserId,
+          pageId: matched.id,
+          pageName: matched.name,
+          pageCount: listed.pages.length,
+        });
         return { accessToken: matched.access_token, pageId: matched.id };
       }
+      console.warn('resolveFacebookPageMessaging no page match', {
+        igUserId: params.igUserId,
+        storedPageId: params.facebookPageId || null,
+        pageCount: listed.pages.length,
+        pageIds: listed.pages.map((p) => p.id).filter(Boolean),
+      });
     }
   } catch (error) {
     console.warn('resolveFacebookPageMessaging failed', error);

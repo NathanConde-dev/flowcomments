@@ -1017,10 +1017,27 @@ export async function executeAutomation(
   try {
     const actions = parseActions(automation.actionsConfig);
     const accessToken = decrypt(automation.igAccount.accessToken);
+    let facebookPageId = automation.igAccount.facebookPageId;
+    if (!facebookPageId && !accessToken.startsWith('IG')) {
+      const { resolveFacebookPageMessaging } = await import('@/lib/instagram/client');
+      const resolved = await resolveFacebookPageMessaging({
+        accessToken,
+        igUserId: automation.igAccount.igUserId,
+      });
+      if (resolved.pageId) {
+        facebookPageId = resolved.pageId;
+        await prisma.instagramAccount
+          .update({
+            where: { id: automation.igAccount.id },
+            data: { facebookPageId: resolved.pageId },
+          })
+          .catch(() => {});
+      }
+    }
     const client = createInstagramClient(
       accessToken,
       automation.igAccount.igUserId,
-      automation.igAccount.facebookPageId
+      facebookPageId
     );
 
     let contactId = '';

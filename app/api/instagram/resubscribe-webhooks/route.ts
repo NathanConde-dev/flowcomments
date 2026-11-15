@@ -29,6 +29,12 @@ export async function POST() {
         igUserId: account.igUserId,
         accessToken,
       });
+      if (result.pageId) {
+        await prisma.instagramAccount.update({
+          where: { id: account.id },
+          data: { facebookPageId: result.pageId },
+        });
+      }
       results.push({
         accountId: account.id,
         igUsername: account.igUsername,

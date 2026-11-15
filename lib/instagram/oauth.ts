@@ -57,6 +57,8 @@ export function buildOAuthURL(
       'instagram_manage_messages',
       'pages_show_list',
       'pages_read_engagement',
+      'pages_messaging',
+      'pages_manage_metadata',
       'business_management',
     ].join(','),
     response_type: 'code',
@@ -482,7 +484,12 @@ export async function ensureWebhookSubscriptions(params: {
   accessToken: string;
   pageId?: string;
   pageAccessToken?: string;
-}): Promise<{ igOk: boolean; pageOk: boolean | null; error?: string }> {
+}): Promise<{
+  igOk: boolean;
+  pageOk: boolean | null;
+  pageId?: string | null;
+  error?: string;
+}> {
   const ig = await subscribeInstagramToWebhooks(params.igUserId, params.accessToken);
 
   let pageId = params.pageId;
@@ -490,18 +497,17 @@ export async function ensureWebhookSubscriptions(params: {
 
   if (!pageId || !pageAccessToken) {
     try {
-      const response = await fetch(
-        `${GRAPH_API_BASE}/me/accounts?fields=instagram_business_account,access_token&access_token=${encodeURIComponent(params.accessToken)}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        const page = (data.data || []).find(
-          (item: { instagram_business_account?: { id?: string } }) =>
-            item.instagram_business_account?.id === params.igUserId
-        );
-        if (page?.id && page?.access_token) {
-          pageId = page.id;
-          pageAccessToken = page.access_token;
+      const { resolveFacebookPageMessaging } = await import('@/lib/instagram/client');
+      const resolved = await resolveFacebookPageMessaging({
+        accessToken: params.accessToken,
+        igUserId: params.igUserId,
+        facebookPageId: pageId,
+      });
+      if (resolved.pageId) {
+        pageId = resolved.pageId;
+        // Page token when resolution swapped user → page access token.
+        if (resolved.accessToken !== params.accessToken) {
+          pageAccessToken = resolved.accessToken;
         }
       }
     } catch (error) {
@@ -512,9 +518,12 @@ export async function ensureWebhookSubscriptions(params: {
   let pageOk: boolean | null = null;
   if (pageId && pageAccessToken) {
     pageOk = await subscribePageToWebhooks(pageId, pageAccessToken);
+  } else if (pageId && !pageAccessToken) {
+    // Still try subscribe with user token as last resort (often fails).
+    pageOk = await subscribePageToWebhooks(pageId, params.accessToken);
   }
 
-  return { igOk: ig.ok, pageOk, error: ig.error };
+  return { igOk: ig.ok, pageOk, pageId: pageId || null, error: ig.error };
 }
 
 export async function testCredentials(appId: string, appSecret: string): Promise<{

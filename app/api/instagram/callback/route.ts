@@ -176,12 +176,19 @@ export async function GET(request: Request) {
         },
       });
 
-      await ensureWebhookSubscriptions({
+      const subscribed = await ensureWebhookSubscriptions({
         igUserId: account.id,
         accessToken: longLivedToken,
         pageId: account.pageId,
         pageAccessToken: account.pageAccessToken,
       });
+
+      if (subscribed.pageId && subscribed.pageId !== account.pageId) {
+        await prisma.instagramAccount.update({
+          where: { igUserId: account.id },
+          data: { facebookPageId: subscribed.pageId },
+        });
+      }
 
       await prisma.systemConfig
         .delete({

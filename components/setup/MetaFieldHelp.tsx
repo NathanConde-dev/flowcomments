@@ -76,7 +76,7 @@ const helpContent: Record<
       'No app, abra Facebook Login for Business.',
       'Vá em Configurations / Configurações.',
       'Crie uma configuração (User access token) se ainda não existir.',
-      'Inclua as permissões: instagram_basic, instagram_manage_comments, instagram_manage_messages, pages_show_list, pages_read_engagement, pages_manage_metadata, business_management.',
+      'Inclua as permissões: instagram_basic, instagram_manage_comments, instagram_manage_messages, pages_show_list, pages_read_engagement, pages_messaging, pages_manage_metadata, business_management.',
       'Copie o ID da configuração.',
     ],
     tips: [

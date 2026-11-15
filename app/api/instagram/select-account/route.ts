@@ -73,12 +73,19 @@ export async function POST(request: Request) {
       },
     });
 
-    await ensureWebhookSubscriptions({
+    const subscribed = await ensureWebhookSubscriptions({
       igUserId: account.id,
       accessToken: data.token,
       pageId: account.pageId,
       pageAccessToken: account.pageAccessToken,
     });
+
+    if (subscribed.pageId && subscribed.pageId !== account.pageId) {
+      await prisma.instagramAccount.update({
+        where: { igUserId: account.id },
+        data: { facebookPageId: subscribed.pageId },
+      });
+    }
 
     await prisma.systemConfig.delete({
       where: { key: `pending_accounts_${session.userId}` },

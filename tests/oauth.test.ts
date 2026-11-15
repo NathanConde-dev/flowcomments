@@ -29,6 +29,7 @@ describe('Instagram OAuth', () => {
       expect(url).toContain('scope=instagram_basic');
       expect(url).toContain('instagram_manage_comments');
       expect(url).toContain('instagram_manage_messages');
+      expect(url).toContain('pages_messaging');
     });
 
     it('should build OAuth URL without config_id', () => {
