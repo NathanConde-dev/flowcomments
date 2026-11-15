@@ -400,22 +400,32 @@ async function sendOutboundDm(params: {
 
   // Comment → DM must open via private reply first. Messaging API (media/user id)
   // fails with (#10) outside the 24h window and used to run BEFORE private reply.
+  //
+  // Meta private replies only support plain text as the opener (not button templates).
+  // Templates/media need the 24h window after the user replies to the private reply.
   if (privateReply) {
-    if (buttons && buttons.length > 0) {
-      const mapped = buttons.slice(0, 3).map((button, index) => {
-        const url = button.url?.trim();
-        if (url) {
-          return { title: button.title, url };
-        }
-        return {
-          title: button.title,
-          payload: buttonPayload(automationId, index),
-        };
-      });
-      await client.sendPrivateReplyWithButtons(context.commentId!, text || ' ', mapped);
-    } else if (text.trim()) {
-      await client.sendPrivateReply(context.commentId!, text);
+    let opener = text.trim();
+    if (!opener && buttons && buttons.length > 0) {
+      const labels = buttons
+        .slice(0, 3)
+        .map((button) => button.title?.trim())
+        .filter(Boolean);
+      opener = labels.length
+        ? `Olá! Responda esta mensagem para continuar (${labels.join(' / ')}).`
+        : 'Olá! Responda esta mensagem para continuar.';
     }
+    if (!opener) {
+      opener = 'Olá! Vi seu comentário e te enviei esta mensagem.';
+    }
+
+    console.log('sendOutboundDm private reply opener', {
+      automationId,
+      commentId: context.commentId,
+      hasButtons: Boolean(buttons?.length),
+      hasMedia,
+      openerLength: opener.length,
+    });
+    await client.sendPrivateReply(context.commentId!, opener);
 
     if (hasMedia && context.userId) {
       try {
@@ -1017,27 +1027,10 @@ export async function executeAutomation(
   try {
     const actions = parseActions(automation.actionsConfig);
     const accessToken = decrypt(automation.igAccount.accessToken);
-    let facebookPageId = automation.igAccount.facebookPageId;
-    if (!facebookPageId && !accessToken.startsWith('IG')) {
-      const { resolveFacebookPageMessaging } = await import('@/lib/instagram/client');
-      const resolved = await resolveFacebookPageMessaging({
-        accessToken,
-        igUserId: automation.igAccount.igUserId,
-      });
-      if (resolved.pageId) {
-        facebookPageId = resolved.pageId;
-        await prisma.instagramAccount
-          .update({
-            where: { id: automation.igAccount.id },
-            data: { facebookPageId: resolved.pageId },
-          })
-          .catch(() => {});
-      }
-    }
     const client = createInstagramClient(
       accessToken,
       automation.igAccount.igUserId,
-      facebookPageId
+      automation.igAccount.facebookPageId
     );
 
     let contactId = '';

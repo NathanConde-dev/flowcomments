@@ -115,8 +115,10 @@ export class InstagramClient {
   }
 
   /**
-   * Facebook Login private replies / DMs require PAGE_ID + Page access token.
-   * User long-lived tokens are kept for Graph calls; messaging resolves Page creds.
+   * Messaging paths:
+   * - Instagram Login (IG*): graph.instagram.com /{ig-user-id}/messages
+   * - Unified Login SYSTEM_USER: graph.facebook.com /{ig-user-id}/messages (no Page)
+   * - Facebook Login USER + Page: graph.facebook.com /{page-id}/messages + Page token
    */
   private async messagingAuth(): Promise<{
     token: string;
@@ -134,6 +136,19 @@ export class InstagramClient {
       return this.messagingAuthCache;
     }
 
+    const tokenType = await detectAccessTokenType(this.accessToken);
+    if (tokenType === 'SYSTEM_USER') {
+      console.log('messagingAuth SYSTEM_USER → /{ig-user-id}/messages', {
+        igUserId: this.igUserId,
+      });
+      this.messagingAuthCache = {
+        token: this.accessToken,
+        path: `/${this.requireIgUserId()}/messages`,
+        baseUrl: GRAPH_API_BASE,
+      };
+      return this.messagingAuthCache;
+    }
+
     const resolved = await resolveFacebookPageMessaging({
       accessToken: this.accessToken,
       igUserId: this.requireIgUserId(),
@@ -142,7 +157,7 @@ export class InstagramClient {
 
     if (!resolved.pageId) {
       console.warn(
-        'Facebook Login messaging without pageId — Meta expects /{PAGE_ID}/messages'
+        'Facebook USER token without pageId — trying /{ig-user-id}/messages (Unified-style fallback)'
       );
     }
 
@@ -352,34 +367,41 @@ export class InstagramClient {
     message: string
   ): Promise<{ id: string }> {
     const auth = await this.messagingAuth();
-    const body = JSON.stringify({
+    const payload = {
       recipient: { comment_id: commentId },
       message: { text: message },
+    };
+    const body = JSON.stringify(payload);
+    console.log('sendPrivateReply request', {
+      baseUrl: auth.baseUrl,
+      path: auth.path,
+      commentId,
+      textLength: message.length,
     });
-    const fallback =
-      auth.baseUrl === IG_GRAPH_API_BASE ? GRAPH_API_BASE : IG_GRAPH_API_BASE;
     try {
-      return await this.request<{ id: string }>(
+      const result = await this.request<{ id: string; recipient_id?: string; message_id?: string }>(
         auth.path,
         { method: 'POST', headers: this.messagingHeaders(auth.token), body },
         auth.baseUrl
       );
+      console.log('sendPrivateReply ok', {
+        commentId,
+        id: result.id || result.message_id,
+        recipientId: result.recipient_id,
+      });
+      return { id: result.id || result.message_id || '' };
     } catch (error) {
       if (!(error instanceof InstagramAPIError)) throw error;
-      console.warn('sendPrivateReply primary host failed, trying fallback', {
+      console.error('sendPrivateReply failed', {
         commentId,
-        primary: auth.baseUrl,
-        fallback,
+        baseUrl: auth.baseUrl,
         path: auth.path,
         code: error.code,
         subcode: error.subcode,
         message: error.message,
+        details: error.details,
       });
-      return this.request<{ id: string }>(
-        auth.path,
-        { method: 'POST', headers: this.messagingHeaders(auth.token), body },
-        fallback
-      );
+      throw error;
     }
   }
 
@@ -588,6 +610,35 @@ type PageAccountRow = {
   access_token?: string;
   instagram_business_account?: { id?: string };
 };
+
+const tokenTypeCache = new Map<string, 'SYSTEM_USER' | 'USER' | 'UNKNOWN'>();
+
+async function detectAccessTokenType(
+  token: string
+): Promise<'SYSTEM_USER' | 'USER' | 'UNKNOWN'> {
+  const cacheKey = token.slice(0, 24);
+  const cached = tokenTypeCache.get(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const { getMetaConfig } = await import('@/lib/instagram/oauth');
+    const config = await getMetaConfig();
+    if (!config?.appId || !config?.appSecret) return 'UNKNOWN';
+    const appToken = `${config.appId}|${config.appSecret}`;
+    const response = await fetch(
+      `${GRAPH_API_BASE}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(appToken)}`
+    );
+    if (!response.ok) return 'UNKNOWN';
+    const body = await response.json();
+    const type = String(body?.data?.type || '').toUpperCase();
+    const resolved =
+      type === 'SYSTEM_USER' ? 'SYSTEM_USER' : type === 'USER' ? 'USER' : 'UNKNOWN';
+    tokenTypeCache.set(cacheKey, resolved);
+    return resolved;
+  } catch {
+    return 'UNKNOWN';
+  }
+}
 
 async function fetchPagesForUserToken(token: string): Promise<{
   pages: PageAccountRow[];
