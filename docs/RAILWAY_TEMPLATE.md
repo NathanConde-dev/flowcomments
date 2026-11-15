@@ -23,7 +23,7 @@ Public networking and a healthcheck on `/api/health` are included. After deploy,
 ## Dependencies for Flowcomments Hosting
 
 - Railway account (Hobby plan recommended for always-on Redis + Postgres)
-- GitHub access to clone/deploy [NathanConde-dev/flowcomments](https://github.com/NathanConde-dev/flowcomments)
+- Public source: [NathanConde-dev/flowcomments](https://github.com/NathanConde-dev/flowcomments) (no GitHub config needed for Deploy Now)
 - Meta Developer App with Instagram messaging and comment permissions
 
 ### Deployment Dependencies
@@ -66,13 +66,9 @@ Public networking and a healthcheck on `/api/health` are included. After deploy,
 
 These update vars keep **Novidades** working after deploy: the app checks GitHub releases, and if the repo is private/rate-limited it falls back to the Cloud feed at `/api/v1/releases`.
 
-## Persistent media (required)
+## Persistent media
 
-Attach a **Volume** to the app service mounted at `/app/data/uploads` (env `FLOWCOMMENTS_UPLOAD_DIR`). Without it, redeploys wipe DM image/audio files stored on disk.
-
-```bash
-railway volume add --mount-path /app/data/uploads
-```
+The template already mounts a volume at `/app/data/uploads` (`FLOWCOMMENTS_UPLOAD_DIR`). Do not remove it — redeploys would wipe DM image/audio files.
 
 ## Redis (required)
 

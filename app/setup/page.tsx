@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,33 @@ export default function SetupPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [bootstrapping, setBootstrapping] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/setup/status');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.adminCreated && data.metaConfigured) {
+          router.replace('/login');
+          return;
+        }
+        if (data.adminCreated && !data.metaConfigured) {
+          setStep(2);
+        }
+      } catch {
+        // keep default step 1
+      } finally {
+        if (!cancelled) setBootstrapping(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const [adminData, setAdminData] = useState({
     username: '',
@@ -104,6 +131,14 @@ export default function SetupPage() {
   const webhookUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/api/webhook`
     : 'https://seu-dominio.com/api/webhook';
+
+  if (bootstrapping) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100 flex items-center justify-center p-4">
+        <p className="text-sm text-gray-600">Carregando setup…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-50 to-zinc-100 flex items-center justify-center p-4">
@@ -332,14 +367,6 @@ export default function SetupPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setStep(1)}
-                    disabled={loading}
-                  >
-                    Voltar
-                  </Button>
                   <Button type="submit" className="flex-1" disabled={loading}>
                     {loading ? 'Salvando...' : 'Continuar'}
                   </Button>

@@ -15,16 +15,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // Require admin once setup has an admin; first-run remains open for bootstrap
-    const adminCount = await prisma.user.count({
-      where: { isAdmin: true },
+    // Bootstrap: allow unauthenticated Meta save until META_APP_ID exists.
+    // After that, only admins can rewrite global Meta secrets.
+    const existingMeta = await prisma.systemConfig.findUnique({
+      where: { key: 'META_APP_ID' },
     });
 
-    if (adminCount > 0) {
+    if (existingMeta?.value) {
       try {
         await requireAdmin();
       } catch {
-        // Fall back: authenticated non-admin must not rewrite global Meta secrets
         try {
           await requireAuth();
           return NextResponse.json(
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
         } catch {
           return NextResponse.json(
             { error: 'Authentication required' },
-            { status: 403 }
+            { status: 401 }
           );
         }
       }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/client';
 import { hashPassword } from '@/lib/crypto/password';
+import { getSession } from '@/lib/auth/session';
 
 export async function POST(request: Request) {
   try {
@@ -66,6 +67,17 @@ export async function POST(request: Request) {
         isAdmin: true,
       },
     });
+
+    // Auto-login so the next setup step (/api/setup/meta) has an admin session
+    const session = await getSession();
+    const now = Date.now();
+    session.userId = user.id;
+    session.username = user.username;
+    session.isAdmin = true;
+    session.isLoggedIn = true;
+    session.loginAt = now;
+    session.lastSeen = now;
+    await session.save();
 
     return NextResponse.json({
       success: true,
