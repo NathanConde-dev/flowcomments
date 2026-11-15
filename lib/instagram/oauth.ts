@@ -51,6 +51,8 @@ export function buildOAuthURL(
     client_id: appId,
     redirect_uri: redirectUri,
     state,
+    // Private replies (comment → DM) need pages_messaging + a Page token from /me/accounts.
+    // Login Configuration (config_id) must also include these — URL scopes alone are not enough.
     scope: [
       'instagram_basic',
       'instagram_manage_comments',

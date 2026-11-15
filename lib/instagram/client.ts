@@ -593,8 +593,10 @@ async function fetchPagesForUserToken(token: string): Promise<{
   pages: PageAccountRow[];
   error?: string;
   status?: number;
+  source: 'me/accounts' | 'businesses';
 }> {
-  const url = `${GRAPH_API_BASE}/me/accounts?fields=id,name,access_token,instagram_business_account{id}&access_token=${encodeURIComponent(token)}`;
+  const fields = 'id,name,access_token,instagram_business_account{id}';
+  const url = `${GRAPH_API_BASE}/me/accounts?fields=${fields}&limit=100&access_token=${encodeURIComponent(token)}`;
   const response = await fetch(url);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -602,9 +604,73 @@ async function fetchPagesForUserToken(token: string): Promise<{
       pages: [],
       status: response.status,
       error: data?.error?.message || `HTTP ${response.status}`,
+      source: 'me/accounts',
     };
   }
-  return { pages: data.data || [], status: response.status };
+  const directPages: PageAccountRow[] = data.data || [];
+  if (directPages.length > 0) {
+    return { pages: directPages, status: response.status, source: 'me/accounts' };
+  }
+
+  // Facebook Login for Business often returns empty /me/accounts — fall back to BM pages.
+  try {
+    const bizRes = await fetch(
+      `${GRAPH_API_BASE}/me/businesses?fields=id,name&access_token=${encodeURIComponent(token)}`
+    );
+    const bizData = await bizRes.json().catch(() => ({}));
+    const businesses: Array<{ id?: string }> = bizData.data || [];
+    const collected: PageAccountRow[] = [];
+    const seen = new Set<string>();
+
+    for (const business of businesses) {
+      if (!business.id) continue;
+      for (const edge of ['owned_pages', 'client_pages'] as const) {
+        const pageRes = await fetch(
+          `${GRAPH_API_BASE}/${business.id}/${edge}?fields=${fields}&limit=100&access_token=${encodeURIComponent(token)}`
+        );
+        if (!pageRes.ok) continue;
+        const pageData = await pageRes.json().catch(() => ({}));
+        for (const page of (pageData.data || []) as PageAccountRow[]) {
+          if (!page.id || seen.has(page.id)) continue;
+          seen.add(page.id);
+          collected.push(page);
+        }
+      }
+    }
+
+    return { pages: collected, status: 200, source: 'businesses' };
+  } catch (error) {
+    console.warn('fetchPagesForUserToken business fallback failed', error);
+    return { pages: [], status: response.status, source: 'businesses' };
+  }
+}
+
+async function logTokenScopesForDiagnosis(token: string) {
+  try {
+    const { getMetaConfig } = await import('@/lib/instagram/oauth');
+    const config = await getMetaConfig();
+    if (!config?.appId || !config?.appSecret) return;
+    const appToken = `${config.appId}|${config.appSecret}`;
+    const response = await fetch(
+      `${GRAPH_API_BASE}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(appToken)}`
+    );
+    if (!response.ok) return;
+    const body = await response.json();
+    const info = body?.data || {};
+    console.warn('resolveFacebookPageMessaging token debug', {
+      scopes: info.scopes || [],
+      granular: (info.granular_scopes || []).map(
+        (item: { scope?: string; target_ids?: string[] }) => ({
+          scope: item.scope,
+          targets: item.target_ids?.length || 0,
+        })
+      ),
+      type: info.type,
+      isValid: info.is_valid,
+    });
+  } catch (error) {
+    console.warn('token debug failed', error);
+  }
 }
 
 async function matchPageForIgUser(
@@ -658,11 +724,13 @@ export async function resolveFacebookPageMessaging(params: {
   try {
     const listed = await fetchPagesForUserToken(token);
     if (listed.error) {
-      console.warn('resolveFacebookPageMessaging me/accounts error', {
+      console.warn('resolveFacebookPageMessaging pages error', {
         igUserId: params.igUserId,
         status: listed.status,
         error: listed.error,
+        source: listed.source,
       });
+      await logTokenScopesForDiagnosis(token);
     } else {
       const matched = await matchPageForIgUser(
         listed.pages,
@@ -675,6 +743,7 @@ export async function resolveFacebookPageMessaging(params: {
           pageId: matched.id,
           pageName: matched.name,
           pageCount: listed.pages.length,
+          source: listed.source,
         });
         return { accessToken: matched.access_token, pageId: matched.id };
       }
@@ -683,7 +752,11 @@ export async function resolveFacebookPageMessaging(params: {
         storedPageId: params.facebookPageId || null,
         pageCount: listed.pages.length,
         pageIds: listed.pages.map((p) => p.id).filter(Boolean),
+        source: listed.source,
       });
+      if (listed.pages.length === 0) {
+        await logTokenScopesForDiagnosis(token);
+      }
     }
   } catch (error) {
     console.warn('resolveFacebookPageMessaging failed', error);
